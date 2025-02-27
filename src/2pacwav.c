@@ -164,7 +164,7 @@ void add_to_music_list(char *path, music_data *mdata, runtime_vars *rtvars)
     if(platform_file_exists(path))
     {
         load_file_from_path(rtvars->bufgroup_ptr->inbuf_filename, 
-                            mdata->music_current_filename,
+                            mdata->current_filename,
                             mdata);
     }
     else if(platform_directory_exists(path))
@@ -321,7 +321,7 @@ void pac_main_loop(runtime_vars *rtvars,
     if(nk_button_label(rtvars->nuklear_ctx, "add"))
     { 
 #if 1
-        add_to_music_list(bufgroup->inbuf_filename, rtvars);
+        add_to_music_list(bufgroup->inbuf_filename, mdata, rtvars);
 #else
         load_file_from_path(bufgroup->inbuf_filename, bufgroup->music_current_filename, mdata);  
         if(mdata->sdlmixer_music)

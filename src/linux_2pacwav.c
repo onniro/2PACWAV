@@ -31,8 +31,14 @@ Date: Tue 18 Feb 2025 12:57:19 PM EET
 #include "linux_2pacwav.h"
 #include "2pacwav.h"
 
-void load_font(struct nk_context *nuklear_ctx) 
+void load_font(struct nk_context *nuklear_ctx, char *working_dir) 
 {
+    char font_path[PATH_MAX];
+#if _2PACWAV_DEBUG
+    snprintf(font_path, PATH_MAX - 1, "%s/../../res/%s", working_dir, PAC_FONT_STRING);
+#else
+    //TODO
+#endif
     struct nk_font_config ft_config = {0};
     ft_config.oversample_h = 2;
     ft_config.oversample_v = 2;
@@ -45,7 +51,7 @@ void load_font(struct nk_context *nuklear_ctx)
     struct nk_font_atlas *ft_atlas;
     nk_sdl_font_stash_begin(&ft_atlas);
     struct nk_font *font = nk_font_atlas_add_from_file(ft_atlas, 
-                            "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf", 
+                            font_path,
                             PAC_NUKLEAR_FONTSIZE, 
                             &ft_config);
     nk_sdl_font_stash_end();
@@ -94,7 +100,7 @@ void startup_alloc_buffers(ro_heap_buffer *heapbuf, general_buffer_group *bufgro
     buf2init = ro_buffer_alloc_region(main_buffer, size);\
     if(!buf2init)\
     { fprintf(stderr, "failed to init buffer %s\nexiting.\n", #buf2init); _exit(1); }\
-    PAC_NOP()
+    PAC_NOP_MACRO()
 
     memset(heapbuf->memory, 0, PAC_MAIN_STORAGE_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->debug_buffer,                DEBUG_BUFFER_SIZE);
@@ -159,7 +165,7 @@ int main(int argc, char **argv)
     ro_posix_get_working_directory(rtvars.working_directory, PATH_MAX);
 
     rtvars.nuklear_ctx = nk_sdl_init(sdldata.window_ptr);
-    load_font(rtvars.nuklear_ctx);
+    load_font(rtvars.nuklear_ctx, rtvars.working_directory);
 
     nuklearapi_set_style(rtvars.nuklear_ctx);
     rtvars.nuklear_ctx->style.button.rounding = 0;

@@ -13,7 +13,7 @@ extern "C"
 
 //(forward declarations)
 
-void load_font(struct nk_context *nuklear_ctx);
+void load_font(struct nk_context *nuklear_ctx, char *working_dir);
 void platform_log(char *fmt_string, ...);
 char platform_file_exists(char *path);
 char platform_directory_exists(char *path);

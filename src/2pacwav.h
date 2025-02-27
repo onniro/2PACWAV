@@ -22,9 +22,13 @@ extern "C"
 #define DEBUG_BUFFER_SIZE           (PATH_MAX)
 #define PATH_CONTENT_BUFFER_SIZE    (20*1024)
 
+//#define PAC_FONT_STRING "Inconsolata-Regular.ttf"
+#define PAC_FONT_STRING "LiberationMono-Regular.ttf"
+//#define PAC_FONT_STRING "Hack-Regular.ttf"
+
 static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 
-#define PAC_NOP(...)
+#define PAC_NOP_MACRO(...)
 
 //members prefixed with inbuf_ are buffers that get passed to nk_edit_string*
 typedef struct general_buffer_group
