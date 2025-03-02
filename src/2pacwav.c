@@ -16,34 +16,44 @@ Date: Sat 22 Feb 2025 06:29:25 PM EET
 #include "nuklear.h"
 #include "nuklear_sdl_gl2.h"
 
+#include "2pacwav.h"
+
 #if _2PACWAV_LINUX
-    #include "ro_posix.h"
+    ///#include "ro_posix.h"
     #include "linux_2pacwav.h"
 #elif _2PACWAV_WIN32
 #endif
 
-#include "2pacwav.h"
+void pac_nop(void)
+{ 
+    return; 
+}
 
 nk_rune *pac_font_glyph_ranges(void) 
 {
     //NOTE: pasted from nuklear.h
     static const nk_rune ranges[] = 
     {
-        //ASCII
         0x0020, 0x00FF,
-        //cyrillic/other shit
         0x0400, 0x052F,
-        0x25A0, 0x25A1, //stop button 
+        0x25A0, 0x25A1,
         0x2DE0, 0x2DFF,
+        0x3000, 0x303F,
+        0x3040, 0x309F,
+        0x30A0, 0x30FF,
+        0x3131, 0x3163,
+        0x4E00, 0x9FFF,
         0xA640, 0xA69F,
+        0xAC00, 0xD79D,
         0
     };
     return (nk_rune *)ranges;
 }
 
 //basically the same function as in nuklear_sdl_gl2.h (default callback)
-//but this one calls nk_textedit_text instead of nk_textedit_paste
-//which will cause this shit to crash when you paste unicode
+//but this one calls nk_textedit_text instead of nk_textedit_paste which 
+//avoids crash when pasting unicode 
+//TODO: copying unicode chars doesn't quite seem to work
 void pac_nuklearapi_paste_callback(nk_handle handle, struct nk_text_edit *txtedit) 
 {
     const char *clip_bytes = SDL_GetClipboardText();
@@ -120,8 +130,7 @@ char *update_debug_buffer_info(music_data *mdata, general_buffer_group *bufgroup
             mdata->current_duration,
             mdata->music_type_buf);
 
-    //this is some hood shit 
-    //fuck it bro it's yo life
+    //lol
     int dbglen = strlen(bufgroup->debug_buffer);
     char *second_dbg_buf = (bufgroup->debug_buffer + dbglen) + 2;
     snprintf(second_dbg_buf, (DEBUG_BUFFER_SIZE - 1) - dbglen,
@@ -163,23 +172,20 @@ void add_to_music_list(char *path, music_data *mdata, runtime_vars *rtvars)
 {
     if(platform_file_exists(path))
     {
-        load_file_from_path(rtvars->bufgroup_ptr->inbuf_filename, 
-                            mdata->current_filename,
-                            mdata);
+        char *file_entry = mdata->music_list.filenames_string_loclist[mdata->music_list.entry_count];
+        int dir_len = strlen(path);
+        strcpy(file_entry, path);
+        file_entry[dir_len + 1] = 0x0;
+        mdata->music_list.filenames_string_loclist[mdata->music_list.entry_count + 1] = file_entry + dir_len + 1;
+        ++mdata->music_list.entry_count;
     }
     else if(platform_directory_exists(path))
     {
-        int temp;
-        platform_get_directory_listing(path, 
-                rtvars->bufgroup_ptr->path_content_buffer, 
-                PATH_CONTENT_BUFFER_SIZE - 1, 
-                &temp);
+        platform_get_directory_listing(path, &mdata->music_list);
     }
     else 
     { platform_log("%s: no such file or directory\n", path); }
 }
-
-static const struct nk_style_button _button_options;
 
 void menu_do_music_list(runtime_vars *rtvars, 
                     music_data *mdata, 
@@ -196,21 +202,44 @@ void menu_do_music_list(runtime_vars *rtvars,
                     "music", 
                     NK_WINDOW_BORDER, 
                     bound_info->height - bound_info->y_alignment, 
-                    INT_MAX);
+                    mdata->music_list.entry_count);
+
     nk_layout_row_dynamic(rtvars->nuklear_ctx, bound_info->height - bound_info->y_alignment, 1);
-    for(int index = 0; index < 100; ++index)
+    //for(uint32_t file_index = 0; 
+    //        file_index < mdata->music_list.entry_count;
+    //        ++file_index)
+    for(uint32_t file_index = 0; 
+            file_index < mdata->music_list_view.count;
+            ++file_index)
     {
-        char btntext[16];
-        sprintf(btntext, "%4i: something", mdata->music_list_view.begin + index);
-        if(nk_button_label(rtvars->nuklear_ctx, btntext))
-        { printf("%i clicked\n", mdata->music_list_view.begin + index); }
+        //uint32_t render_index = (file_index % mdata->music_list_view.count) + mdata->music_list_view.begin;
+        uint32_t render_index = file_index + mdata->music_list_view.begin;
+        char *btntext = mdata->music_list.filenames_string_loclist[render_index];
+        if(btntext)
+        {
+            if(nk_button_label(rtvars->nuklear_ctx, btntext))
+            { 
+                char path_buf[PATH_MAX];
+                char *toplevel_path = mdata->music_list.dirnames_string_loclist[mdata->music_list.path_ranges[file_index]];
+                snprintf(path_buf, PATH_MAX - 1,
+                        "%s/%s", toplevel_path, btntext);
+                printf("clicked on %s\n", path_buf);
+            }
+        }
+        else
+        {
+            printf("ri=%u\n", render_index);
+            pac_nop();
+        }
     }
+
 #if 1
-    nk_group_set_scroll(rtvars->nuklear_ctx, "music", 0, mdata->music_list_view.scroll_value);
+    //nk_group_set_scroll(rtvars->nuklear_ctx, "music", 0, mdata->music_list_view.scroll_value);
 #else
      *mdata->music_list.scroll_pointer = mdata->music_list.scroll_value;
 #endif
-    nk_group_end(rtvars->nuklear_ctx);
+    //nk_group_end(rtvars->nuklear_ctx);
+    nk_list_view_end(&mdata->music_list_view);
     rtvars->nuklear_ctx->style.button.text_alignment = NK_TEXT_CENTERED;
 }
 

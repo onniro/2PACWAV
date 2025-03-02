@@ -11,34 +11,59 @@ extern "C"
 {
 #endif
 
+#include "ro_heapbuf.h"
+
 #define WINDOW_WIDTH    1024
 #define WINDOW_HEIGHT   768
-#define PAC_MAIN_STORAGE_SIZE (500*1024)
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)16667)
 #define PAC_SDLMIXER_CHUNKSIZE (2048)
 #define PAC_NUKLEAR_FONTSIZE (16.0f)
 #define PAC_SEEK_VALUE_MAX (100)
 
-#define DEBUG_BUFFER_SIZE           (PATH_MAX)
-#define PATH_CONTENT_BUFFER_SIZE    (20*1024)
-
 //#define PAC_FONT_STRING "Inconsolata-Regular.ttf"
 #define PAC_FONT_STRING "LiberationMono-Regular.ttf"
 //#define PAC_FONT_STRING "Hack-Regular.ttf"
+#define PAC_DIRENT_DIRECTORY (4)
 
 static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 
 #define PAC_NOP_MACRO(...)
 
+#define PAC_MAIN_STORAGE_SIZE               (1024*1024)
+#define DEBUG_BUFFER_SIZE                   (PATH_MAX)
+#define FILENAMES_BUFFER_SIZE               (1024*NAME_MAX)
+#define DIRNAMES_BUFFER_SIZE                (128*PATH_MAX)
+#define FILENAMEBUF_LOCATION_LIST_SIZE      (sizeof(char *)*1024)
+#define DIRNAMEBUF_LOCATION_LIST_SIZE       (sizeof(char *)*64)
+
 //members prefixed with inbuf_ are buffers that get passed to nk_edit_string*
 typedef struct general_buffer_group
 {
-    char *inbuf_filename;
-    char *music_current_filename;
-    char *working_directory;
-    char *debug_buffer;
-    char *path_content_buffer;
+    void *inbuf_filename;
+    void *music_current_filename;
+    void *working_directory;
+    void *debug_buffer;
+    void *flist_filenames_buf; //TODO: rename
+    void *flist_dirnames_buf;
+    void *flist_filenames_string_loclist;
+    void *flist_dirnames_string_loclist;
 } general_buffer_group;
+
+//some chat gpt tier design right here
+typedef struct file_list
+{
+    uint32_t entry_count; //(files)
+    uint32_t dirs_added;
+    char *dirnames_buf;                 //buffer containing top-level directory names, delimited by null
+    char *filenames_buf;                //buffer containing file names, delimited by null
+    char **filenames_string_loclist;    //array of pointers which specify the beginnings of strings in the filename array
+    char **dirnames_string_loclist;     //array of pointers which specify the beginnings of strings in the dirname array
+
+    //HACK: array of indices in which the array index maps to the index of the filename
+    //whereas the value at the index maps to the index of the top level directory name
+    //which contains the file 
+    uint32_t path_ranges[1024];
+} file_list;
 
 typedef struct frametime_vars
 {
@@ -71,7 +96,7 @@ typedef struct music_data
     double current_position;
     double current_duration;
     char *current_filename;
-    char **file_name_table;
+    file_list music_list;
     Mix_Music *sdlmixer_music; //IMPORTANT: ALWAYS SET TO NULL WHEN MUSIC IS UNLOADED
     struct nk_list_view music_list_view;
     char music_type_buf[16];

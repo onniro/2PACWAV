@@ -25,6 +25,8 @@ extern "C"
     #define RO_DEF static inline
 #endif
 
+#if !defined(RO_HEAP_BUFFER) && !defined(RO_HEAPBUF_DOT_H)
+
 typedef struct ro_heap_buffer 
 {
     void *memory;
@@ -79,9 +81,13 @@ RO_DEF void ro_buffer_move_writeptr(ro_heap_buffer *buffer, ssize_t bytes, char 
     {
         buffer->write_ptr = (void *)((uintptr_t)buffer->write_ptr + bytes);
         if(write_zeroes) 
-        { memset(buffer->write_ptr, 0, abs(bytes)); }
+        { memset(buffer->write_ptr, 0, labs(bytes)); }
     }
 }
+
+#define RO_HEAP_BUFFER 1
+#define RO_HEAPBUF_DOT_H 1
+#endif
 
 RO_DEF char *ro_posix_get_working_directory(char *destination, uint64_t buffer_size) 
 {
