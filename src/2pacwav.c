@@ -32,8 +32,12 @@ void pac_nop(void)
 nk_rune *pac_font_glyph_ranges(void) 
 {
     //NOTE: pasted from nuklear.h
+    //CLEANUP: ULTRA SUPER DUPER MEGA GHETTO FIX 
+    //(fixes crash at least but the glyphs dont actually render)
+    //i dont think nuklear can do japanese glyphs lmao 
     static const nk_rune ranges[] = 
     {
+#if 0
         0x0020, 0x00FF,
         0x0400, 0x052F,
         0x25A0, 0x25A1,
@@ -45,6 +49,9 @@ nk_rune *pac_font_glyph_ranges(void)
         0x4E00, 0x9FFF,
         0xA640, 0xA69F,
         0xAC00, 0xD79D,
+#else
+        0x0020, 0xFFFF,
+#endif
         0
     };
     return (nk_rune *)ranges;
@@ -157,15 +164,15 @@ void sdlmixer_get_music_type(music_data *mdata)
     }
 }
 
-void load_file_from_path(char *raw_inbuf, char *dest_buf, music_data *mdata)
+void load_file_from_path(char *path, music_data *mdata)
 {
-    if(platform_file_exists(raw_inbuf))
+    if(platform_file_exists(path))
     { 
-        strncpy(dest_buf, raw_inbuf, PATH_MAX - 1);
-        sdlmixer_start_music(mdata, raw_inbuf); 
+        //strncpy(path, raw_inbuf, PATH_MAX - 1);
+        sdlmixer_start_music(mdata, path); 
     }
     else
-    { platform_log("file %s does not exist\n", raw_inbuf); }
+    { platform_log("file %s does not exist\n", path); }
 }
 
 void add_to_music_list(char *path, music_data *mdata, runtime_vars *rtvars)
@@ -205,31 +212,21 @@ void menu_do_music_list(runtime_vars *rtvars,
                     mdata->music_list.entry_count);
 
     nk_layout_row_dynamic(rtvars->nuklear_ctx, bound_info->height - bound_info->y_alignment, 1);
-    //for(uint32_t file_index = 0; 
-    //        file_index < mdata->music_list.entry_count;
-    //        ++file_index)
     for(uint32_t file_index = 0; 
             file_index < mdata->music_list_view.count;
             ++file_index)
     {
-        //uint32_t render_index = (file_index % mdata->music_list_view.count) + mdata->music_list_view.begin;
         uint32_t render_index = file_index + mdata->music_list_view.begin;
         char *btntext = mdata->music_list.filenames_string_loclist[render_index];
-        if(btntext)
-        {
-            if(nk_button_label(rtvars->nuklear_ctx, btntext))
-            { 
-                char path_buf[PATH_MAX];
-                char *toplevel_path = mdata->music_list.dirnames_string_loclist[mdata->music_list.path_ranges[file_index]];
-                snprintf(path_buf, PATH_MAX - 1,
-                        "%s/%s", toplevel_path, btntext);
-                printf("clicked on %s\n", path_buf);
-            }
-        }
-        else
-        {
-            printf("ri=%u\n", render_index);
-            pac_nop();
+        if(nk_button_label(rtvars->nuklear_ctx, btntext))
+        { 
+            char path_buf[PATH_MAX];
+            uint32_t range_index = mdata->music_list.path_ranges[file_index + mdata->music_list_view.begin];
+            char *toplevel_path = mdata->music_list.dirnames_string_loclist[range_index];
+            snprintf(path_buf, PATH_MAX - 1,
+                    "%s/%s", toplevel_path, btntext);
+            platform_log("clicked on %s\n", path_buf);
+            load_file_from_path(path_buf, mdata);
         }
     }
 

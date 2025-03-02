@@ -35,7 +35,8 @@ void load_font(struct nk_context *nuklear_ctx, char *working_dir)
 {
     char font_path[PATH_MAX];
 #if _2PACWAV_DEBUG
-    snprintf(font_path, PATH_MAX - 1, "%s/../../res/%s", working_dir, PAC_FONT_STRING);
+    //snprintf(font_path, PATH_MAX - 1, "%s/../../res/%s", working_dir, PAC_FONT_STRING);
+    snprintf(font_path, PATH_MAX - 1, "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
 #else
     //TODO
 #endif
