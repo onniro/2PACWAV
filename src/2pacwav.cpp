@@ -7,12 +7,14 @@ Date: Sat 22 Feb 2025 06:29:25 PM EET
 #include <stdio.h>
 #include <limits.h>
 #include <stdint.h>
+#include <assert.h>
 
 #include "SDL.h"
 #include "SDL_mixer.h"
 #include <GL/gl.h>
 
 #define NK_INCLUDE_FONT_BAKING
+#define NK_ASSERT
 #include "nuklear.h"
 #include "nuklear_sdl_gl2.h"
 
@@ -24,8 +26,8 @@ Date: Sat 22 Feb 2025 06:29:25 PM EET
 #elif _2PACWAV_WIN32
 #endif
 
-void pac_nop(void)
-{ 
+void pac_nop(void) 
+{
     return; 
 }
 
@@ -34,7 +36,6 @@ nk_rune *pac_font_glyph_ranges(void)
     //NOTE: pasted from nuklear.h
     //CLEANUP: ULTRA SUPER DUPER MEGA GHETTO FIX 
     //(fixes crash at least but the glyphs dont actually render)
-    //i dont think nuklear can do japanese glyphs lmao 
     static const nk_rune ranges[] = 
     {
 #if 0
@@ -71,10 +72,25 @@ void pac_nuklearapi_paste_callback(nk_handle handle, struct nk_text_edit *txtedi
     }
 }
 
+char pac_btn_press(SDL_Scancode scan, char *wasdown, const uint8_t *kdb_state) 
+{
+    char state = 0;
+    if(kdb_state[scan]) 
+    {
+        if(!*wasdown) 
+        { state = 1; *wasdown = 1; }
+    } 
+    else 
+    { *wasdown = 0; }
+    return state;
+}
+
 void sdlapi_process_events(runtime_vars *rtvars, sdl_apidata *sdldata) 
 {
     SDL_Event event;
     nk_input_begin(rtvars->nuklear_ctx);
+    rtvars->kbd_state = SDL_GetKeyboardState(0);
+
     while(SDL_PollEvent(&event)) 
     {
         switch(event.type) 
@@ -91,6 +107,7 @@ void sdlapi_process_events(runtime_vars *rtvars, sdl_apidata *sdldata)
         }
         nk_sdl_handle_event(&event);
     }
+
     nk_input_end(rtvars->nuklear_ctx);
 }
 
@@ -154,7 +171,7 @@ void sdlmixer_get_music_type(music_data *mdata)
         case MUS_MOD: strcpy(mdata->music_type_buf, "MOD"); break;
         case MUS_FLAC: strcpy(mdata->music_type_buf, "FLAC"); break;
         case MUS_MID: strcpy(mdata->music_type_buf, "MIDI"); break;
-        case MUS_OGG: strcpy(mdata->music_type_buf, "VORBIS"); break;
+        case MUS_OGG: strcpy(mdata->music_type_buf, "OGG"); break;
         case MUS_MP3_MAD_UNUSED:
         case MUS_MP3: strcpy(mdata->music_type_buf, "MP3"); break;
         case MUS_OPUS: strcpy(mdata->music_type_buf, "OPUS"); break;
@@ -167,26 +184,57 @@ void sdlmixer_get_music_type(music_data *mdata)
 void load_file_from_path(char *path, music_data *mdata)
 {
     if(platform_file_exists(path))
-    { 
-        //strncpy(path, raw_inbuf, PATH_MAX - 1);
-        sdlmixer_start_music(mdata, path); 
-    }
+    { sdlmixer_start_music(mdata, path); }
     else
-    { platform_log("file %s does not exist\n", path); }
+    { platform_log("%s: no such file or directory\n", path); }
+}
+
+void separate_file_and_dir_name(char *dir_in_out, char *name_out) 
+{
+    int length = strlen(dir_in_out);
+    char *temp_in = dir_in_out + length;
+    int chars = 0;
+    while(temp_in != dir_in_out) 
+    {
+        if(*temp_in == '/') 
+        {
+            *temp_in = 0x0;
+            //strncpy(dir_in_out, , PATH_MAX - 1);
+            strncpy(name_out, temp_in + 1, chars);
+            break;
+        }
+        --temp_in; ++chars;
+    }
+}
+
+void add_single_file_to_music_list(char *path, music_data *mdata)
+{
+    char dir[PATH_MAX];
+    char name[NAME_MAX];
+    strncpy(dir, path, PATH_MAX - 1);
+    separate_file_and_dir_name(dir, name);
+    file_list *mlist = &mdata->music_list;
+
+    char *file_entry = mlist->filenames_string_loclist[mlist->entry_count];
+    char *dir_entry = mlist->dirnames_string_loclist[mlist->dirs_added];
+    strncpy(file_entry, name, NAME_MAX - 1);
+    strncpy(dir_entry, dir, PATH_MAX - 1);
+    int file_len = strlen(name);
+    int dir_len = strlen(dir);
+    file_entry[file_len + 1] = 0x0;
+    dir_entry[dir_len + 1] = 0x0;
+
+    mlist->filenames_string_loclist[mlist->entry_count + 1] = file_entry + file_len + 1;
+    mlist->dirnames_string_loclist[mlist->dirs_added + 1] = dir_entry + dir_len + 1;
+    mlist->path_ranges[mlist->entry_count] = mlist->dirs_added;
+    ++mdata->music_list.entry_count;
+    ++mdata->music_list.dirs_added;
 }
 
 void add_to_music_list(char *path, music_data *mdata, runtime_vars *rtvars)
 {
     if(platform_file_exists(path))
-    {
-        char *file_entry = mdata->music_list.filenames_string_loclist[mdata->music_list.entry_count];
-        char *dir_entry = mdata->music_list.dirnames_string_loclist[mdata->music_list.dirs_added];
-        int dir_len = strlen(path);
-        strcpy(file_entry, path);
-        file_entry[dir_len + 1] = 0x0;
-        mdata->music_list.filenames_string_loclist[mdata->music_list.entry_count + 1] = file_entry + dir_len + 1;
-        ++mdata->music_list.entry_count;
-    }
+    { add_single_file_to_music_list(path, mdata); }
     else if(platform_directory_exists(path))
     { platform_get_directory_listing(path, &mdata->music_list); }
     else 
@@ -298,12 +346,29 @@ float conv_songpos2slide_value(music_data *mdata)
     return result;
 }
 
+char nuklear_edit_has_focus(struct nk_context *nuklear_ctx)
+{
+    char result = 0;
+    nk_hash hash;
+    struct nk_window *win;
+    if(nuklear_ctx && nuklear_ctx->current)
+    {
+        win = nuklear_ctx->current;
+        hash = win->edit.seq;
+        if((win->edit.active == nk_true) && 
+                (win->edit.name == hash)) 
+        { result = 1; }
+    }
+    return result;
+}
+
 void pac_main_loop(runtime_vars *rtvars, 
                 sdl_apidata *sdldata, 
                 general_buffer_group *bufgroup,
                 music_data *mdata)
 {
     static char playback_btn_text[4] = ">";
+    static char d_wasdown = 0;
 
     if(Mix_PlayingMusic() || Mix_PausedMusic())
     { update_music_info(mdata); }
@@ -327,11 +392,22 @@ void pac_main_loop(runtime_vars *rtvars,
                         bound_info.width - add_width - bound_info.pad, 
                         bound_info.height - bound_info.y_alignment));
 
+    if(rtvars->kbd_state[SDL_SCANCODE_LALT])
+    {
+        if(pac_btn_press(SDL_SCANCODE_D, &d_wasdown, rtvars->kbd_state))
+        { nk_edit_focus(rtvars->nuklear_ctx, NK_TEXT_EDIT_MODE_INSERT); }
+    }
+    if(nuklear_edit_has_focus(rtvars->nuklear_ctx))
+    {
+        printf("hello\n");
+    }
+
     nk_edit_string_zero_terminated(rtvars->nuklear_ctx, 
                                 NK_EDIT_FIELD, 
                                 (char *)bufgroup->inbuf_filename, 
                                 PATH_MAX - 1, 
                                 nk_filter_default);
+
     nk_layout_space_push(rtvars->nuklear_ctx, 
                         nk_rect(bound_info.width - add_width, 
                         bound_info.y_offset, 
@@ -375,21 +451,25 @@ void pac_main_loop(runtime_vars *rtvars,
                         bound_info.height, 
                         bound_info.height));
     bound_info.x_offset += (bound_info.height + bound_info.pad);
+    
     if(nk_button_label(rtvars->nuklear_ctx, playback_btn_text)) //play
     {
         if(!mdata->paused && mdata->sdlmixer_music) 
         {
             mdata->paused = 1; 
-            strcpy(playback_btn_text, ">");
             Mix_PauseMusic(); 
         } 
         else if(mdata->paused && mdata->sdlmixer_music) 
         { 
-            strcpy(playback_btn_text, "||");
             mdata->paused = 0; 
             Mix_ResumeMusic(); 
         }
     }
+
+    if(mdata->paused)
+    { strcpy(playback_btn_text, ">"); }
+    else
+    { strcpy(playback_btn_text, "||"); }
 
     nk_layout_space_push(rtvars->nuklear_ctx, 
                         nk_rect(bound_info.x_offset, 

@@ -114,13 +114,14 @@ void startup_alloc_buffers(ro_heap_buffer *heapbuf, general_buffer_group *bufgro
     MEM_INIT_ASSERT(heapbuf, bufgroup->inbuf_filename,                  PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->working_directory,               PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_filenames_string_loclist,  FILENAMEBUF_LOCATION_LIST_SIZE);
-    MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_string_loclist ,  DIRNAMEBUF_LOCATION_LIST_SIZE);
+    MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_string_loclist,   DIRNAMEBUF_LOCATION_LIST_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_filenames_buf,             FILENAMES_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_buf,              DIRNAMES_BUFFER_SIZE);
+    MEM_INIT_ASSERT(heapbuf, bufgroup->flist_path_ranges,               sizeof(uint32_t)*PAC_MAX_FILES);
 
     platform_log("unallocated bytes:%.2f/%.2f\n", 
-                (float)(ro_buffer_unallocated_bytes(heapbuf)), 
-                (float)(heapbuf->total_bytes));
+            (float)(ro_buffer_unallocated_bytes(heapbuf)), 
+            (float)(heapbuf->total_bytes));
 }
 
 char platform_file_exists(char *path)
@@ -135,7 +136,7 @@ char platform_directory_exists(char *path)
 
 void platform_log(char *fmt_string, ...)
 {
-#if _2PACWAV_DEBUG
+#if _2PACWAV_DEBUG || (defined(_2PACWAV_ENABLE_LOG) && _2PACWAV_ENABLE_LOG)
     char buf[4096];
     va_list args;
     va_start(args, fmt_string);
@@ -189,6 +190,7 @@ int main(int argc, char **argv)
     mdata.music_list.dirnames_buf = (char *)bufgroup.flist_dirnames_buf;
     mdata.music_list.dirnames_string_loclist = (char **)bufgroup.flist_dirnames_string_loclist;
     mdata.music_list.dirnames_string_loclist[0] = (char *)mdata.music_list.dirnames_buf;
+    mdata.music_list.path_ranges = (uint32_t *)bufgroup.flist_path_ranges;
 
     rtvars.keep_running = 1;
 
