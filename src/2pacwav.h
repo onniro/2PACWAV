@@ -16,24 +16,37 @@ extern "C"
 #define WINDOW_WIDTH    1024
 #define WINDOW_HEIGHT   768
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)16667)
-#define PAC_SDLMIXER_CHUNKSIZE (2048)
 #define PAC_NUKLEAR_FONTSIZE (16.0f)
 #define PAC_SEEK_VALUE_MAX (100)
 
-//#define PAC_FONT_STRING "Inconsolata-Regular.ttf"
 #define PAC_FONT_STRING "LiberationMono-Regular.ttf"
-//#define PAC_FONT_STRING "Hack-Regular.ttf"
+
 #define PAC_DIRENT_DIRECTORY (4)
 
 static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 
 #define PAC_NOP_MACRO(...)
 
-#define PAC_MAIN_STORAGE_SIZE               (1024*1024)
-#define DEBUG_BUFFER_SIZE                   (PATH_MAX)
-#define FILENAMES_BUFFER_SIZE               (1024*NAME_MAX)
+#ifndef PAC_SAMPLE_RATE
+    #define PAC_SAMPLE_RATE MIX_DEFAULT_FREQUENCY
+#endif
+#ifndef PAC_PCM_BITS
+    #define PAC_PCM_BITS MIX_DEFAULT_FORMAT
+#endif
+#ifndef PAC_SDLMIXER_CHUNKSIZE
+    #define PAC_SDLMIXER_CHUNKSIZE (2048)
+#endif
+#ifndef PAC_CHAN_COUNT
+    #define PAC_CHAN_COUNT 2
+#endif
+
+#define PAC_MAX_FILES (8192)
+
+#define PAC_MAIN_STORAGE_SIZE               (3*(1024*1024))
+#define DEBUG_BUFFER_SIZE                   (PATH_MAX/4)
+#define FILENAMES_BUFFER_SIZE               (PAC_MAX_FILES*NAME_MAX)
 #define DIRNAMES_BUFFER_SIZE                (128*PATH_MAX)
-#define FILENAMEBUF_LOCATION_LIST_SIZE      (sizeof(char *)*1024)
+#define FILENAMEBUF_LOCATION_LIST_SIZE      (sizeof(char *)*PAC_MAX_FILES)
 #define DIRNAMEBUF_LOCATION_LIST_SIZE       (sizeof(char *)*64)
 
 //members prefixed with inbuf_ are buffers that get passed to nk_edit_string*
@@ -47,9 +60,10 @@ typedef struct general_buffer_group
     void *flist_dirnames_buf;
     void *flist_filenames_string_loclist;
     void *flist_dirnames_string_loclist;
+    void *flist_path_ranges;
 } general_buffer_group;
 
-//some chat gpt tier design right here
+//dumbass
 typedef struct file_list
 {
     uint32_t entry_count; //(files)
@@ -62,7 +76,7 @@ typedef struct file_list
     //HACK: array of indices in which the array index maps to the index of the filename
     //whereas the value at the index maps to the index of the top level directory name
     //which contains the file 
-    uint32_t path_ranges[1024];
+    uint32_t *path_ranges;
 } file_list;
 
 typedef struct frametime_vars
@@ -86,7 +100,6 @@ typedef struct widget_bounds_info
 typedef struct music_data
 {
     char paused; //Mix_PausedMusic() doesn't work seemingly
-    //char music_is_loaded; //this is redundant since sdlmixer_music should always get set to null when you unload music
     uint16_t pcm_bits;
     int sample_rate;
     int channels;
@@ -108,7 +121,7 @@ typedef struct sdl_apidata
     int win_height;
     SDL_Window *window_ptr;
     SDL_GLContext ogl_context;
-    struct music_data *mdata_ptr;
+    music_data *mdata_ptr;
 } sdl_apidata;
 
 typedef struct runtime_vars 
@@ -119,6 +132,7 @@ typedef struct runtime_vars
     general_buffer_group *bufgroup_ptr;
     ro_heap_buffer main_storage;
     sdl_apidata *sdldata_ptr;
+    const uint8_t *kbd_state;
     struct nk_context *nuklear_ctx;
 } runtime_vars;
 
