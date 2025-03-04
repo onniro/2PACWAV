@@ -12,7 +12,7 @@
 
 INCLUDE_DIRS="-I$PWD/3rd_party/SDL2 -I$PWD/3rd_party/SDL2/include -I$PWD/3rd_party -I$PWD/3rd_party/nuklear" 
 SOURCENAME="nuklear_sdl2_gl2_implementation"
-SOURCES="$PWD/src/$SOURCENAME.c"
+SOURCES="$PWD/src/$SOURCENAME.cpp"
 OBJS="$SOURCENAME.o"
 COMP_FLAGS="-O2"
 AR_FLAGS="rcs"
