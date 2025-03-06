@@ -19,7 +19,11 @@ void load_font(struct nk_context *nuklear_ctx, char *working_dir);
 void platform_log(char *fmt_string, ...);
 char platform_file_exists(char *path);
 char platform_directory_exists(char *path);
+#if 1
+void platform_get_directory_listing(char *path, file_list *out_flist, runtime_vars *rtvars);
+#else
 void platform_get_directory_listing(char *path, file_list *out_flist);
+#endif
 
 #ifdef __cplusplus
 }

@@ -42,7 +42,7 @@ static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 
 #define PAC_MAX_FILES (8192)
 
-#define PAC_MAIN_STORAGE_SIZE               (3*(1024*1024))
+#define PAC_MAIN_STORAGE_SIZE               (10*(1024*1024)) //10 MB
 #define DEBUG_BUFFER_SIZE                   (PATH_MAX/4)
 #define FILENAMES_BUFFER_SIZE               (PAC_MAX_FILES*NAME_MAX)
 #define DIRNAMES_BUFFER_SIZE                (128*PATH_MAX)

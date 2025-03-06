@@ -199,7 +199,6 @@ void separate_file_and_dir_name(char *dir_in_out, char *name_out)
         if(*temp_in == '/') 
         {
             *temp_in = 0x0;
-            //strncpy(dir_in_out, , PATH_MAX - 1);
             strncpy(name_out, temp_in + 1, chars);
             break;
         }
@@ -236,7 +235,7 @@ void add_to_music_list(char *path, music_data *mdata, runtime_vars *rtvars)
     if(platform_file_exists(path))
     { add_single_file_to_music_list(path, mdata); }
     else if(platform_directory_exists(path))
-    { platform_get_directory_listing(path, &mdata->music_list); }
+    { platform_get_directory_listing(path, &mdata->music_list, rtvars); }
     else 
     { platform_log("%s: no such file or directory\n", path); }
 }
@@ -346,21 +345,21 @@ float conv_songpos2slide_value(music_data *mdata)
     return result;
 }
 
-char nuklear_edit_has_focus(struct nk_context *nuklear_ctx)
-{
-    char result = 0;
-    nk_hash hash;
-    struct nk_window *win;
-    if(nuklear_ctx && nuklear_ctx->current)
-    {
-        win = nuklear_ctx->current;
-        hash = win->edit.seq;
-        if((win->edit.active == nk_true) && 
-                (win->edit.name == hash)) 
-        { result = 1; }
-    }
-    return result;
-}
+//char nuklear_edit_has_focus(struct nk_context *nuklear_ctx)
+//{
+//    char result = 0;
+//    nk_hash hash;
+//    struct nk_window *win;
+//    if(nuklear_ctx && nuklear_ctx->current)
+//    {
+//        win = nuklear_ctx->current;
+//        hash = win->edit.seq;
+//        if((win->edit.active == nk_true) && 
+//                (win->edit.name == hash)) 
+//        { result = 1; }
+//    }
+//    return result;
+//}
 
 void pac_main_loop(runtime_vars *rtvars, 
                 sdl_apidata *sdldata, 
@@ -370,7 +369,7 @@ void pac_main_loop(runtime_vars *rtvars,
     static char playback_btn_text[4] = ">";
     static char d_wasdown = 0;
 
-    if(Mix_PlayingMusic() || Mix_PausedMusic())
+    if(mdata->sdlmixer_music && (Mix_PlayingMusic() || Mix_PausedMusic()))
     { update_music_info(mdata); }
     char *second_debug_buf = update_debug_buffer_info(mdata, bufgroup);
 
@@ -397,10 +396,8 @@ void pac_main_loop(runtime_vars *rtvars,
         if(pac_btn_press(SDL_SCANCODE_D, &d_wasdown, rtvars->kbd_state))
         { nk_edit_focus(rtvars->nuklear_ctx, NK_TEXT_EDIT_MODE_INSERT); }
     }
-    if(nuklear_edit_has_focus(rtvars->nuklear_ctx))
-    {
-        printf("hello\n");
-    }
+    //if(nuklear_edit_has_focus(rtvars->nuklear_ctx))
+    //{ printf("hello\n"); }
 
     nk_edit_string_zero_terminated(rtvars->nuklear_ctx, 
                                 NK_EDIT_FIELD, 

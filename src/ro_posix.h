@@ -34,6 +34,28 @@ typedef struct ro_heap_buffer
     uint64_t total_bytes;
 } ro_heap_buffer;
 
+#ifndef RO_MATH
+
+RO_DEF uint64_t ro_abs_i64(int64_t number)
+{
+    uint64_t result = (uint64_t)number;
+    uint64_t mask = number >> 63;
+    result ^= mask;
+    result += mask & 1;
+    return result;
+}
+
+RO_DEF uint32_t ro_abs_i32(int32_t number)
+{
+    uint32_t result = (uint32_t)number;
+    uint32_t mask = number >> 31;
+    result ^= mask;
+    result += mask & 1;
+    return result;
+}
+
+#endif
+
 RO_DEF void *ro_posix_make_heap_buffer(ro_heap_buffer *target, uint64_t bytes) 
 {
     target->memory = mmap(0, bytes, PROT_READ|PROT_WRITE, 
@@ -75,13 +97,14 @@ RO_DEF void *ro_buffer_alloc_region(struct ro_heap_buffer *buffer, uint64_t regi
     return result;
 }
 
+//(pass negative value in place of bytes to decrement write_ptr)
 RO_DEF void ro_buffer_move_writeptr(ro_heap_buffer *buffer, ssize_t bytes, char write_zeroes) 
 {
     if(buffer && (((uintptr_t)buffer->write_ptr - bytes) >= (uintptr_t)buffer->memory)) 
     {
         buffer->write_ptr = (void *)((uintptr_t)buffer->write_ptr + bytes);
         if(write_zeroes) 
-        { memset(buffer->write_ptr, 0, labs(bytes)); }
+        { memset(buffer->write_ptr, 0, ro_abs_i64(bytes)); }
     }
 }
 
@@ -176,12 +199,12 @@ RO_DEF int ro_posix_write_file(char *file_path, void *in_buffer, uint64_t buffer
     return result;
 }
 
-RO_DEF char ro_posix_get_stdout(char *command, 
+RO_DEF int ro_posix_get_stdout(char *command, 
                             int *output_fd, 
                             pid_t *proc_id, 
                             char include_stderr) 
 {
-    char result = 0;
+    int result = 0;
     int pipe_fd[2];
     if(-1 == pipe(pipe_fd)) 
     {
