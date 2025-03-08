@@ -61,7 +61,8 @@ char *pac_dir_list_alpha(char *path, char *recv_buf, int recv_buf_size)
 
     if(ro_posix_directory_exists(path)) 
     {
-        snprintf(cmd_buf, PATH_MAX - 1, 
+        snprintf(cmd_buf, 
+                PATH_MAX - 1, 
                 "find %s -maxdepth 1 -not -type d -printf \"%%f\\n\" | sort", 
                 path);
         ro_posix_get_stdout(cmd_buf, &file_desc, &proc_id, 0);
@@ -102,10 +103,10 @@ int platform_get_directory_listing(char *path,
                                 runtime_vars *rtvars) 
 {
     int result = 0;
-    int alloc_size = NAME_MAX*(PAC_MAX_FILES/2);
+    int alloc_size = NAME_MAX*1024;
     char *dir_list_buf = (char *)ro_buffer_alloc_region(&rtvars->main_storage, alloc_size);
 
-    if!dir_list_buf) 
+    if(dir_list_buf) 
     {
         char *dir_begin = pac_dir_list_alpha(path, dir_list_buf, alloc_size - 1);
         if(dir_begin) 
@@ -138,6 +139,8 @@ int platform_get_directory_listing(char *path,
             ++out_flist->dirs_added;
             result = 1;
         }
+        else
+        { platform_log("directory listing failed. reason: null pointer to list buffer\n"); }
     }
     else
     { platform_log("directory listing failed. reason: failed alloc\n"); }

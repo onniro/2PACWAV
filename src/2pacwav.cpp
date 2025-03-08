@@ -189,7 +189,7 @@ void load_file_from_path(char *path, music_data *mdata)
     { platform_log("%s: no such file or directory\n", path); }
 }
 
-void separate_file_and_dir_name(char *dir_in_out, char *name_out) 
+char *separate_file_and_dir_name(char *dir_in_out, char *name_out) 
 {
     int length = strlen(dir_in_out);
     char *temp_in = dir_in_out + length;
@@ -204,6 +204,7 @@ void separate_file_and_dir_name(char *dir_in_out, char *name_out)
         }
         --temp_in; ++chars;
     }
+    return dir_in_out;
 }
 
 void add_single_file_to_music_list(char *path, music_data *mdata)
@@ -439,7 +440,11 @@ void pac_main_loop(runtime_vars *rtvars,
                         bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*2, 
                         bound_info.height, 
                         bound_info.height));
+#if 0
     if(nk_button_label(rtvars->nuklear_ctx, (char *)_stop_btn_glyph)) //stop
+#else
+    if(nk_button_label(rtvars->nuklear_ctx, "[]")) //stop
+#endif
     { sdlmixer_stop_music(mdata); }
 
     nk_layout_space_push(rtvars->nuklear_ctx, 

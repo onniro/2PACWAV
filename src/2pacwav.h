@@ -19,7 +19,7 @@ extern "C"
 #define PAC_NUKLEAR_FONTSIZE (16.0f)
 #define PAC_SEEK_VALUE_MAX (100)
 
-#define PAC_FONT_STRING "LiberationMono-Regular.ttf"
+#define PAC_FONT_STRING "NotoMono-Regular.ttf"
 
 #define PAC_DIRENT_DIRECTORY (4)
 

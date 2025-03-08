@@ -54,6 +54,15 @@ RO_DEF uint32_t ro_abs_i32(int32_t number)
     return result;
 }
 
+RO_DEF float ro_abs_f32(float number)
+{
+    float result = number;
+    *(uint32_t *)&result &= (0xFFFFFFFF >> 1);
+    return result;
+}
+
+#define RO_MATH 1
+#define RO_MATH_DOT_H 1
 #endif
 
 RO_DEF void *ro_posix_make_heap_buffer(ro_heap_buffer *target, uint64_t bytes) 
