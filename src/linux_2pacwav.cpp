@@ -52,7 +52,7 @@ void load_font(struct nk_context *nuklear_ctx, char *working_dir)
     nk_style_set_font(nuklear_ctx, &font->handle);
 }
 
-char *pac_dir_list_alpha(char *path, char *recv_buf, int recv_buf_size) 
+char *pac_dir_linux_list_alpha(char *path, char *recv_buf, int recv_buf_size) 
 {
     char *result = 0;
     pid_t proc_id;
@@ -83,12 +83,12 @@ char *pac_dir_list_alpha(char *path, char *recv_buf, int recv_buf_size)
     return result;
 }
 
-char *pac_dir_next_file(char *line_bgn, char *out_ent, int list_buf_size)
+char *pac_dir_next_file(char *line_bgn, char *out_ent, int list_buf_size) 
 {
-    if(!line_bgn)
+    if(!line_bgn) 
     { return 0; }
     char *line_end = strchr(line_bgn, '\n');
-    if(line_end)
+    if(line_end) 
     { 
         ++line_end;
         uint64_t dir_size = line_end - line_bgn;
@@ -98,9 +98,9 @@ char *pac_dir_next_file(char *line_bgn, char *out_ent, int list_buf_size)
     return line_end;
 }
 
-int platform_get_directory_listing(char *path, 
-                                file_list *out_flist, 
-                                runtime_vars *rtvars) 
+int platform_get_directory_listing_presorted(char *path, 
+                                        file_list *out_flist, 
+                                        runtime_vars *rtvars) 
 {
     int result = 0;
     int alloc_size = NAME_MAX*1024;
@@ -108,7 +108,7 @@ int platform_get_directory_listing(char *path,
 
     if(dir_list_buf) 
     {
-        char *dir_begin = pac_dir_list_alpha(path, dir_list_buf, alloc_size - 1);
+        char *dir_begin = pac_dir_linux_list_alpha(path, dir_list_buf, alloc_size - 1);
         if(dir_begin) 
         {
             int toplevel_dir_len = strlen(path);
@@ -123,16 +123,15 @@ int platform_get_directory_listing(char *path,
             while(1) 
             {
                 next_ptr = pac_dir_next_file(this_ptr, name_buf, NAME_MAX -1);
-                this_ptr = next_ptr;
-                if(!this_ptr)
+                if(!next_ptr)
                 { break; }
+                this_ptr = next_ptr;
 
                 write_ptr = out_flist->filenames_string_loclist[out_flist->entry_count];
                 filename_len = strlen(name_buf);
                 strncpy(write_ptr, name_buf, NAME_MAX - 1);
                 write_ptr[filename_len + 1] = 0x0;
                 out_flist->filenames_string_loclist[out_flist->entry_count + 1] = write_ptr + filename_len + 1;
-                out_flist->path_ranges[out_flist->entry_count] = out_flist->dirs_added;
                 ++out_flist->entry_count;
             }
 
@@ -146,6 +145,49 @@ int platform_get_directory_listing(char *path,
     { platform_log("directory listing failed. reason: failed alloc\n"); }
 
     ro_buffer_move_writeptr(&rtvars->main_storage, -(alloc_size), 1);
+    return result;
+}
+
+//(arb for arbitrary)
+int platform_get_directory_listing(char *path, file_list *out_flist)
+{
+    int result = 0;
+    dirent *dir_entry;
+    DIR *dir_struct = opendir(path);
+
+    if(dir_struct) 
+    {
+        int toplevel_dir_len = strlen(path);
+        char *current_top_level = out_flist->dirnames_string_loclist[out_flist->dirs_added];
+        strncpy(current_top_level, path, PATH_MAX - 1);
+        current_top_level[toplevel_dir_len + 1] = 0x0;
+        out_flist->dirnames_string_loclist[out_flist->dirs_added + 1] = current_top_level + toplevel_dir_len + 1;
+        int filename_len;
+        char *write_ptr;
+
+        while(1) 
+        {
+            dir_entry = readdir(dir_struct);
+            if(!dir_entry)
+            { break; }
+
+            if(dir_entry->d_type == DT_REG)
+            {
+                write_ptr = out_flist->filenames_string_loclist[out_flist->entry_count];
+                filename_len = strlen(dir_entry->d_name);
+                strncpy(write_ptr, dir_entry->d_name, NAME_MAX - 1);
+                write_ptr[filename_len + 1] = 0x0;
+                out_flist->filenames_string_loclist[out_flist->entry_count + 1] = write_ptr + filename_len + 1;
+                ++out_flist->entry_count;
+            }
+        }
+
+        ++out_flist->dirs_added;
+        result = 1;
+    }
+    else
+    { platform_log("directory listing failed. reason: failed to initialize directory struct\n"); }
+
     return result;
 }
 
@@ -169,7 +211,6 @@ void startup_alloc_buffers(ro_heap_buffer *heapbuf, general_buffer_group *bufgro
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_string_loclist,   DIRNAMEBUF_LOCATION_LIST_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_filenames_buf,             FILENAMES_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_buf,              DIRNAMES_BUFFER_SIZE);
-    MEM_INIT_ASSERT(heapbuf, bufgroup->flist_path_ranges,               sizeof(uint32_t)*PAC_MAX_FILES);
 
     platform_log("unallocated bytes:%.2f/%.2f\n", 
             (float)(ro_buffer_unallocated_bytes(heapbuf)), 
@@ -242,7 +283,6 @@ int main(int argc, char **argv)
     mdata.music_list.dirnames_buf = (char *)bufgroup.flist_dirnames_buf;
     mdata.music_list.dirnames_string_loclist = (char **)bufgroup.flist_dirnames_string_loclist;
     mdata.music_list.dirnames_string_loclist[0] = (char *)mdata.music_list.dirnames_buf;
-    mdata.music_list.path_ranges = (uint32_t *)bufgroup.flist_path_ranges;
 
     rtvars.keep_running = 1;
 

@@ -34,7 +34,7 @@ void pac_nop(void)
 nk_rune *pac_font_glyph_ranges(void) 
 {
     //NOTE: pasted from nuklear.h
-    //CLEANUP: ULTRA SUPER DUPER MEGA GHETTO FIX 
+    //CLEANUP: ULTRA SUPER DUPER MEGA HOOD GHETTO WALMART FIX 
     //(fixes crash at least but the glyphs dont actually render)
     static const nk_rune ranges[] = 
     {
@@ -142,6 +142,19 @@ void update_music_info(music_data *mdata)
     mdata->current_position = Mix_GetMusicPosition(mdata->sdlmixer_music);
 }
 
+int pac_qsort_strcasecmp(const void *a, const void *b)
+{
+    int result = strcasecmp(*(const char **)a, *(const char **)b);
+    return result;
+}
+
+void sort_file_list_alpha(file_list *flist)
+{
+    char **strings = flist->filenames_string_loclist;
+    int sort_count = flist->entry_count;
+    qsort(strings, sort_count, sizeof(char **), pac_qsort_strcasecmp);
+}
+
 char *update_debug_buffer_info(music_data *mdata, general_buffer_group *bufgroup) 
 {
     snprintf((char *)bufgroup->debug_buffer, DEBUG_BUFFER_SIZE - 1, 
@@ -226,7 +239,6 @@ void add_single_file_to_music_list(char *path, music_data *mdata)
 
     mlist->filenames_string_loclist[mlist->entry_count + 1] = file_entry + file_len + 1;
     mlist->dirnames_string_loclist[mlist->dirs_added + 1] = dir_entry + dir_len + 1;
-    mlist->path_ranges[mlist->entry_count] = mlist->dirs_added;
     ++mdata->music_list.entry_count;
     ++mdata->music_list.dirs_added;
 }
@@ -236,9 +248,28 @@ void add_to_music_list(char *path, music_data *mdata, runtime_vars *rtvars)
     if(platform_file_exists(path))
     { add_single_file_to_music_list(path, mdata); }
     else if(platform_directory_exists(path))
-    { platform_get_directory_listing(path, &mdata->music_list, rtvars); }
+#if 1
+    { platform_get_directory_listing(path, &mdata->music_list); }
+#else
+    { platform_get_directory_listing_presorted(path, &mdata->music_list, rtvars); }
+#endif
     else 
     { platform_log("%s: no such file or directory\n", path); }
+}
+
+char *find_top_level_path4file(char *filename, file_list *flist)
+{
+    char *result = 0, *dirname;
+    char pathbuf[PATH_MAX];
+    int dir_count = flist->dirs_added;
+    for(int dir_index = 0; dir_index < dir_count; ++dir_index)
+    {
+        dirname = flist->dirnames_string_loclist[dir_index];
+        snprintf(pathbuf, PATH_MAX - 1, "%s/%s", dirname, filename);
+        if(platform_file_exists(pathbuf))
+        { result = dirname; break; }
+    }
+    return result;
 }
 
 void menu_do_music_list(runtime_vars *rtvars, 
@@ -250,7 +281,7 @@ void menu_do_music_list(runtime_vars *rtvars,
                         nk_rect(bound_info->height + bound_info->pad, 
                         bound_info->y_offset, 
                         bound_info->width - (bound_info->height + bound_info->pad), 
-                        bound_info->content_bounds.h - bound_info->height*3));
+                        bound_info->content_bounds.h - bound_info->height*4));
     nk_list_view_begin(rtvars->nuklear_ctx, 
                     &mdata->music_list_view, 
                     "music", 
@@ -268,13 +299,19 @@ void menu_do_music_list(runtime_vars *rtvars,
         if(nk_button_label(rtvars->nuklear_ctx, btntext))
         { 
             char path_buf[PATH_MAX];
-            uint32_t range_index = mdata->music_list.path_ranges[file_index + mdata->music_list_view.begin];
-            char *toplevel_path = mdata->music_list.dirnames_string_loclist[range_index];
-            snprintf(path_buf, PATH_MAX - 1,
-                    "%s/%s", toplevel_path, btntext);
-            platform_log("trying to play %s\n", path_buf);
-            strncpy(mdata->current_filename, path_buf, PATH_MAX - 1);
-            load_file_from_path(path_buf, mdata);
+            char *toplevel_path = find_top_level_path4file(btntext, &mdata->music_list);
+            if(toplevel_path)
+            {
+                snprintf(path_buf, PATH_MAX - 1,
+                        "%s/%s", toplevel_path, btntext);
+                platform_log("trying to play %s\n", path_buf);
+                strncpy(mdata->current_filename, path_buf, PATH_MAX - 1);
+                load_file_from_path(path_buf, mdata);
+            }
+            else
+            {
+                platform_log("could not find containing directory for file %s.\n", btntext);
+            }
         }
     }
 
@@ -326,6 +363,22 @@ void query_bounds_info(struct nk_context *nuklear_ctx, widget_bounds_info *bound
     bound_info->y_offset = 0.0f;
 }
 
+//kek
+void set_playback_btn(char *btn, char paused) 
+{
+    if(paused) 
+    {
+        btn[0] = '>';  
+        btn[1] = 0;
+    } 
+    else 
+    {
+        btn[0] = '|'; 
+        btn[1] = '|'; 
+        btn[2] = 0;
+    }
+}
+
 double conv_slide_value2songpos(music_data *mdata)
 {
     double result = 0;
@@ -345,22 +398,6 @@ float conv_songpos2slide_value(music_data *mdata)
     { result = ((float)(mdata->current_position/mdata->current_duration))*PAC_SEEK_VALUE_MAX; }
     return result;
 }
-
-//char nuklear_edit_has_focus(struct nk_context *nuklear_ctx)
-//{
-//    char result = 0;
-//    nk_hash hash;
-//    struct nk_window *win;
-//    if(nuklear_ctx && nuklear_ctx->current)
-//    {
-//        win = nuklear_ctx->current;
-//        hash = win->edit.seq;
-//        if((win->edit.active == nk_true) && 
-//                (win->edit.name == hash)) 
-//        { result = 1; }
-//    }
-//    return result;
-//}
 
 void pac_main_loop(runtime_vars *rtvars, 
                 sdl_apidata *sdldata, 
@@ -415,6 +452,20 @@ void pac_main_loop(runtime_vars *rtvars,
     if(nk_button_label(rtvars->nuklear_ctx, "add"))
     { add_to_music_list((char *)bufgroup->inbuf_filename, mdata, rtvars); }
 
+    nk_layout_space_push(rtvars->nuklear_ctx, 
+                        nk_rect(bound_info.height + bound_info.pad, 
+                        bound_info.y_offset, 
+                        add_width*2, 
+                        bound_info.height - (bound_info.y_alignment + bound_info.pad)));
+    bound_info.y_offset += bound_info.height - bound_info.y_alignment;
+    if(nk_button_label(rtvars->nuklear_ctx, "sort (down)"))
+    {
+        if(mdata->music_list.entry_count)
+        {
+            sort_file_list_alpha(&mdata->music_list);
+        }
+    }
+
     menu_do_music_list(rtvars, mdata, &bound_info);
 
     nk_layout_space_push(rtvars->nuklear_ctx, 
@@ -468,10 +519,7 @@ void pac_main_loop(runtime_vars *rtvars,
         }
     }
 
-    if(mdata->paused)
-    { strcpy(playback_btn_text, ">"); }
-    else
-    { strcpy(playback_btn_text, "||"); }
+    set_playback_btn(playback_btn_text, mdata->paused);
 
     nk_layout_space_push(rtvars->nuklear_ctx, 
                         nk_rect(bound_info.x_offset, 
@@ -538,13 +586,24 @@ char pac_init_sdlmixer(music_data *mdata)
             |MIX_INIT_OPUS
             |MIX_INIT_WAVPACK);
 
+    int flags = SDL_AUDIO_ALLOW_FREQUENCY_CHANGE|SDL_AUDIO_ALLOW_CHANNELS_CHANGE;
     mdata->sample_rate = PAC_SAMPLE_RATE;
     mdata->pcm_bits = PAC_PCM_BITS;
     mdata->channels = PAC_CHAN_COUNT;
     mdata->chunk_size = PAC_SDLMIXER_CHUNKSIZE;
     mdata->volume = 10;
+#if 0
     if(Mix_OpenAudio(mdata->sample_rate, mdata->pcm_bits, mdata->channels, mdata->chunk_size)) 
     { fprintf(stderr, "Mix_OpenAudio failed. desc: %s\n", SDL_GetError()); } 
+#else
+    if(Mix_OpenAudioDevice(mdata->sample_rate, 
+            mdata->pcm_bits, 
+            mdata->channels, 
+            mdata->chunk_size,
+            0,
+            flags)) 
+    { fprintf(stderr, "failed to open audio device. desc: %s\n", SDL_GetError()); } 
+#endif
     else
     { 
         result = 1; 

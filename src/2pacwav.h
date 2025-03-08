@@ -21,8 +21,6 @@ extern "C"
 
 #define PAC_FONT_STRING "NotoMono-Regular.ttf"
 
-#define PAC_DIRENT_DIRECTORY (4)
-
 static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 
 #define PAC_NOP_MACRO(...)
@@ -72,11 +70,6 @@ typedef struct file_list
     char *filenames_buf;                //buffer containing file names, delimited by null
     char **filenames_string_loclist;    //array of pointers which specify the beginnings of strings in the filename array
     char **dirnames_string_loclist;     //array of pointers which specify the beginnings of strings in the dirname array
-
-    //HACK: array of indices in which the array index maps to the index of the filename
-    //whereas the value at the index maps to the index of the top level directory name
-    //which contains the file 
-    uint32_t *path_ranges;
 } file_list;
 
 typedef struct frametime_vars
