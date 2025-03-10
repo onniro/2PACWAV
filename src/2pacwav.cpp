@@ -443,10 +443,13 @@ void goto_next_file(music_data *mdata)
     file_list *mlist = &mdata->music_list;
     uint32_t cur_index = mlist->current_index;
     char *next_file;
-    if(!mdata->shuffle_enabled && (mlist->current_index < (mlist->entry_count - 1)))
+    if(!mdata->shuffle_enabled)
     {
-        next_file = mlist->filenames_string_loclist[cur_index + 1];
-        file_list_play_file(next_file, cur_index + 1, mdata);
+        if(mlist->current_index < (mlist->entry_count - 1))
+        {
+            next_file = mlist->filenames_string_loclist[cur_index + 1];
+            file_list_play_file(next_file, cur_index + 1, mdata);
+        }
     }
     else
     {
