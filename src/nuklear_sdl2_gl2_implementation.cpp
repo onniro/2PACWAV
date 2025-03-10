@@ -1,10 +1,10 @@
 
 /*
-File: nuklear_sdl2_gl2_implementation.c
+File: nuklear_sdl2_gl2_implementation.cpp
 Date: Mon 24 Feb 2025 03:00:23 PM EET
 
 Compile this file with -c and run "ar rcs libnuklear_sdl2_gl2.a <resulting object>"
-to generate static library.
+to generate a static library for nuklear.
 Link against the resulting static library, do not define NK_IMPLEMENTATION in source files. 
 Cuts down compile time in half at least!
 */

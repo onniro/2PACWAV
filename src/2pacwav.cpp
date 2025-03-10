@@ -220,6 +220,37 @@ char *separate_file_and_dir_name(char *dir_in_out, char *name_out)
     return dir_in_out;
 }
 
+//NOTE: untested
+char check_dir_already_added(char *dir, file_list *flist)
+{
+    char result = 0, *current_dir;
+    char **all_dirs = flist->dirnames_string_loclist;
+    int dir_count = flist->dirs_added;
+    for(int dir_index = 0; dir_index < dir_count; ++dir_index)
+    {
+        current_dir = all_dirs[dir_index];
+        if(!strcmp(current_dir, dir))
+        { result = 1; break; }
+    }
+    return result;
+}
+
+void file_list_push_dirname(char *dirname, file_list *flist)
+{
+    int dirlen = strlen(dirname);
+    char *write_ptr = flist->dirnames_string_loclist[flist->dirs_added];
+#if _2PACWAV_LINUX
+    if(dirname[dirlen] == '/')
+#else
+    if(dirname[dirlen] == '\\')
+#endif
+    { dirname[dirlen] = 0; }
+    strncpy(write_ptr, dirname, PATH_MAX - 1);
+    write_ptr[dirlen + 1] = 0x0;
+    ++flist->dirs_added;
+    flist->dirnames_string_loclist[flist->dirs_added] = write_ptr + dirlen + 1;
+}
+
 void add_single_file_to_music_list(char *path, music_data *mdata)
 {
     char dir[PATH_MAX];
@@ -228,19 +259,29 @@ void add_single_file_to_music_list(char *path, music_data *mdata)
     separate_file_and_dir_name(dir, name);
     file_list *mlist = &mdata->music_list;
 
+    char cont_dir_already_added = check_dir_already_added(path, &mdata->music_list);
+
     char *file_entry = mlist->filenames_string_loclist[mlist->entry_count];
-    char *dir_entry = mlist->dirnames_string_loclist[mlist->dirs_added];
     strncpy(file_entry, name, NAME_MAX - 1);
-    strncpy(dir_entry, dir, PATH_MAX - 1);
     int file_len = strlen(name);
-    int dir_len = strlen(dir);
     file_entry[file_len + 1] = 0x0;
-    dir_entry[dir_len + 1] = 0x0;
+
+    if(!cont_dir_already_added)
+    {
+#if 1
+        file_list_push_dirname(dir, mlist);
+#else
+        char *dir_entry = mlist->dirnames_string_loclist[mlist->dirs_added];
+        strncpy(dir_entry, dir, PATH_MAX - 1);
+        dir_entry[dir_len + 1] = 0x0;
+        int dir_len = strlen(dir);
+        mlist->dirnames_string_loclist[mlist->dirs_added + 1] = dir_entry + dir_len + 1;
+        ++mdata->music_list.dirs_added;
+#endif
+    }
 
     mlist->filenames_string_loclist[mlist->entry_count + 1] = file_entry + file_len + 1;
-    mlist->dirnames_string_loclist[mlist->dirs_added + 1] = dir_entry + dir_len + 1;
     ++mdata->music_list.entry_count;
-    ++mdata->music_list.dirs_added;
 }
 
 void add_to_music_list(char *path, music_data *mdata, runtime_vars *rtvars)
@@ -248,11 +289,12 @@ void add_to_music_list(char *path, music_data *mdata, runtime_vars *rtvars)
     if(platform_file_exists(path))
     { add_single_file_to_music_list(path, mdata); }
     else if(platform_directory_exists(path))
-#if 1
-    { platform_get_directory_listing(path, &mdata->music_list); }
-#else
-    { platform_get_directory_listing_presorted(path, &mdata->music_list, rtvars); }
-#endif
+    { 
+        int pathlen = strlen(path);
+        if(path[pathlen] == '/')
+        { path[pathlen] = 0; }
+        platform_get_directory_listing(path, &mdata->music_list); 
+    }
     else 
     { platform_log("%s: no such file or directory\n", path); }
 }
@@ -261,8 +303,7 @@ char *find_top_level_path4file(char *filename, file_list *flist)
 {
     char *result = 0, *dirname;
     char pathbuf[PATH_MAX];
-    int dir_count = flist->dirs_added;
-    for(int dir_index = 0; dir_index < dir_count; ++dir_index)
+    for(uint32_t dir_index = 0; dir_index < flist->dirs_added; ++dir_index)
     {
         dirname = flist->dirnames_string_loclist[dir_index];
         snprintf(pathbuf, PATH_MAX - 1, "%s/%s", dirname, filename);
@@ -270,6 +311,22 @@ char *find_top_level_path4file(char *filename, file_list *flist)
         { result = dirname; break; }
     }
     return result;
+}
+
+void file_list_play_file(char *selected_file, uint32_t file_index, music_data *mdata)
+{
+    char path_buf[PATH_MAX];
+    char *toplevel_path = find_top_level_path4file(selected_file, &mdata->music_list);
+    if(toplevel_path)
+    {
+        snprintf(path_buf, PATH_MAX - 1, "%s/%s", toplevel_path, selected_file);
+        platform_log("trying to play %s\n", path_buf);
+        strncpy(mdata->current_filename, path_buf, PATH_MAX - 1);
+        mdata->music_list.current_index = file_index;
+        load_file_from_path(path_buf, mdata);
+    }
+    else
+    { platform_log("could not find containing directory for file %s.\n", selected_file); }
 }
 
 void menu_do_music_list(runtime_vars *rtvars, 
@@ -290,29 +347,15 @@ void menu_do_music_list(runtime_vars *rtvars,
                     mdata->music_list.entry_count);
 
     nk_layout_row_dynamic(rtvars->nuklear_ctx, bound_info->height - bound_info->y_alignment, 1);
+    uint32_t render_index;
     for(uint32_t file_index = 0; 
             file_index < (uint32_t)mdata->music_list_view.count;
             ++file_index)
     {
-        uint32_t render_index = file_index + mdata->music_list_view.begin;
+        render_index = file_index + mdata->music_list_view.begin;
         char *btntext = mdata->music_list.filenames_string_loclist[render_index];
         if(nk_button_label(rtvars->nuklear_ctx, btntext))
-        { 
-            char path_buf[PATH_MAX];
-            char *toplevel_path = find_top_level_path4file(btntext, &mdata->music_list);
-            if(toplevel_path)
-            {
-                snprintf(path_buf, PATH_MAX - 1,
-                        "%s/%s", toplevel_path, btntext);
-                platform_log("trying to play %s\n", path_buf);
-                strncpy(mdata->current_filename, path_buf, PATH_MAX - 1);
-                load_file_from_path(path_buf, mdata);
-            }
-            else
-            {
-                platform_log("could not find containing directory for file %s.\n", btntext);
-            }
-        }
+        { file_list_play_file(btntext, render_index, mdata); }
     }
 
     nk_list_view_end(&mdata->music_list_view);
@@ -330,7 +373,7 @@ void menu_show_debuginfo(runtime_vars *rtvars,
                         bound_info->width, 
                         bound_info->height - 20));
     bound_info->y_offset += 20;
-    struct nk_color debug_col = nk_rgba(0x33, 0xCC, 0x33, 0xFF);
+    struct nk_color debug_col = nk_rgba(0xCC, 0xCC, 0x00, 0xFF);
     nk_text_colored(rtvars->nuklear_ctx, 
                     (char *)bufgroup->debug_buffer, 
                     strlen((char *)bufgroup->debug_buffer), 
@@ -367,16 +410,9 @@ void query_bounds_info(struct nk_context *nuklear_ctx, widget_bounds_info *bound
 void set_playback_btn(char *btn, char paused) 
 {
     if(paused) 
-    {
-        btn[0] = '>';  
-        btn[1] = 0;
-    } 
+    { btn[0] = '>'; btn[1] = 0; } 
     else 
-    {
-        btn[0] = '|'; 
-        btn[1] = '|'; 
-        btn[2] = 0;
-    }
+    { btn[0] = '|'; btn[1] = '|'; }
 }
 
 double conv_slide_value2songpos(music_data *mdata)
@@ -399,14 +435,55 @@ float conv_songpos2slide_value(music_data *mdata)
     return result;
 }
 
+void goto_next_file(music_data *mdata)
+{
+    if(!mdata->sdlmixer_music || (mdata->music_list.entry_count < 1))
+    { return; }
+
+    file_list *mlist = &mdata->music_list;
+    uint32_t cur_index = mlist->current_index;
+    char *next_file;
+    if(!mdata->shuffle_enabled && (mlist->current_index < (mlist->entry_count - 1)))
+    {
+        next_file = mlist->filenames_string_loclist[cur_index + 1];
+        file_list_play_file(next_file, cur_index + 1, mdata);
+    }
+    else
+    {
+        uint32_t next_index = cur_index;
+        if(mlist->entry_count != 2)
+        {
+            while(next_index == cur_index)
+            { next_index = (uint32_t)(((double)(mlist->entry_count) - 1.0)*drand48()); }
+        }
+        else
+        { next_index = !next_index; }
+        next_file = mlist->filenames_string_loclist[next_index];
+        file_list_play_file(next_file, next_index, mdata);
+    }
+}
+
+void goto_prev_file(music_data *mdata)
+{
+    if(!mdata->sdlmixer_music || (mdata->music_list.current_index == 0))
+    { return; }
+
+    file_list *mlist = &mdata->music_list;
+    uint32_t cur_index = mlist->current_index;
+    char *prev_file = mlist->filenames_string_loclist[cur_index - 1];
+    file_list_play_file(prev_file, cur_index -1, mdata);
+}
+
 void pac_main_loop(runtime_vars *rtvars, 
                 sdl_apidata *sdldata, 
                 general_buffer_group *bufgroup,
                 music_data *mdata)
 {
-    static char playback_btn_text[4] = ">";
-    static char d_wasdown = 0;
-
+    static char playback_btn_text[4] = {};
+    static char shuffle_btn_text[4] = {};
+    static char d_wasdown = 0, 
+                space_wasdown = 0;
+    
     if(mdata->sdlmixer_music && (Mix_PlayingMusic() || Mix_PausedMusic()))
     { update_music_info(mdata); }
     char *second_debug_buf = update_debug_buffer_info(mdata, bufgroup);
@@ -416,7 +493,7 @@ void pac_main_loop(runtime_vars *rtvars,
     ////////////////////////////////
 
     nk_layout_space_begin(rtvars->nuklear_ctx, NK_STATIC, 0, INT_MAX);
-    widget_bounds_info bound_info = {0};
+    widget_bounds_info bound_info = {};
     query_bounds_info(rtvars->nuklear_ctx, &bound_info);
     float add_width = 80.0f;
     float vol_width = 180.0f;
@@ -434,8 +511,6 @@ void pac_main_loop(runtime_vars *rtvars,
         if(pac_btn_press(SDL_SCANCODE_D, &d_wasdown, rtvars->kbd_state))
         { nk_edit_focus(rtvars->nuklear_ctx, NK_TEXT_EDIT_MODE_INSERT); }
     }
-    //if(nuklear_edit_has_focus(rtvars->nuklear_ctx))
-    //{ printf("hello\n"); }
 
     nk_edit_string_zero_terminated(rtvars->nuklear_ctx, 
                                 NK_EDIT_FIELD, 
@@ -458,23 +533,36 @@ void pac_main_loop(runtime_vars *rtvars,
                         add_width*2, 
                         bound_info.height - (bound_info.y_alignment + bound_info.pad)));
     bound_info.y_offset += bound_info.height - bound_info.y_alignment;
-    if(nk_button_label(rtvars->nuklear_ctx, "sort (down)"))
+    if(nk_button_label(rtvars->nuklear_ctx, "sort (a-z)"))
     {
         if(mdata->music_list.entry_count)
-        {
-            sort_file_list_alpha(&mdata->music_list);
-        }
+        { sort_file_list_alpha(&mdata->music_list); }
     }
 
     menu_do_music_list(rtvars, mdata, &bound_info);
 
     nk_layout_space_push(rtvars->nuklear_ctx, 
                         nk_rect(bound_info.x_offset, 
+                        bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*5, 
+                        bound_info.height, 
+                        bound_info.height));
+
+
+    if(mdata->shuffle_enabled)
+    { shuffle_btn_text[0] = '-'; }
+    else 
+    { shuffle_btn_text[0] = '~'; }
+    if(nk_button_label(rtvars->nuklear_ctx, shuffle_btn_text)) 
+    { mdata->shuffle_enabled = !mdata->shuffle_enabled; }
+
+    nk_layout_space_push(rtvars->nuklear_ctx, 
+                        nk_rect(bound_info.x_offset, 
                         bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*4, 
                         bound_info.height, 
                         bound_info.height));
-    if(nk_button_label(rtvars->nuklear_ctx, ">>")) //next
-    {
+    if(nk_button_label(rtvars->nuklear_ctx, ">>"))
+    { 
+        goto_next_file(mdata); 
     }
 
     nk_layout_space_push(rtvars->nuklear_ctx, 
@@ -482,8 +570,9 @@ void pac_main_loop(runtime_vars *rtvars,
                         bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*3, 
                         bound_info.height, 
                         bound_info.height));
-    if(nk_button_label(rtvars->nuklear_ctx, "<<")) //prev
+    if(nk_button_label(rtvars->nuklear_ctx, "<<"))
     {
+        goto_prev_file(mdata);
     }
 
     nk_layout_space_push(rtvars->nuklear_ctx, 
@@ -491,12 +580,16 @@ void pac_main_loop(runtime_vars *rtvars,
                         bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*2, 
                         bound_info.height, 
                         bound_info.height));
-#if 0
+    //NOTE: some fonts dont have a codepoint for this glyph
+#if 1
     if(nk_button_label(rtvars->nuklear_ctx, (char *)_stop_btn_glyph)) //stop
 #else
     if(nk_button_label(rtvars->nuklear_ctx, "[]")) //stop
 #endif
-    { sdlmixer_stop_music(mdata); }
+    { 
+        sdlmixer_stop_music(mdata); 
+        mdata->current_filename[0] = 0x0;
+    }
 
     nk_layout_space_push(rtvars->nuklear_ctx, 
                         nk_rect(bound_info.x_offset, 
@@ -504,8 +597,9 @@ void pac_main_loop(runtime_vars *rtvars,
                         bound_info.height, 
                         bound_info.height));
     bound_info.x_offset += (bound_info.height + bound_info.pad);
-    
-    if(nk_button_label(rtvars->nuklear_ctx, playback_btn_text)) //play
+
+    if(nk_button_label(rtvars->nuklear_ctx, playback_btn_text) || 
+            pac_btn_press(SDL_SCANCODE_SPACE, &space_wasdown, rtvars->kbd_state))
     {
         if(!mdata->paused && mdata->sdlmixer_music) 
         {
@@ -651,34 +745,34 @@ char pac_init_sdl(sdl_apidata *sdldata)
 void nuklearapi_set_style(struct nk_context *ctx) 
 {
     struct nk_color color_tbl[NK_COLOR_COUNT];
-    color_tbl[NK_COLOR_TEXT] = nk_rgba(0xCC, 0xAA, 0x00, 0xFF);
-    color_tbl[NK_COLOR_WINDOW] = nk_rgba(0, 0, 0, 255);
+    color_tbl[NK_COLOR_TEXT] = nk_rgba(0xCC, 0xCC, 0xCC, 0xFF);
+    color_tbl[NK_COLOR_WINDOW] = nk_rgba(0, 0, 0, 0xFF);
     color_tbl[NK_COLOR_HEADER] = nk_rgba(51, 51, 56, 220);
-    color_tbl[NK_COLOR_BORDER] = nk_rgba(0x88, 0x88, 0x88, 0xFF);
-    color_tbl[NK_COLOR_BUTTON] = nk_rgba(0x22, 0x22, 0x2F, 255);
-    color_tbl[NK_COLOR_BUTTON_HOVER] = nk_rgba(58, 93, 121, 255);
-    color_tbl[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(63, 98, 126, 255);
-    color_tbl[NK_COLOR_TOGGLE] = nk_rgba(50, 58, 61, 255);
-    color_tbl[NK_COLOR_TOGGLE_HOVER] = nk_rgba(45, 53, 56, 255);
-    color_tbl[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(48, 83, 111, 255);
-    color_tbl[NK_COLOR_SELECT] = nk_rgba(57, 67, 61, 255);
-    color_tbl[NK_COLOR_SELECT_ACTIVE] = nk_rgba(48, 83, 111, 255);
-    color_tbl[NK_COLOR_SLIDER] = nk_rgba(50, 58, 61, 255);
-    color_tbl[NK_COLOR_SLIDER_CURSOR] = nk_rgba(48, 83, 111, 245);
-    color_tbl[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(53, 88, 116, 255);
-    color_tbl[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 255);
-    color_tbl[NK_COLOR_PROPERTY] = nk_rgba(50, 58, 61, 255);
-    color_tbl[NK_COLOR_EDIT] = nk_rgba(50, 58, 61, 225);
-    color_tbl[NK_COLOR_EDIT_CURSOR] = nk_rgba(210, 210, 210, 255);
-    color_tbl[NK_COLOR_COMBO] = nk_rgba(50, 58, 61, 255);
-    color_tbl[NK_COLOR_CHART] = nk_rgba(50, 58, 61, 255);
-    color_tbl[NK_COLOR_CHART_COLOR] = nk_rgba(48, 83, 111, 255);
-    color_tbl[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba(255, 0, 0, 255);
-    color_tbl[NK_COLOR_SCROLLBAR] = nk_rgba(50, 58, 61, 255);
-    color_tbl[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(48, 83, 111, 255);
-    color_tbl[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(53, 88, 116, 255);
-    color_tbl[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 255);
-    color_tbl[NK_COLOR_TAB_HEADER] = nk_rgba(48, 83, 111, 255);
+    color_tbl[NK_COLOR_BORDER] = nk_rgba(0xAA, 0xAA, 0xAA, 0xFF);
+    color_tbl[NK_COLOR_BUTTON] = nk_rgba(0x15, 0x15, 0x15, 0xFF);
+    color_tbl[NK_COLOR_BUTTON_HOVER] = nk_rgba(0x33, 0x33, 0x55, 0xFF);
+    color_tbl[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(63, 98, 126, 0xFF);
+    color_tbl[NK_COLOR_TOGGLE] = nk_rgba(50, 58, 61, 0xFF);
+    color_tbl[NK_COLOR_TOGGLE_HOVER] = nk_rgba(45, 53, 56, 0xFF);
+    color_tbl[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(48, 83, 111, 0xFF);
+    color_tbl[NK_COLOR_SELECT] = nk_rgba(57, 67, 61, 0xFF);
+    color_tbl[NK_COLOR_SELECT_ACTIVE] = nk_rgba(48, 83, 111, 0xFF);
+    color_tbl[NK_COLOR_SLIDER] = nk_rgba(50, 58, 61, 0xFF);
+    color_tbl[NK_COLOR_SLIDER_CURSOR] = nk_rgba(0xAA, 0xAA, 0xAA, 245);
+    color_tbl[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(53, 88, 116, 0xFF);
+    color_tbl[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 0xFF);
+    color_tbl[NK_COLOR_PROPERTY] = nk_rgba(50, 58, 61, 0xFF);
+    color_tbl[NK_COLOR_EDIT] = nk_rgba(0x15, 0x15, 0x15, 0xFF);
+    color_tbl[NK_COLOR_EDIT_CURSOR] = nk_rgba(210, 210, 210, 0xFF);
+    color_tbl[NK_COLOR_COMBO] = nk_rgba(50, 58, 61, 0xFF);
+    color_tbl[NK_COLOR_CHART] = nk_rgba(50, 58, 61, 0xFF);
+    color_tbl[NK_COLOR_CHART_COLOR] = nk_rgba(48, 83, 111, 0xFF);
+    color_tbl[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba(0xFF, 0, 0, 0xFF);
+    color_tbl[NK_COLOR_SCROLLBAR] = nk_rgba(50, 58, 61, 0xFF);
+    color_tbl[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(48, 83, 111, 0xFF);
+    color_tbl[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(53, 88, 116, 0xFF);
+    color_tbl[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 0xFF);
+    color_tbl[NK_COLOR_TAB_HEADER] = nk_rgba(48, 83, 111, 0xFF);
     color_tbl[NK_COLOR_KNOB] = color_tbl[NK_COLOR_SLIDER];
     color_tbl[NK_COLOR_KNOB_CURSOR] = color_tbl[NK_COLOR_SLIDER_CURSOR];
     color_tbl[NK_COLOR_KNOB_CURSOR_HOVER] = color_tbl[NK_COLOR_SLIDER_CURSOR_HOVER];

@@ -34,7 +34,7 @@ typedef struct ro_heap_buffer
     uint64_t total_bytes;
 } ro_heap_buffer;
 
-#ifndef RO_MATH
+#ifndef RO_MATH_DOT_H
 
 RO_DEF uint64_t ro_abs_i64(int64_t number)
 {
@@ -61,7 +61,6 @@ RO_DEF float ro_abs_f32(float number)
     return result;
 }
 
-#define RO_MATH 1
 #define RO_MATH_DOT_H 1
 #endif
 
@@ -138,7 +137,7 @@ RO_DEF char *ro_posix_get_working_directory(char *destination, uint64_t buffer_s
 RO_DEF uint64_t ro_posix_get_timestamp(void) 
 {
     uint64_t result;
-    struct timespec tspec = {0};
+    struct timespec tspec = {};
     clock_gettime(CLOCK_MONOTONIC, &tspec);
     result = (tspec.tv_sec*1000000) + (tspec.tv_nsec/1000);
     return result;
@@ -147,7 +146,7 @@ RO_DEF uint64_t ro_posix_get_timestamp(void)
 RO_DEF void ro_posix_sleep_microsec(uint64_t microseconds) 
 {
     uint64_t nanoseconds = microseconds*1000;
-    struct timespec tspec = {0};
+    struct timespec tspec = {};
     tspec.tv_nsec = nanoseconds;
     nanosleep(&tspec, 0);
 }
@@ -155,7 +154,7 @@ RO_DEF void ro_posix_sleep_microsec(uint64_t microseconds)
 RO_DEF void ro_posix_sleep_sec(uint64_t seconds) 
 {
     uint64_t nanoseconds = seconds*1000000000;
-    struct timespec tspec = {0};
+    struct timespec tspec = {};
     tspec.tv_nsec = nanoseconds;
     nanosleep(&tspec, 0);
 }

@@ -19,7 +19,7 @@ extern "C"
 #define PAC_NUKLEAR_FONTSIZE (16.0f)
 #define PAC_SEEK_VALUE_MAX (100)
 
-#define PAC_FONT_STRING "NotoMono-Regular.ttf"
+#define PAC_FONT_STRING "DejaVuSans.ttf"
 
 static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 
@@ -66,7 +66,8 @@ typedef struct file_list
 {
     uint32_t entry_count; //(files)
     uint32_t dirs_added;
-    char *dirnames_buf;                 //buffer containing top-level directory names, delimited by null
+    uint32_t current_index;
+    char *dirnames_buf;                 //buffer containing the directories added, delimited by null
     char *filenames_buf;                //buffer containing file names, delimited by null
     char **filenames_string_loclist;    //array of pointers which specify the beginnings of strings in the filename array
     char **dirnames_string_loclist;     //array of pointers which specify the beginnings of strings in the dirname array
@@ -93,6 +94,7 @@ typedef struct widget_bounds_info
 typedef struct music_data
 {
     char paused; //Mix_PausedMusic() doesn't work seemingly
+    char shuffle_enabled;
     uint16_t pcm_bits;
     int sample_rate;
     int channels;
@@ -137,6 +139,7 @@ void sdlapi_process_events(runtime_vars *rtvars, sdl_apidata *sdldata);
 void sdlapi_correct_gl_viewport_and_clear(sdl_apidata *sdldata);
 void pac_begin_frame(runtime_vars *rtvars, sdl_apidata *sdldata);
 void pac_end_frame(runtime_vars *rtvars, sdl_apidata *sdldata);
+void file_list_push_dirname(char *dirname, file_list *flist);
 void update_music_info(music_data *mdata);
 void pac_main_loop(runtime_vars *rtvars, sdl_apidata *sdldata, general_buffer_group *bufgroup, music_data *mdata);
 void sdlmixer_start_music(music_data *mdata, char *music_path);

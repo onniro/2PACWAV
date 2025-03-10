@@ -9,6 +9,7 @@ Date: Tue 18 Feb 2025 12:57:19 PM EET
 #include <limits.h>
 #include <stdarg.h>
 #include <dirent.h>
+#include <time.h>
 
 #include "SDL.h"
 #include "SDL_mixer.h"
@@ -33,7 +34,7 @@ void load_font(struct nk_context *nuklear_ctx, char *working_dir)
 #else
     //TODO
 #endif
-    struct nk_font_config ft_config = {0};
+    struct nk_font_config ft_config = {};
     ft_config.oversample_h = 2;
     ft_config.oversample_v = 2;
 #if 0
@@ -83,7 +84,7 @@ char *pac_dir_linux_list_alpha(char *path, char *recv_buf, int recv_buf_size)
     return result;
 }
 
-char *pac_dir_next_file(char *line_bgn, char *out_ent, int list_buf_size) 
+char *pac_dir_next_file(char *line_bgn, char *out_ent) 
 {
     if(!line_bgn) 
     { return 0; }
@@ -98,6 +99,7 @@ char *pac_dir_next_file(char *line_bgn, char *out_ent, int list_buf_size)
     return line_end;
 }
 
+//im keeping this shit around for now but i think its useless
 int platform_get_directory_listing_presorted(char *path, 
                                         file_list *out_flist, 
                                         runtime_vars *rtvars) 
@@ -122,7 +124,7 @@ int platform_get_directory_listing_presorted(char *path,
 
             while(1) 
             {
-                next_ptr = pac_dir_next_file(this_ptr, name_buf, NAME_MAX -1);
+                next_ptr = pac_dir_next_file(this_ptr, name_buf);
                 if(!next_ptr)
                 { break; }
                 this_ptr = next_ptr;
@@ -148,7 +150,6 @@ int platform_get_directory_listing_presorted(char *path,
     return result;
 }
 
-//(arb for arbitrary)
 int platform_get_directory_listing(char *path, file_list *out_flist)
 {
     int result = 0;
@@ -157,11 +158,16 @@ int platform_get_directory_listing(char *path, file_list *out_flist)
 
     if(dir_struct) 
     {
+#if 0
         int toplevel_dir_len = strlen(path);
         char *current_top_level = out_flist->dirnames_string_loclist[out_flist->dirs_added];
         strncpy(current_top_level, path, PATH_MAX - 1);
         current_top_level[toplevel_dir_len + 1] = 0x0;
         out_flist->dirnames_string_loclist[out_flist->dirs_added + 1] = current_top_level + toplevel_dir_len + 1;
+        ++out_flist->dirs_added;
+#else
+        file_list_push_dirname(path, out_flist);
+#endif
         int filename_len;
         char *write_ptr;
 
@@ -182,7 +188,6 @@ int platform_get_directory_listing(char *path, file_list *out_flist)
             }
         }
 
-        ++out_flist->dirs_added;
         result = 1;
     }
     else
@@ -241,10 +246,10 @@ void platform_log(char *fmt_string, ...)
 
 int main(int argc, char **argv) 
 {
-    sdl_apidata sdldata = {0};
-    runtime_vars rtvars = {0};
-    general_buffer_group bufgroup = {0};
-    music_data mdata = {0};
+    sdl_apidata sdldata = {};
+    runtime_vars rtvars = {};
+    general_buffer_group bufgroup = {};
+    music_data mdata = {};
     strcpy(mdata.music_type_buf, "NONE");
 
     rtvars.sdldata_ptr = &sdldata;
@@ -285,6 +290,8 @@ int main(int argc, char **argv)
     mdata.music_list.dirnames_string_loclist[0] = (char *)mdata.music_list.dirnames_buf;
 
     rtvars.keep_running = 1;
+    //srand(time(0));
+    srand48(time(0));
 
     frametime_vars frametime;
     rtvars.frametime_info_ptr = &frametime;
