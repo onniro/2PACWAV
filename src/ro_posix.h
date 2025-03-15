@@ -106,13 +106,24 @@ RO_DEF void *ro_buffer_alloc_region(struct ro_heap_buffer *buffer, uint64_t regi
 }
 
 //(pass negative value in place of bytes to decrement write_ptr)
-RO_DEF void ro_buffer_move_writeptr(ro_heap_buffer *buffer, ssize_t bytes, char write_zeroes) 
+RO_DEF void ro_buffer_move_writeptr(ro_heap_buffer *buffer, 
+                                    ssize_t bytes, 
+                                    char write_zeroes) 
 {
-    if(buffer && (((uintptr_t)buffer->write_ptr - bytes) >= (uintptr_t)buffer->memory)) 
+    if(!buffer || !buffer->memory || !bytes)
+    { return; }
+
+    uintptr_t buf_begin = (uintptr_t)buffer->memory;
+    uintptr_t buf_end = buf_begin + buffer->total_bytes;
+    uintptr_t current_pos = (uintptr_t)buffer->write_ptr;
+    uintptr_t future_pos = current_pos + bytes;
+    uint64_t move_bytes = ro_abs_i64(bytes);
+
+    if((future_pos >= buf_begin) && (future_pos < buf_end))
     {
-        buffer->write_ptr = (void *)((uintptr_t)buffer->write_ptr + bytes);
+        buffer->write_ptr = (void *)future_pos;
         if(write_zeroes) 
-        { memset(buffer->write_ptr, 0, ro_abs_i64(bytes)); }
+        { memset(buffer->write_ptr, 0, move_bytes); }
     }
 }
 
