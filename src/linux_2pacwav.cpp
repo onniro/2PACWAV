@@ -202,7 +202,7 @@ void startup_alloc_buffers(ro_heap_buffer *heapbuf, general_buffer_group *bufgro
     buf2init = ro_buffer_alloc_region(main_buffer, size);\
     if(!buf2init)\
     {\
-        fprintf(stderr, "failed to init buffer %s\n(unallocated=%u)exiting.\n",\
+        platform_dbg_log("failed to init buffer %s\n(unallocated=%u)exiting.\n",\
                 #buf2init, ro_buffer_unallocated_bytes(heapbuf));\
         _exit(1);\
     } PAC_NOP_MACRO()
@@ -213,11 +213,11 @@ void startup_alloc_buffers(ro_heap_buffer *heapbuf, general_buffer_group *bufgro
     MEM_INIT_ASSERT(heapbuf, bufgroup->inbuf_filename,                  PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->inbuf_search,                    PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->working_directory,               PATH_MAX);
+    MEM_INIT_ASSERT(heapbuf, bufgroup->flist_match_flags,               MATCH_FLAGS_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_filenames_string_loclist,  FILENAMEBUF_LOCATION_LIST_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_string_loclist,   DIRNAMEBUF_LOCATION_LIST_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_filenames_buf,             FILENAMES_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_buf,              DIRNAMES_BUFFER_SIZE);
-    MEM_INIT_ASSERT(heapbuf, bufgroup->flist_match_flags,               PAC_MAX_FILES);
 
     platform_log("unallocated bytes:%.2f/%.2f\n", 
             (float)(ro_buffer_unallocated_bytes(heapbuf)), 
@@ -234,7 +234,31 @@ char platform_directory_exists(char *path)
     return ro_posix_directory_exists(path);
 }
 
+void handle_command_line(int arg_count, char **args)
+{
+    for(int arg_index = 1; arg_index < arg_count; ++arg_index)
+    {
+        if(!strcmp("--", args[arg_index]))
+        { break; }
+        else if(!strcmp("-v", args[arg_index]))
+        {
+            show_version();
+            exit(0);
+        }
+    }
+}
+
 void platform_log(char *fmt_string, ...)
+{
+    char buf[4096];
+    va_list args;
+    va_start(args, fmt_string);
+    vsnprintf(buf, 4095, fmt_string, args);
+    fprintf(stdout, "%s", buf);
+    va_end(args);
+}
+
+void platform_dbg_log(char *fmt_string, ...)
 {
 #if _2PACWAV_DEBUG || (defined(_2PACWAV_ENABLE_LOG) && _2PACWAV_ENABLE_LOG)
     char buf[4096];
@@ -246,8 +270,10 @@ void platform_log(char *fmt_string, ...)
 #endif
 }
 
-int main(int argc, char **argv) 
+int main(int arg_count, char **args) 
 {
+    handle_command_line(arg_count, args);
+
     sdl_apidata sdldata = {};
     runtime_vars rtvars = {};
     general_buffer_group bufgroup = {};
@@ -320,6 +346,4 @@ int main(int argc, char **argv)
     SDL_GL_DeleteContext(sdldata.ogl_context);
     SDL_DestroyWindow(sdldata.window_ptr);
     SDL_Quit();
-
-    return 0;
 }

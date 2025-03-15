@@ -17,6 +17,7 @@ extern "C"
 
 void load_font(struct nk_context *nuklear_ctx, char *working_dir);
 void platform_log(char *fmt_string, ...);
+void platform_dbg_log(char *fmt_string, ...);
 char platform_file_exists(char *path);
 char platform_directory_exists(char *path);
 int platform_get_directory_listing_presorted(char *path, file_list *out_flist, runtime_vars *rtvars);

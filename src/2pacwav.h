@@ -11,6 +11,10 @@ extern "C"
 {
 #endif
 
+#define _2PACWAV_VER_MAJOR      (0)
+#define _2PACWAV_VER_MINOR      (1)
+#define _2PACWAV_VER_PATCH      (1)
+
 #include "ro_heapbuf.h"
 
 #define WINDOW_WIDTH    1024
@@ -51,8 +55,8 @@ static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 #define FILENAMEBUF_LOCATION_LIST_SIZE      (sizeof(char *)*PAC_MAX_FILES)
 #define DIRNAMEBUF_LOCATION_LIST_SIZE       (sizeof(char *)*64)
 #define SEARCH_BUFFER_SIZE                  (NAME_MAX)
+#define MATCH_FLAGS_BUFFER_SIZE             (PAC_MAX_FILES*sizeof(char))
 
-//members prefixed with inbuf_ are buffers that get passed to nk_edit_string*
 typedef struct general_buffer_group
 {
     void *inbuf_filename;
@@ -68,7 +72,6 @@ typedef struct general_buffer_group
     void *flist_match_flags;
 } general_buffer_group;
 
-//dumbass
 typedef struct file_list
 {
     uint32_t entry_count; //(files)
@@ -88,6 +91,17 @@ typedef struct frametime_vars
     uint64_t end;
     uint64_t delta;
 } frametime_vars;
+
+typedef struct wasdown_flags
+{
+    char d_wasdown;
+    char x_wasdown;
+    char s_wasdown;
+    char space_wasdown;
+    char enter_wasdown;
+    char escape_wasdown;
+    char clear_confirmation;
+} wasdown_flags;
 
 typedef struct widget_bounds_info
 {
@@ -131,8 +145,8 @@ typedef struct sdl_apidata
 typedef struct runtime_vars 
 {
     char keep_running;
-    //char char_was_pressed;
     char *working_directory;
+    wasdown_flags down_flags;
     frametime_vars *frametime_info_ptr;
     general_buffer_group *bufgroup_ptr;
     ro_heap_buffer main_storage;
@@ -143,6 +157,9 @@ typedef struct runtime_vars
 
 //(forward declarations)
 
+void pac_nop(void);
+void get_version_string(char *buffer);
+void show_version(void);
 nk_rune *pac_font_glyph_ranges(void);
 void pac_nuklearapi_paste_callback(nk_handle handle, struct nk_text_edit *txtedit);
 void sdlapi_process_events(runtime_vars *rtvars, sdl_apidata *sdldata);
