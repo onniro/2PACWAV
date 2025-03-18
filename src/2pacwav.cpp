@@ -551,8 +551,9 @@ void menu_do_current_file_info(runtime_vars *rtvars,
 
     if(got_metadata)
     {
-#if 1
-        nk_layout_row_static(nkctx, 20, text_width, 1);
+        nk_style_set_font(nkctx, &rtvars->big_font->handle);
+        //nk_layout_row_static(nkctx, 20, text_width, 1);
+        nk_layout_row_static(nkctx, 100, text_width, 1);
         nk_label(nkctx, metadata_buffer,
                 NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
 
@@ -563,19 +564,7 @@ void menu_do_current_file_info(runtime_vars *rtvars,
         nk_layout_row_static(nkctx, 20, text_width, 1);
         nk_label(nkctx, album_ptr,
                 NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
-#else
-        nk_layout_row_static(nkctx, 20, text_width, 1);
-        nk_label(nkctx, mdata->current_metadata.tag_title, 
-                NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
-
-        nk_layout_row_static(nkctx, 20, text_width, 1);
-        nk_label(nkctx, mdata->current_metadata.tag_artist, 
-                NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
-
-        nk_layout_row_static(nkctx, 20, text_width, 1);
-        nk_label(nkctx, mdata->current_metadata.tag_album, 
-                NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
-#endif
+        nk_style_set_font(nkctx, &rtvars->small_font->handle);
     }
 
     nk_group_end(nkctx);

@@ -25,9 +25,10 @@ extern "C"
 #define PAC_SEEK_VALUE_MAX (100)
 
 #define PAC_FONT_STRING "LiberationMono-Regular.ttf"
-//#define PAC_FONT_STRING "DejaVuSansMono.ttf"
-//#define PAC_FONT_STRING "DejaVuSans.ttf"
+#define PAC_BIG_FONT_STRING "LiberationMono-Regular.ttf"
+
 #define PAC_NUKLEAR_FONTSIZE (14.0f)
+#define PAC_NUKLEAR_BIG_FONTSIZE (24.0f)
 
 static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 
@@ -190,6 +191,8 @@ typedef struct runtime_vars
     ro_heap_buffer main_storage;
     sdl_apidata *sdldata_ptr;
     const uint8_t *kbd_state;
+    struct nk_font *small_font;
+    struct nk_font *big_font;
     struct nk_context *nuklear_ctx;
 } runtime_vars;
 

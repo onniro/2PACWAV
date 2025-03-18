@@ -27,13 +27,17 @@ Date: Tue 18 Feb 2025 12:57:19 PM EET
 #include "2pacwav.h"
 #include "linux_2pacwav.h"
 
-void load_font(struct nk_context *nuklear_ctx, char *working_dir) 
+void load_font(runtime_vars *rtvars, char *working_dir) 
 {
-    char font_path[PATH_MAX];
+    struct nk_context *nuklear_ctx = rtvars->nuklear_ctx;
+    char small_font_path[PATH_MAX], big_font_path[PATH_MAX];
 #if _2PACWAV_DEBUG
-    snprintf(font_path, PATH_MAX - 1, "%s/../../res/%s", working_dir, PAC_FONT_STRING);
+    snprintf(small_font_path, PATH_MAX - 1, "%s/../../res/%s", working_dir, PAC_FONT_STRING);
+    snprintf(big_font_path, PATH_MAX - 1, "%s/../../res/%s", working_dir, PAC_BIG_FONT_STRING);
 #else
-    //TODO
+    //TODO this wont really work
+    snprintf(small_font_path, PATH_MAX - 1, "%s/../../res/%s", working_dir, PAC_FONT_STRING);
+    snprintf(big_font_path, PATH_MAX - 1, "%s/../../res/%s", working_dir, PAC_BIG_FONT_STRING);
 #endif
     struct nk_font_config ft_config = {};
     ft_config.oversample_h = 2;
@@ -46,12 +50,16 @@ void load_font(struct nk_context *nuklear_ctx, char *working_dir)
 
     struct nk_font_atlas *ft_atlas;
     nk_sdl_font_stash_begin(&ft_atlas);
-    struct nk_font *font = nk_font_atlas_add_from_file(ft_atlas, 
-                            font_path,
+    rtvars->small_font = nk_font_atlas_add_from_file(ft_atlas, 
+                            small_font_path,
                             PAC_NUKLEAR_FONTSIZE, 
                             &ft_config);
+    rtvars->big_font = nk_font_atlas_add_from_file(ft_atlas, 
+                            big_font_path,
+                            PAC_NUKLEAR_BIG_FONTSIZE, 
+                            &ft_config);
     nk_sdl_font_stash_end();
-    nk_style_set_font(nuklear_ctx, &font->handle);
+    nk_style_set_font(nuklear_ctx, &rtvars->small_font->handle);
 }
 
 char *pac_dir_linux_list_alpha(char *path, char *recv_buf, int recv_buf_size) 
@@ -307,7 +315,7 @@ int main(int arg_count, char **args)
     ro_posix_get_working_directory(rtvars.working_directory, PATH_MAX);
 
     rtvars.nuklear_ctx = nk_sdl_init(sdldata.window_ptr);
-    load_font(rtvars.nuklear_ctx, rtvars.working_directory);
+    load_font(&rtvars, rtvars.working_directory);
 
     nuklearapi_set_style(rtvars.nuklear_ctx);
     rtvars.nuklear_ctx->style.button.rounding = 0;
