@@ -17,13 +17,17 @@ extern "C"
 
 #include "ro_heapbuf.h"
 
+#define PAC_DEF static inline
+
 #define WINDOW_WIDTH    1024
 #define WINDOW_HEIGHT   768
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)16667)
 #define PAC_SEEK_VALUE_MAX (100)
 
 #define PAC_FONT_STRING "LiberationMono-Regular.ttf"
-#define PAC_NUKLEAR_FONTSIZE (15.0f)
+//#define PAC_FONT_STRING "DejaVuSansMono.ttf"
+//#define PAC_FONT_STRING "DejaVuSans.ttf"
+#define PAC_NUKLEAR_FONTSIZE (14.0f)
 
 static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 
@@ -57,7 +61,7 @@ static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 #define SEARCH_BUFFER_SIZE                  (NAME_MAX)
 #define MATCH_FLAGS_BUFFER_SIZE             (PAC_MAX_FILES*sizeof(char))
 
-typedef struct general_buffer_group
+typedef struct general_buffer_group 
 {
     void *inbuf_filename;
     void *inbuf_search;
@@ -92,16 +96,36 @@ typedef struct frametime_vars
     uint64_t delta;
 } frametime_vars;
 
-typedef struct wasdown_flags
+typedef enum center_view_state
+{
+    CENTER_VIEW_STATE_MUSIC_LIST = 0,
+    CENTER_VIEW_STATE_CURRENT_INFO,
+    CENTER_VIEW_STATE__LAST
+} center_view_state;
+
+PAC_DEF void cycle_center_view_state(center_view_state *value)
+{
+    if(!value) 
+    { return; }
+    uint8_t new_value = 1 + (uint8_t)(*value);
+    if(new_value != CENTER_VIEW_STATE__LAST)
+    { *value = (center_view_state)new_value; }
+    else
+    { *value = (center_view_state)0; }
+}
+
+typedef struct state_flags
 {
     char d_wasdown;
     char x_wasdown;
     char s_wasdown;
+    char l_wasdown;
     char space_wasdown;
     char enter_wasdown;
     char escape_wasdown;
     char clear_confirmation;
-} wasdown_flags;
+    center_view_state viewstate;
+} state_flags;
 
 typedef struct widget_bounds_info
 {
@@ -113,6 +137,19 @@ typedef struct widget_bounds_info
     float x_offset;
     struct nk_rect content_bounds;
 } widget_bounds_info;
+
+typedef struct audio_metadata_group
+{
+#if 1
+    const char *tag_title;
+    const char *tag_artist;
+    const char *tag_album;
+#else
+    char tag_title[256];
+    char tag_artist[256];
+    char tag_album[256];
+#endif
+} audio_metadata_group;
 
 typedef struct music_data
 {
@@ -129,6 +166,7 @@ typedef struct music_data
     char *current_filename;
     file_list music_list;
     Mix_Music *sdlmixer_music; //IMPORTANT: ALWAYS SET TO NULL WHEN MUSIC IS UNLOADED
+    audio_metadata_group current_metadata;
     struct nk_list_view music_list_view;
     char music_type_buf[16];
 } music_data;
@@ -146,7 +184,7 @@ typedef struct runtime_vars
 {
     char keep_running;
     char *working_directory;
-    wasdown_flags down_flags;
+    state_flags sflags;
     frametime_vars *frametime_info_ptr;
     general_buffer_group *bufgroup_ptr;
     ro_heap_buffer main_storage;
@@ -170,6 +208,7 @@ void file_list_push_dirname(char *dirname, file_list *flist);
 void set_match_flags(char *searchbuf, music_data *mdata);
 void update_music_info(music_data *mdata);
 void pac_main_loop(runtime_vars *rtvars, sdl_apidata *sdldata, general_buffer_group *bufgroup, music_data *mdata);
+char sdlmixer_get_metadata(music_data *mdata);
 void sdlmixer_start_music(music_data *mdata, char *music_path);
 void sdlmixer_stop_music(music_data *mdata);
 char pac_init_sdlmixer(music_data *mdata);

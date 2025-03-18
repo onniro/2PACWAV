@@ -37,11 +37,11 @@ void get_version_string(char *buffer)
 #else
     char buildtype[] = "(release)";
 #endif
-    sprintf(buffer, "2PACWAV %s v%u.%u.%02u",
-            buildtype,
+    sprintf(buffer, "2PACWAV v%u.%u.%02u %s",
             _2PACWAV_VER_MAJOR,
             _2PACWAV_VER_MINOR,
-            _2PACWAV_VER_PATCH);
+            _2PACWAV_VER_PATCH,
+            buildtype);
 }
 
 void show_version(void)
@@ -95,10 +95,10 @@ void pac_nuklearapi_paste_callback(nk_handle handle, struct nk_text_edit *txtedi
     }
 }
 
-char pac_btn_press(SDL_Scancode scan, char *wasdown, const uint8_t *kdb_state) 
+char pac_btn_press(SDL_Scancode scan, char *wasdown, const uint8_t *kbd_state) 
 {
     char state = 0;
-    if(kdb_state[scan]) 
+    if(kbd_state[scan]) 
     {
         if(!*wasdown) 
         { state = 1; *wasdown = 1; }
@@ -126,7 +126,9 @@ void sdlapi_process_events(runtime_vars *rtvars, sdl_apidata *sdldata)
 
         case SDL_DROPFILE:
         {
-            strncpy((char *)rtvars->bufgroup_ptr->inbuf_filename, event.drop.file, PATH_MAX);
+            strncpy((char *)rtvars->bufgroup_ptr->inbuf_filename, 
+                    event.drop.file, 
+                    PATH_MAX);
         } break;
 
         case SDL_KEYDOWN:
@@ -174,7 +176,7 @@ void update_music_info(music_data *mdata)
     mdata->current_position = Mix_GetMusicPosition(mdata->sdlmixer_music);
 }
 
-int pac_qsort_strcasecmp(const void *a, const void *b)
+int pac_qsort_strcmp(const void *a, const void *b)
 {
     int result = strcasecmp(*(const char **)a, *(const char **)b);
     return result;
@@ -184,27 +186,32 @@ void sort_file_list_alpha(file_list *flist)
 {
     char **strings = flist->filenames_string_loclist;
     int sort_count = flist->entry_count;
-    qsort(strings, sort_count, sizeof(char **), pac_qsort_strcasecmp);
+    qsort(strings, sort_count, sizeof(char **), pac_qsort_strcmp);
 }
 
 char *update_debug_buffer_info(music_data *mdata, general_buffer_group *bufgroup) 
 {
     snprintf((char *)bufgroup->debug_buffer, DEBUG_BUFFER_SIZE - 1, 
-            "[srate:%dhz][pcm_bits:%d][chan:%d][vol:%d/128][pos:%6.1f/%6.1f][type:%s]\000", 
+            "[srate:%dhz][pcm_bits:%d][chan:%d][vol:%d/128][pos:%6.1f/%6.1f][type:%s]\n[path:%s]", 
             mdata->sample_rate, 
             mdata->pcm_bits, 
             mdata->channels,
             mdata->volume,
             mdata->current_position,
             mdata->current_duration,
-            mdata->music_type_buf);
+            mdata->music_type_buf,
+            mdata->current_filename);
 
     //lol
+#if 1
+    return (char *)bufgroup->debug_buffer;
+#else
     int dbglen = strlen((char *)bufgroup->debug_buffer);
     char *second_dbg_buf = ((char *)bufgroup->debug_buffer + dbglen) + 2;
     snprintf(second_dbg_buf, (DEBUG_BUFFER_SIZE - 1) - dbglen,
             "[path:%s]", mdata->current_filename);
     return second_dbg_buf;
+#endif
 }
 
 void sdlmixer_get_music_type(music_data *mdata)
@@ -444,7 +451,6 @@ void clear_file_list(music_data *mdata)
     { return; }
 
     file_list *mlist = &mdata->music_list;
-    char *str2clear;
 
     for(uint32_t clear_index = 1;
             clear_index < mlist->entry_count;
@@ -465,10 +471,7 @@ void clear_file_list(music_data *mdata)
 
 void menu_confirm_clear_file_list(runtime_vars *rtvars, 
                                 widget_bounds_info *bound_info,
-                                music_data *mdata, 
-                                char *show_confirmation,
-                                char *escape_wasdown, 
-                                char *enter_wasdown)
+                                music_data *mdata)
 {
     float confirm_width = 400.0f; 
     float confirm_height = (bound_info->height - bound_info->pad)*3;
@@ -478,6 +481,7 @@ void menu_confirm_clear_file_list(runtime_vars *rtvars,
                                         (sdldata->win_height/2.0f) - (confirm_height/2.0f),
                                         confirm_width,
                                         confirm_height);
+    state_flags *dn_flags = &rtvars->sflags;
 
     if(nk_popup_begin(nkctx,
             NK_POPUP_STATIC, 
@@ -487,41 +491,114 @@ void menu_confirm_clear_file_list(runtime_vars *rtvars,
     {
         nk_layout_row_dynamic(nkctx, bound_info->height - bound_info->pad*2, 2);
         if(nk_button_label(nkctx, "yes") ||
-                pac_btn_press(SDL_SCANCODE_RETURN, enter_wasdown, rtvars->kbd_state))
+                pac_btn_press(SDL_SCANCODE_RETURN, &dn_flags->enter_wasdown, rtvars->kbd_state))
         { 
-            *show_confirmation = 0;
+            dn_flags->clear_confirmation = 0;
             nk_popup_close(nkctx);
             clear_file_list(mdata);
         }
         if(nk_button_label(nkctx, "no") ||
-               pac_btn_press(SDL_SCANCODE_ESCAPE, escape_wasdown, rtvars->kbd_state))
+               pac_btn_press(SDL_SCANCODE_ESCAPE, &dn_flags->escape_wasdown, rtvars->kbd_state))
         { 
-            *show_confirmation = 0; 
+            dn_flags->clear_confirmation = 0;
             nk_popup_close(nkctx); 
         }
         nk_popup_end(nkctx);
     } 
     else 
-    { *show_confirmation = 0; }
+    { dn_flags->clear_confirmation = 0; }
+}
+
+void menu_do_current_file_info(runtime_vars *rtvars, 
+                            music_data *mdata, 
+                            general_buffer_group *bufgroup,
+                            widget_bounds_info *bound_info)
+{
+    struct nk_context *nkctx = rtvars->nuklear_ctx;
+    char *debugbuf = (char *)bufgroup->debug_buffer;
+    char *path_begin = strchr(debugbuf, '\n');
+    char metadata_buffer[1024];
+    char *artist_ptr, *album_ptr;
+    char got_metadata = sdlmixer_get_metadata(mdata);
+    if(got_metadata)
+    {
+        snprintf(metadata_buffer, 1023, "title: %s\nartist: %s\nalbum: %s\000",
+                mdata->current_metadata.tag_title,
+                mdata->current_metadata.tag_artist,
+                mdata->current_metadata.tag_album);
+        artist_ptr = strchr(metadata_buffer, '\n');
+        *artist_ptr++ = 0;
+        album_ptr = strchr(artist_ptr, '\n');
+        *album_ptr++ = 0;
+    }
+
+    *path_begin = 0;
+    ++path_begin;
+    int text_width = bound_info->width - (bound_info->height + bound_info->pad) - 30;
+
+    nk_layout_space_push(nkctx, 
+                        nk_rect(bound_info->height + bound_info->pad, 
+                        bound_info->y_offset, 
+                        bound_info->width - (bound_info->height + bound_info->pad), 
+                        bound_info->content_bounds.h - bound_info->height*3));
+    nk_group_begin(nkctx, "music", NK_WINDOW_BORDER);
+
+    //debuginfo (probably get rid of this or change the format)
+    nk_layout_row_static(nkctx, 20, text_width, 1);
+    nk_label(nkctx, (char *)bufgroup->debug_buffer, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
+    nk_layout_row_static(nkctx, 20, text_width, 1);
+    nk_label(nkctx, path_begin, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
+
+    if(got_metadata)
+    {
+#if 1
+        nk_layout_row_static(nkctx, 20, text_width, 1);
+        nk_label(nkctx, metadata_buffer,
+                NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
+
+        nk_layout_row_static(nkctx, 20, text_width, 1);
+        nk_label(nkctx, artist_ptr,
+                NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
+
+        nk_layout_row_static(nkctx, 20, text_width, 1);
+        nk_label(nkctx, album_ptr,
+                NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
+#else
+        nk_layout_row_static(nkctx, 20, text_width, 1);
+        nk_label(nkctx, mdata->current_metadata.tag_title, 
+                NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
+
+        nk_layout_row_static(nkctx, 20, text_width, 1);
+        nk_label(nkctx, mdata->current_metadata.tag_artist, 
+                NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
+
+        nk_layout_row_static(nkctx, 20, text_width, 1);
+        nk_label(nkctx, mdata->current_metadata.tag_album, 
+                NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
+#endif
+    }
+
+    nk_group_end(nkctx);
 }
 
 void menu_do_music_list(runtime_vars *rtvars, 
                     music_data *mdata, 
                     widget_bounds_info *bound_info)
 {
-    rtvars->nuklear_ctx->style.button.text_alignment = NK_TEXT_LEFT;
-    nk_layout_space_push(rtvars->nuklear_ctx, 
+    struct nk_context *nkctx = rtvars->nuklear_ctx;
+    nk_layout_space_push(nkctx, 
                         nk_rect(bound_info->height + bound_info->pad, 
                         bound_info->y_offset, 
                         bound_info->width - (bound_info->height + bound_info->pad), 
-                        bound_info->content_bounds.h - bound_info->height*4));
-    nk_list_view_begin(rtvars->nuklear_ctx, 
+                        bound_info->content_bounds.h - bound_info->height*3));
+    nk_list_view_begin(nkctx, 
                     &mdata->music_list_view, 
                     "music", 
                     NK_WINDOW_BORDER, 
                     bound_info->height - bound_info->y_alignment, 
                     mdata->music_list.match_count);
-    nk_layout_row_dynamic(rtvars->nuklear_ctx, bound_info->height - bound_info->y_alignment, 1);
+    nkctx->style.button.text_alignment = NK_TEXT_LEFT;
+    nk_layout_row_dynamic(nkctx, bound_info->height - bound_info->y_alignment, 1);
 
     //i think this works now but idk
     uint32_t render_index = 0, file_index = 0;
@@ -534,14 +611,15 @@ void menu_do_music_list(runtime_vars *rtvars,
         { --loop_index; continue; }
         
         char *btntext = mdata->music_list.filenames_string_loclist[render_index];
-        if(nk_button_label(rtvars->nuklear_ctx, btntext))
+        if(nk_button_label(nkctx, btntext))
         { file_list_play_file(btntext, render_index, mdata); }
     }
 
     nk_list_view_end(&mdata->music_list_view);
-    rtvars->nuklear_ctx->style.button.text_alignment = NK_TEXT_CENTERED;
+    nkctx->style.button.text_alignment = NK_TEXT_CENTERED;
 }
 
+//deprecated
 void menu_show_debuginfo(runtime_vars *rtvars, 
                         general_buffer_group *bufgroup, 
                         widget_bounds_info *bound_info,
@@ -573,6 +651,27 @@ void menu_show_debuginfo(runtime_vars *rtvars,
                     debug_col);
 }
 
+void str2lowercase(char *string, int len)
+{
+    if(!string)
+    { return; }
+    for(int i = 0; i < len; ++i)
+    { string[i] = tolower(string[i]); }
+}
+
+char *pac_strcasestr(char *str, char *substr)
+{
+    if(!str || !substr)
+    { return 0; }
+    char lower_str[NAME_MAX], lower_substr[NAME_MAX];
+    strncpy(lower_str, str, NAME_MAX);
+    strncpy(lower_substr, substr, NAME_MAX);
+    str2lowercase(lower_str, strlen(lower_str));
+    str2lowercase(lower_substr, strlen(lower_substr));
+    char *result = strstr(lower_str, lower_substr);
+    return result;
+}
+
 void set_match_flags(char *searchbuf, music_data *mdata)
 {
     file_list *mlist = &mdata->music_list;
@@ -586,7 +685,11 @@ void set_match_flags(char *searchbuf, music_data *mdata)
                 ++file_index)
         {
             string = mlist->filenames_string_loclist[file_index];
+#if 0
             if(strstr(string, searchbuf))
+#else
+            if(pac_strcasestr(string, searchbuf))
+#endif
             {
                 mlist->match_flags[file_index] = 0;
                 ++mlist->match_count;
@@ -654,7 +757,7 @@ void menu_do_list_control(runtime_vars *rtvars,
                         float add_width)
 {
     struct nk_context *nkctx = rtvars->nuklear_ctx;
-    wasdown_flags *dn_flags = &rtvars->down_flags;
+    state_flags *dn_flags = &rtvars->sflags;
 
     nk_layout_space_push(nkctx, 
                         nk_rect(bound_info->height + bound_info->pad, 
@@ -683,14 +786,7 @@ void menu_do_list_control(runtime_vars *rtvars,
     { dn_flags->clear_confirmation = !dn_flags->clear_confirmation; }
 
     if(dn_flags->clear_confirmation)
-    {
-        menu_confirm_clear_file_list(rtvars, 
-                                bound_info, 
-                                mdata, 
-                                &dn_flags->clear_confirmation,
-                                &dn_flags->escape_wasdown,
-                                &dn_flags->enter_wasdown);
-    }
+    { menu_confirm_clear_file_list(rtvars, bound_info, mdata); }
 }
 
 void menu_do_volume_bar(runtime_vars *rtvars,
@@ -706,10 +802,9 @@ void menu_do_volume_bar(runtime_vars *rtvars,
     bound_info->x_offset += (bound_info->height + (vol_width - bound_info->y_alignment));
     if(nk_slider_int(nkctx, 0, &mdata->volume, MIX_MAX_VOLUME, 1))
     { Mix_VolumeMusic(mdata->volume); }
-
 }
 
-void menu_do_seekbar(runtime_vars *rtvars,
+void menu_do_seek_bar(runtime_vars *rtvars,
                     music_data *mdata,
                     widget_bounds_info *bound_info)
 {
@@ -736,9 +831,9 @@ void pac_main_loop(runtime_vars *rtvars,
     static char shuffle_btn_text[4] = {};
     //TODO: refactor this so that all this shit is in a struct instead of here
 
-    wasdown_flags *dn_flags = &rtvars->down_flags;
+    state_flags *dn_flags = &rtvars->sflags;
     struct nk_context *nkctx = rtvars->nuklear_ctx;
-    
+
     if(mdata->sdlmixer_music && (Mix_PlayingMusic() || Mix_PausedMusic()))
     { update_music_info(mdata); }
     char *second_debug_buf = update_debug_buffer_info(mdata, bufgroup);
@@ -753,7 +848,9 @@ void pac_main_loop(runtime_vars *rtvars,
     float add_width = 100.0f;
     float vol_width = 180.0f;
 
+#if 0
     menu_show_debuginfo(rtvars, bufgroup, &bound_info, second_debug_buf);
+#endif
 
     nk_layout_space_push(nkctx, 
                         nk_rect(0, 
@@ -789,13 +886,20 @@ void pac_main_loop(runtime_vars *rtvars,
 
     menu_do_search(rtvars, bufgroup, mdata, &bound_info, add_width);
 
+    if(rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
+            pac_btn_press(SDL_SCANCODE_L, &rtvars->sflags.l_wasdown, rtvars->kbd_state))
+    { cycle_center_view_state(&rtvars->sflags.viewstate); }
+
     //i think something with the scroll bar or something in nuklear
     //is busted since it crashes if the window is too small
     //stops happening with this check, amazingly (might be my fault as well idk)
     if((sdldata->win_height > MLIST_MIN_WIN_WIDTH) && 
             (sdldata->win_width > MLIST_MIN_WIN_HEIGHT))
     {
-        menu_do_music_list(rtvars, mdata, &bound_info);
+        if(rtvars->sflags.viewstate == CENTER_VIEW_STATE_MUSIC_LIST)
+        { menu_do_music_list(rtvars, mdata, &bound_info); }
+        else if(rtvars->sflags.viewstate == CENTER_VIEW_STATE_CURRENT_INFO)
+        { menu_do_current_file_info(rtvars, mdata, bufgroup, &bound_info); }
     }
 
     nk_layout_space_push(nkctx, 
@@ -869,12 +973,24 @@ void pac_main_loop(runtime_vars *rtvars,
     }
 
     menu_do_volume_bar(rtvars, mdata, &bound_info, vol_width);
-    menu_do_seekbar(rtvars, mdata, &bound_info);
+    menu_do_seek_bar(rtvars, mdata, &bound_info);
 
     ////////////////////////////////
 
     nk_layout_space_end(nkctx);
     pac_end_frame(rtvars, sdldata);
+}
+
+char sdlmixer_get_metadata(music_data *mdata)
+{
+    if(!mdata || !mdata->sdlmixer_music)
+    { return 0; }
+
+    audio_metadata_group *amg = &mdata->current_metadata;
+    amg->tag_title =    Mix_GetMusicTitleTag(mdata->sdlmixer_music);
+    amg->tag_artist =   Mix_GetMusicArtistTag(mdata->sdlmixer_music);
+    amg->tag_album =    Mix_GetMusicAlbumTag(mdata->sdlmixer_music);
+    return 1;
 }
 
 void sdlmixer_start_music(music_data *mdata, char *music_path) 
