@@ -10,6 +10,7 @@ Date: Tue 18 Feb 2025 12:57:19 PM EET
 #include <stdarg.h>
 #include <dirent.h>
 #include <time.h>
+#include <locale.h>
 
 #include "SDL.h"
 #include "SDL_mixer.h"
@@ -279,6 +280,8 @@ int main(int arg_count, char **args)
     general_buffer_group bufgroup = {};
     music_data mdata = {};
     strcpy(mdata.music_type_buf, "NONE");
+
+    setlocale(LC_ALL, "en_US.UTF-8");
 
     rtvars.sdldata_ptr = &sdldata;
     rtvars.bufgroup_ptr = &bufgroup;
