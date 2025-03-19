@@ -27,18 +27,44 @@ Date: Tue 18 Feb 2025 12:57:19 PM EET
 #include "2pacwav.h"
 #include "linux_2pacwav.h"
 
-void load_font(runtime_vars *rtvars, char *working_dir) 
+char *find_res_path(runtime_vars *rtvars, char *out_res_path, int bufsize)
+{
+    char *result = 0;
+    char try_buf[PATH_MAX];
+    strncpy(try_buf, rtvars->working_directory, PATH_MAX - 1);
+    char *end_ptr = try_buf + strlen(try_buf);
+    char *last_ptr;
+    int max_tries = 5;
+    for(int try_index = 0; try_index < max_tries; ++try_index)
+    {
+        strcat(end_ptr, "/../res/");
+        if(platform_directory_exists(try_buf))
+        {
+            strncpy(out_res_path, try_buf, bufsize);
+            result = out_res_path;
+            break;
+        }
+        last_ptr = strstr(end_ptr, "/res/");
+        *last_ptr = 0;
+    }
+    return result;
+}
+
+void load_font(runtime_vars *rtvars)
 {
     struct nk_context *nuklear_ctx = rtvars->nuklear_ctx;
+    char *working_dir = rtvars->working_directory;
+    char *res_dir = rtvars->resource_directory;
     char small_font_path[PATH_MAX], big_font_path[PATH_MAX];
-#if _2PACWAV_DEBUG
-    snprintf(small_font_path, PATH_MAX - 1, "%s/../../res/%s", working_dir, PAC_FONT_STRING);
-    snprintf(big_font_path, PATH_MAX - 1, "%s/../../res/%s", working_dir, PAC_BIG_FONT_STRING);
-#else
-    //TODO this wont really work
-    snprintf(small_font_path, PATH_MAX - 1, "%s/../../res/%s", working_dir, PAC_FONT_STRING);
-    snprintf(big_font_path, PATH_MAX - 1, "%s/../../res/%s", working_dir, PAC_BIG_FONT_STRING);
-#endif
+
+    if(find_res_path(rtvars, res_dir, PATH_MAX - 1))
+    {
+        snprintf(small_font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_FONT_STRING);
+        snprintf(big_font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_BIG_FONT_STRING);
+    }
+    else
+    { platform_log("cannot load resources. reason: path missing.\nexiting.\n"); exit(1); }
+
     struct nk_font_config ft_config = {};
     ft_config.oversample_h = 2;
     ft_config.oversample_v = 2;
@@ -217,20 +243,28 @@ void startup_alloc_buffers(ro_heap_buffer *heapbuf, general_buffer_group *bufgro
     } PAC_NOP_MACRO()
 
     memset(heapbuf->memory, 0, PAC_MAIN_STORAGE_SIZE);
-    MEM_INIT_ASSERT(heapbuf, bufgroup->debug_buffer,                    DEBUG_BUFFER_SIZE);
+    MEM_INIT_ASSERT(heapbuf, bufgroup->info_buffer,                     DEBUG_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->music_current_filename,          PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->inbuf_filename,                  PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->inbuf_search,                    PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->working_directory,               PATH_MAX);
+    MEM_INIT_ASSERT(heapbuf, bufgroup->resource_directory,                   PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_match_flags,               MATCH_FLAGS_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_filenames_string_loclist,  FILENAMEBUF_LOCATION_LIST_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_string_loclist,   DIRNAMEBUF_LOCATION_LIST_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_filenames_buf,             FILENAMES_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_buf,              DIRNAMES_BUFFER_SIZE);
 
-    platform_log("unallocated bytes:%.2f/%.2f\n", 
+#if 1
+    //reserving "scratch space"
+    uint64_t space_left = ro_buffer_unallocated_bytes(heapbuf);
+    platform_dbg_log("scrath:%d bytes\n", space_left);
+    MEM_INIT_ASSERT(heapbuf, bufgroup->scratch_space, space_left);
+#else
+    platform_dbg_log("unallocated bytes:%.2f/%.2f\n", 
             (float)(ro_buffer_unallocated_bytes(heapbuf)), 
             (float)(heapbuf->total_bytes));
+#endif
 }
 
 char platform_file_exists(char *path)
@@ -241,6 +275,16 @@ char platform_file_exists(char *path)
 char platform_directory_exists(char *path)
 {
     return ro_posix_directory_exists(path);
+}
+
+int platform_read_file(char *file_path, char *dest, uint64_t *dest_bytes)
+{
+    return ro_posix_read_file(file_path, dest, dest_bytes);
+}
+
+int platform_write_file(char *file_path, void *in_buffer, uint64_t buffer_size)
+{
+    return ro_posix_write_file(file_path, in_buffer, buffer_size);
 }
 
 void handle_command_line(int arg_count, char **args)
@@ -279,6 +323,16 @@ void platform_dbg_log(char *fmt_string, ...)
 #endif
 }
 
+void platform_get_working_directory(char *buf, int buf_size)
+{
+    ro_posix_get_working_directory(buf, buf_size);
+    int len = strlen(buf);
+    if(buf[len - 1] == '/')
+    { buf[len - 1] = 0; }
+}
+
+void test_load_image(runtime_vars *rtvars);
+
 int main(int arg_count, char **args) 
 {
     handle_command_line(arg_count, args);
@@ -311,11 +365,12 @@ int main(int arg_count, char **args)
     { fprintf(stderr, "failed to get memory\n"); return -1; }
     mdata.current_filename = (char *)bufgroup.music_current_filename;
     rtvars.working_directory = (char *)bufgroup.working_directory;
+    rtvars.resource_directory = (char *)bufgroup.resource_directory;
 
-    ro_posix_get_working_directory(rtvars.working_directory, PATH_MAX);
+    platform_get_working_directory(rtvars.working_directory, PATH_MAX);
 
     rtvars.nuklear_ctx = nk_sdl_init(sdldata.window_ptr);
-    load_font(&rtvars, rtvars.working_directory);
+    load_font(&rtvars);
 
     nuklearapi_set_style(rtvars.nuklear_ctx);
     rtvars.nuklear_ctx->style.button.rounding = 0;
@@ -336,6 +391,7 @@ int main(int arg_count, char **args)
     frametime_vars frametime;
     rtvars.frametime_info_ptr = &frametime;
     useconds_t us2sleep;
+    test_load_image(&rtvars);
     while(rtvars.keep_running) 
     {
         frametime.start = ro_posix_get_timestamp();
