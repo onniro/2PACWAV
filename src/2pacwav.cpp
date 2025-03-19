@@ -25,6 +25,11 @@ Date: Sat 22 Feb 2025 06:29:25 PM EET
 #elif _2PACWAV_WIN32
 #endif
 
+#define STB_IMAGE_IMPLEMENTATION 1
+//#define STBI_ONLY_PNG 1
+#define STBI_FAILURE_USERMSG 1
+#include "stb/stb_image.h"
+
 void pac_nop(void) 
 {
     return; 
@@ -189,9 +194,9 @@ void sort_file_list_alpha(file_list *flist)
     qsort(strings, sort_count, sizeof(char **), pac_qsort_strcmp);
 }
 
-char *update_debug_buffer_info(music_data *mdata, general_buffer_group *bufgroup) 
+char *update_info_buffer(music_data *mdata, general_buffer_group *bufgroup) 
 {
-    snprintf((char *)bufgroup->debug_buffer, DEBUG_BUFFER_SIZE - 1, 
+    snprintf((char *)bufgroup->info_buffer, DEBUG_BUFFER_SIZE - 1, 
             "[srate:%dhz][pcm_bits:%d][chan:%d][vol:%d/128][pos:%6.1f/%6.1f][type:%s]\n[path:%s]", 
             mdata->sample_rate, 
             mdata->pcm_bits, 
@@ -204,10 +209,10 @@ char *update_debug_buffer_info(music_data *mdata, general_buffer_group *bufgroup
 
     //lol
 #if 1
-    return (char *)bufgroup->debug_buffer;
+    return (char *)bufgroup->info_buffer;
 #else
-    int dbglen = strlen((char *)bufgroup->debug_buffer);
-    char *second_dbg_buf = ((char *)bufgroup->debug_buffer + dbglen) + 2;
+    int dbglen = strlen((char *)bufgroup->info_buffer);
+    char *second_dbg_buf = ((char *)bufgroup->info_buffer + dbglen) + 2;
     snprintf(second_dbg_buf, (DEBUG_BUFFER_SIZE - 1) - dbglen,
             "[path:%s]", mdata->current_filename);
     return second_dbg_buf;
@@ -509,31 +514,95 @@ void menu_confirm_clear_file_list(runtime_vars *rtvars,
     { dn_flags->clear_confirmation = 0; }
 }
 
+//this is for testing
+//TODO: clean this up and figure out how to extract the cover art and and render it
+#if 0
+typedef struct test_image_info
+{
+    struct nk_image nuk_image;
+    uint8_t *data;
+    int width;
+    int height;
+    int chan;
+    GLuint ogl_tex_id;
+} test_image_info;
+
+static test_image_info global_imginfo;
+#endif
+
+void pac_init_bitmap(bitmap_info *bmpinfo, runtime_vars *rtvars)
+{
+    char path[PATH_MAX];
+    snprintf(path, PATH_MAX - 1, "%s/test_scrat.jpg", rtvars->resource_directory);
+
+    bmpinfo->data = stbi_load(path,
+                            &bmpinfo->width, 
+                            &bmpinfo->height, 
+                            &bmpinfo->chan, 
+                            4);
+    //printf("[image info]:\nw=%d, h=%d, c=%d\n", 
+    //        global_imginfo.width, global_imginfo.height, global_imginfo.chan);
+    glGenTextures(1, &bmpinfo->ogl_tex_id);
+    glBindTexture(GL_TEXTURE_2D, bmpinfo->ogl_tex_id);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 
+            0, 
+            GL_RGBA,
+            bmpinfo->width,
+            bmpinfo->height,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            bmpinfo->data);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    stbi_image_free(bmpinfo->data);
+    bmpinfo->nuk_image = nk_image_id((int)bmpinfo->ogl_tex_id);
+}
+
+void pac_nk_draw_bitmap(runtime_vars *rtvars, bitmap_info *bmpinfo)
+{
+    nk_layout_row_static(rtvars->nuklear_ctx, 
+            bmpinfo->width, 
+            bmpinfo->height, 
+            1);
+    nk_image(rtvars->nuklear_ctx, bmpinfo->nuk_image);
+}
+
 void menu_do_current_file_info(runtime_vars *rtvars, 
                             music_data *mdata, 
                             general_buffer_group *bufgroup,
                             widget_bounds_info *bound_info)
 {
     struct nk_context *nkctx = rtvars->nuklear_ctx;
-    char *debugbuf = (char *)bufgroup->debug_buffer;
-    char *path_begin = strchr(debugbuf, '\n');
-    char metadata_buffer[1024];
-    char *artist_ptr, *album_ptr;
-    char got_metadata = sdlmixer_get_metadata(mdata);
-    if(got_metadata)
+    char *infobuf = (char *)bufgroup->info_buffer;
+    char *path_begin = strchr(infobuf, '\n');
+    *(path_begin++) = 0;
+    char **title_ptr = &mdata->current_metadata.title_begin_in_buf;
+    char **artist_ptr = &mdata->current_metadata.artist_begin_in_buf;
+    char **album_ptr = &mdata->current_metadata.album_begin_in_buf;
+#if 0 //not checking this for now
+    if(mdata->metadata_should_update)
+#else
+#endif
+    //this stuff is kinda spaghetti honestly
+    if(sdlmixer_get_taginfo(mdata))
     {
-        snprintf(metadata_buffer, 1023, "title: %s\nartist: %s\nalbum: %s\000",
+        *title_ptr = path_begin + strlen(path_begin);
+        *((*title_ptr)++) = 0;
+        snprintf(*title_ptr, 1023, "title: %s\nartist: %s\nalbum: %s\000",
                 mdata->current_metadata.tag_title,
                 mdata->current_metadata.tag_artist,
                 mdata->current_metadata.tag_album);
-        artist_ptr = strchr(metadata_buffer, '\n');
-        *artist_ptr++ = 0;
-        album_ptr = strchr(artist_ptr, '\n');
-        *album_ptr++ = 0;
+        *artist_ptr = strchr(*title_ptr, '\n');
+        *((*artist_ptr)++) = 0;
+        *album_ptr = strchr(*artist_ptr, '\n');
+        *((*album_ptr)++) = 0;
     }
 
-    *path_begin = 0;
-    ++path_begin;
     int text_width = bound_info->width - (bound_info->height + bound_info->pad) - 30;
 
     nk_layout_space_push(nkctx, 
@@ -543,29 +612,26 @@ void menu_do_current_file_info(runtime_vars *rtvars,
                         bound_info->content_bounds.h - bound_info->height*3));
     nk_group_begin(nkctx, "music", NK_WINDOW_BORDER);
 
-    //debuginfo (probably get rid of this or change the format)
     nk_layout_row_static(nkctx, 20, text_width, 1);
-    nk_label(nkctx, (char *)bufgroup->debug_buffer, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
+    nk_label(nkctx, (char *)bufgroup->info_buffer, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
     nk_layout_row_static(nkctx, 20, text_width, 1);
     nk_label(nkctx, path_begin, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
 
-    if(got_metadata)
+    if(*title_ptr && *artist_ptr && *album_ptr) //checks after title_ptr are probably redundant
     {
         nk_style_set_font(nkctx, &rtvars->big_font->handle);
-        //nk_layout_row_static(nkctx, 20, text_width, 1);
         nk_layout_row_static(nkctx, 100, text_width, 1);
-        nk_label(nkctx, metadata_buffer,
-                NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
-
+        nk_label(nkctx, *title_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
         nk_layout_row_static(nkctx, 20, text_width, 1);
-        nk_label(nkctx, artist_ptr,
-                NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
-
+        nk_label(nkctx, *artist_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
         nk_layout_row_static(nkctx, 20, text_width, 1);
-        nk_label(nkctx, album_ptr,
-                NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
+        nk_label(nkctx, *album_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
         nk_style_set_font(nkctx, &rtvars->small_font->handle);
     }
+
+#if 1
+    pac_nk_draw_bitmap(rtvars, &mdata->cover);
+#endif
 
     nk_group_end(nkctx);
 }
@@ -622,8 +688,8 @@ void menu_show_debuginfo(runtime_vars *rtvars,
     bound_info->y_offset += 20;
     struct nk_color debug_col = nk_rgba(0xCC, 0xCC, 0x00, 0xFF);
     nk_text_colored(rtvars->nuklear_ctx, 
-                    (char *)bufgroup->debug_buffer, 
-                    strlen((char *)bufgroup->debug_buffer), 
+                    (char *)bufgroup->info_buffer, 
+                    strlen((char *)bufgroup->info_buffer), 
                     NK_TEXT_LEFT, 
                     debug_col);
 
@@ -640,7 +706,7 @@ void menu_show_debuginfo(runtime_vars *rtvars,
                     debug_col);
 }
 
-void str2lowercase(char *string, int len)
+void str2lowercase(char *string, int len) 
 {
     if(!string)
     { return; }
@@ -789,8 +855,26 @@ void menu_do_volume_bar(runtime_vars *rtvars,
                         bound_info->content_bounds.h - bound_info->height - bound_info->pad, 
                         vol_width, bound_info->height));
     bound_info->x_offset += (bound_info->height + (vol_width - bound_info->y_alignment));
+
     if(nk_slider_int(nkctx, 0, &mdata->volume, MIX_MAX_VOLUME, 1))
     { Mix_VolumeMusic(mdata->volume); }
+    if(rtvars->kbd_state[SDL_SCANCODE_LCTRL])
+    {
+        if(rtvars->kbd_state[SDL_SCANCODE_UP])
+        { 
+            if((mdata->volume + 2) < MIX_MAX_VOLUME)
+            { mdata->volume += 2; }
+            else
+            { mdata->volume = MIX_MAX_VOLUME; }
+        }
+        if(rtvars->kbd_state[SDL_SCANCODE_DOWN])
+        { 
+            if((mdata->volume - 2) > 0)
+            { mdata->volume -= 2; }
+            else
+            { mdata->volume = 0; }
+        }
+    }
 }
 
 void menu_do_seek_bar(runtime_vars *rtvars,
@@ -818,14 +902,13 @@ void pac_main_loop(runtime_vars *rtvars,
 {
     static char playback_btn_text[4] = {};
     static char shuffle_btn_text[4] = {};
-    //TODO: refactor this so that all this shit is in a struct instead of here
 
     state_flags *dn_flags = &rtvars->sflags;
     struct nk_context *nkctx = rtvars->nuklear_ctx;
 
     if(mdata->sdlmixer_music && (Mix_PlayingMusic() || Mix_PausedMusic()))
     { update_music_info(mdata); }
-    char *second_debug_buf = update_debug_buffer_info(mdata, bufgroup);
+    char *second_debug_buf = update_info_buffer(mdata, bufgroup);
 
     pac_begin_frame(rtvars, sdldata);
 
@@ -877,7 +960,10 @@ void pac_main_loop(runtime_vars *rtvars,
 
     if(rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
             pac_btn_press(SDL_SCANCODE_L, &rtvars->sflags.l_wasdown, rtvars->kbd_state))
-    { cycle_center_view_state(&rtvars->sflags.viewstate); }
+    { 
+        mdata->metadata_should_update = 1;
+        cycle_center_view_state(&rtvars->sflags.viewstate); 
+    }
 
     //i think something with the scroll bar or something in nuklear
     //is busted since it crashes if the window is too small
@@ -909,7 +995,9 @@ void pac_main_loop(runtime_vars *rtvars,
                         bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*4, 
                         bound_info.height, 
                         bound_info.height));
-    if(nk_button_label(nkctx, ">>"))
+    if(nk_button_label(nkctx, ">>") ||
+            (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
+            pac_btn_press(SDL_SCANCODE_RIGHT, &rtvars->sflags.right_wasdown, rtvars->kbd_state)))
     { 
         goto_next_file(mdata); 
     }
@@ -919,7 +1007,9 @@ void pac_main_loop(runtime_vars *rtvars,
                         bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*3, 
                         bound_info.height, 
                         bound_info.height));
-    if(nk_button_label(nkctx, "<<"))
+    if(nk_button_label(nkctx, "<<") ||
+            (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
+            pac_btn_press(SDL_SCANCODE_LEFT, &rtvars->sflags.left_wasdown, rtvars->kbd_state)))
     {
         goto_prev_file(mdata);
     }
@@ -966,11 +1056,13 @@ void pac_main_loop(runtime_vars *rtvars,
 
     ////////////////////////////////
 
+    mdata->metadata_should_update = 0;
+
     nk_layout_space_end(nkctx);
     pac_end_frame(rtvars, sdldata);
 }
 
-char sdlmixer_get_metadata(music_data *mdata)
+char sdlmixer_get_taginfo(music_data *mdata)
 {
     if(!mdata || !mdata->sdlmixer_music)
     { return 0; }
@@ -997,6 +1089,7 @@ void sdlmixer_start_music(music_data *mdata, char *music_path)
     }
     else
     { fprintf(stderr, "failed to load music. desc: %s\n", SDL_GetError()); }
+    mdata->metadata_should_update = 1;
 }
 
 void sdlmixer_stop_music(music_data *mdata)
@@ -1008,6 +1101,7 @@ void sdlmixer_stop_music(music_data *mdata)
         mdata->sdlmixer_music = 0;
         strcpy(mdata->music_type_buf, "NONE");
     }
+    mdata->metadata_should_update = 1;
 }
 
 char pac_init_sdlmixer(music_data *mdata) 
@@ -1088,7 +1182,7 @@ char pac_init_sdl(sdl_apidata *sdldata)
 void nuklearapi_set_style(struct nk_context *ctx) 
 {
     struct nk_color color_tbl[NK_COLOR_COUNT];
-    color_tbl[NK_COLOR_TEXT] = nk_rgba(0xCC, 0xCC, 0xCC, 0xFF);
+    color_tbl[NK_COLOR_TEXT] = nk_rgba(0xDD, 0xDD, 0xDD, 0xFF);
     color_tbl[NK_COLOR_WINDOW] = nk_rgba(0, 0, 0, 0xFF);
     color_tbl[NK_COLOR_HEADER] = nk_rgba(51, 51, 56, 220);
     color_tbl[NK_COLOR_BORDER] = nk_rgba(0xAA, 0xAA, 0xAA, 0xFF);

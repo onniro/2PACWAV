@@ -24,7 +24,6 @@ int platform_get_directory_listing_presorted(char *path, file_list *out_flist, r
 int platform_get_directory_listing(char *path, file_list *out_flist);
 int platform_read_file(char *file_path, char *dest, uint64_t *dest_bytes);
 int platform_write_file(char *file_path, char *dest, uint64_t *dest_bytes);
-//int platform_write_file(char *file_path, void *in_buffer, uint64_t buffer_size);
 
 #ifdef __cplusplus
 }

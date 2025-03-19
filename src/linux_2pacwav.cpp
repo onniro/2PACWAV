@@ -331,8 +331,6 @@ void platform_get_working_directory(char *buf, int buf_size)
     { buf[len - 1] = 0; }
 }
 
-void test_load_image(runtime_vars *rtvars);
-
 int main(int arg_count, char **args) 
 {
     handle_command_line(arg_count, args);
@@ -391,7 +389,7 @@ int main(int arg_count, char **args)
     frametime_vars frametime;
     rtvars.frametime_info_ptr = &frametime;
     useconds_t us2sleep;
-    test_load_image(&rtvars);
+    pac_init_bitmap(&mdata.cover, &rtvars);
     while(rtvars.keep_running) 
     {
         frametime.start = ro_posix_get_timestamp();
