@@ -651,7 +651,7 @@ void mlist_handle_keyboard_nav(runtime_vars *rtvars, music_data *mdata)
                 { ++mlist->sel_index; }
             } while(mlist->match_flags[mlist->sel_index]);
         }
-        if(pac_btn_press(SDL_SCANCODE_UP, &rtvars->sflags.up_wasdown, rtvars->kbd_state))
+        else if(pac_btn_press(SDL_SCANCODE_UP, &rtvars->sflags.up_wasdown, rtvars->kbd_state))
         {
             do 
             { 
@@ -695,19 +695,16 @@ void menu_do_music_list(runtime_vars *rtvars,
         { --loop_index; continue; }
 
         char *btntext = mlist->filenames_string_loclist[render_index];
-
-        //this looks real dumb
-        if(mlist->sel_index == render_index)
+        if(mlist->sel_index == render_index) 
         { 
             pac_nk_set_button_active(nkctx); 
-
             if(nk_button_label(nkctx, btntext) || 
                     (!rtvars->sflags.text_field_focused &&
                     pac_btn_press(SDL_SCANCODE_RETURN, &rtvars->sflags.enter_wasdown, rtvars->kbd_state)))
             { file_list_play_file(btntext, mlist->sel_index, mdata); }
             pac_nk_set_button_normal(nkctx); 
-        }
-        else
+        } 
+        else 
         { 
             pac_nk_set_button_normal(nkctx); 
             if(nk_button_label(nkctx, btntext))
@@ -721,17 +718,19 @@ void menu_do_music_list(runtime_vars *rtvars,
 
 void str2lowercase(char *string, int len) 
 {
-    if(!string)
-    { return; }
+    //if(!string)
+    //{ return; }
     for(int i = 0; i < len; ++i)
     { string[i] = tolower(string[i]); }
 }
 
 char *pac_strcasestr(char *str, char *substr) 
 {
-    //if(!str || !substr)
-    //{ return 0; }
-    char lower_str[NAME_MAX], lower_substr[NAME_MAX];
+    if(!str || !substr)
+    { return 0; }
+    //fun fact: if there aren't static the return value gets optimized out
+    //(meaning that this function will always return null)
+    static char lower_str[NAME_MAX], lower_substr[NAME_MAX];
     strncpy(lower_str, str, NAME_MAX);
     strncpy(lower_substr, substr, NAME_MAX);
     str2lowercase(lower_str, strlen(lower_str));
