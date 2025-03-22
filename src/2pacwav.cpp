@@ -728,7 +728,7 @@ char *pac_strcasestr(char *str, char *substr)
 {
     if(!str || !substr)
     { return 0; }
-    //fun fact: if there aren't static the return value gets optimized out
+    //fun fact: if these aren't static the return value gets optimized out
     //(meaning that this function will always return null)
     static char lower_str[NAME_MAX], lower_substr[NAME_MAX];
     strncpy(lower_str, str, NAME_MAX);
