@@ -73,7 +73,7 @@ void load_font(runtime_vars *rtvars)
 #else
     ft_config.range = pac_font_glyph_ranges();
 #endif
-
+    
     struct nk_font_atlas *ft_atlas;
     nk_sdl_font_stash_begin(&ft_atlas);
     rtvars->small_font = nk_font_atlas_add_from_file(ft_atlas, 
@@ -331,6 +331,8 @@ void platform_get_working_directory(char *buf, int buf_size)
     { buf[len - 1] = 0; }
 }
 
+char taglib_get_albumcover(bitmap_info *bmpinfo, char *path);
+
 int main(int arg_count, char **args) 
 {
     handle_command_line(arg_count, args);
@@ -362,6 +364,7 @@ int main(int arg_count, char **args)
     else
     { fprintf(stderr, "failed to get memory\n"); return -1; }
     mdata.current_filename = (char *)bufgroup.music_current_filename;
+    mdata.rtvars_ptr = &rtvars;
     rtvars.working_directory = (char *)bufgroup.working_directory;
     rtvars.resource_directory = (char *)bufgroup.resource_directory;
 
@@ -389,7 +392,12 @@ int main(int arg_count, char **args)
     frametime_vars frametime;
     rtvars.frametime_info_ptr = &frametime;
     useconds_t us2sleep;
-    pac_init_bitmap(&mdata.cover, &rtvars);
+
+    //if(taglib_get_albumcover(&mdata.cover, "/home/onni/source/2pacwav/res/beware.mp3"))
+    //{
+    //    pac_init_bitmap(&mdata.cover, &rtvars);
+    //}
+
     while(rtvars.keep_running) 
     {
         frametime.start = ro_posix_get_timestamp();

@@ -105,7 +105,6 @@ RO_DEF void *ro_buffer_alloc_region(struct ro_heap_buffer *buffer, uint64_t regi
     return result;
 }
 
-//(pass negative value in place of bytes to decrement write_ptr)
 RO_DEF void ro_buffer_move_writeptr(ro_heap_buffer *buffer, 
                                     ssize_t bytes, 
                                     char write_zeroes) 

@@ -17,6 +17,22 @@ Date: Sat 22 Feb 2025 06:29:25 PM EET
 #include "nuklear.h"
 #include "nuklear_sdl_gl2.h"
 
+#define STB_IMAGE_IMPLEMENTATION 1
+#define STBI_FAILURE_USERMSG 1
+#include "stb/stb_image.h"
+
+#if 1
+#include "tag.h"
+#include "fileref.h"
+#include "frames/attachedpictureframe.h"
+#include "id3v2frame.h"
+#include "id3v2header.h"
+#include "id3v2tag.h"
+#include "mpegfile.h"
+#else
+#include "id3v2lib.h"
+#endif
+
 #include "2pacwav.h"
 
 #if _2PACWAV_LINUX
@@ -24,11 +40,6 @@ Date: Sat 22 Feb 2025 06:29:25 PM EET
     #include "linux_2pacwav.h"
 #elif _2PACWAV_WIN32
 #endif
-
-#define STB_IMAGE_IMPLEMENTATION 1
-//#define STBI_ONLY_PNG 1
-#define STBI_FAILURE_USERMSG 1
-#include "stb/stb_image.h"
 
 void pac_nop(void) 
 {
@@ -194,7 +205,7 @@ void sort_file_list_alpha(file_list *flist)
     qsort(strings, sort_count, sizeof(char **), pac_qsort_strcmp);
 }
 
-char *update_info_buffer(music_data *mdata, general_buffer_group *bufgroup) 
+void update_info_buffer(music_data *mdata, general_buffer_group *bufgroup) 
 {
     snprintf((char *)bufgroup->info_buffer, DEBUG_BUFFER_SIZE - 1, 
             "[srate:%dhz][pcm_bits:%d][chan:%d][vol:%d/128][pos:%6.1f/%6.1f][type:%s]\n[path:%s]", 
@@ -206,17 +217,6 @@ char *update_info_buffer(music_data *mdata, general_buffer_group *bufgroup)
             mdata->current_duration,
             mdata->music_type_buf,
             mdata->current_filename);
-
-    //lol
-#if 1
-    return (char *)bufgroup->info_buffer;
-#else
-    int dbglen = strlen((char *)bufgroup->info_buffer);
-    char *second_dbg_buf = ((char *)bufgroup->info_buffer + dbglen) + 2;
-    snprintf(second_dbg_buf, (DEBUG_BUFFER_SIZE - 1) - dbglen,
-            "[path:%s]", mdata->current_filename);
-    return second_dbg_buf;
-#endif
 }
 
 void sdlmixer_get_music_type(music_data *mdata)
@@ -514,34 +514,16 @@ void menu_confirm_clear_file_list(runtime_vars *rtvars,
     { dn_flags->clear_confirmation = 0; }
 }
 
-//this is for testing
-//TODO: clean this up and figure out how to extract the cover art and and render it
-#if 0
-typedef struct test_image_info
-{
-    struct nk_image nuk_image;
-    uint8_t *data;
-    int width;
-    int height;
-    int chan;
-    GLuint ogl_tex_id;
-} test_image_info;
-
-static test_image_info global_imginfo;
-#endif
-
 void pac_init_bitmap(bitmap_info *bmpinfo, runtime_vars *rtvars)
 {
-    char path[PATH_MAX];
-    snprintf(path, PATH_MAX - 1, "%s/test_scrat.jpg", rtvars->resource_directory);
-
-    bmpinfo->data = stbi_load(path,
-                            &bmpinfo->width, 
-                            &bmpinfo->height, 
-                            &bmpinfo->chan, 
-                            4);
-    //printf("[image info]:\nw=%d, h=%d, c=%d\n", 
-    //        global_imginfo.width, global_imginfo.height, global_imginfo.chan);
+    bmpinfo->img_data = stbi_load_from_memory(bmpinfo->img_data,
+                                bmpinfo->img_data_bytes,
+                                &bmpinfo->width, 
+                                &bmpinfo->height, 
+                                &bmpinfo->chan, 
+                                4);
+    if(bmpinfo->ogl_tex_id)
+    { glDeleteTextures(1, &bmpinfo->ogl_tex_id); }
     glGenTextures(1, &bmpinfo->ogl_tex_id);
     glBindTexture(GL_TEXTURE_2D, bmpinfo->ogl_tex_id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -556,20 +538,36 @@ void pac_init_bitmap(bitmap_info *bmpinfo, runtime_vars *rtvars)
             0,
             GL_RGBA,
             GL_UNSIGNED_BYTE,
-            bmpinfo->data);
+            bmpinfo->img_data);
 
     glBindTexture(GL_TEXTURE_2D, 0);
-    stbi_image_free(bmpinfo->data);
+    stbi_image_free(bmpinfo->img_data);
     bmpinfo->nuk_image = nk_image_id((int)bmpinfo->ogl_tex_id);
 }
 
 void pac_nk_draw_bitmap(runtime_vars *rtvars, bitmap_info *bmpinfo)
 {
-    nk_layout_row_static(rtvars->nuklear_ctx, 
-            bmpinfo->width, 
-            bmpinfo->height, 
-            1);
+    //change width and height (+ you will probably have to do resizing on the image)
+    nk_layout_row_static(rtvars->nuklear_ctx, bmpinfo->width, bmpinfo->height, 1);
     nk_image(rtvars->nuklear_ctx, bmpinfo->nuk_image);
+}
+
+void format_taginfo(music_data *mdata, char *begin)
+{
+    char **title_ptr = &mdata->current_metadata.title_begin_in_buf;
+    char **artist_ptr = &mdata->current_metadata.artist_begin_in_buf;
+    char **album_ptr = &mdata->current_metadata.album_begin_in_buf;
+
+    *title_ptr = begin;
+    **title_ptr = 0; ++*title_ptr;
+    snprintf(*title_ptr, 1023, "title: %s\nartist: %s\nalbum: %s\000",
+            mdata->current_metadata.tag_title,
+            mdata->current_metadata.tag_artist,
+            mdata->current_metadata.tag_album);
+    *artist_ptr = strchr(*title_ptr, '\n');
+    **artist_ptr = 0; ++*artist_ptr;
+    *album_ptr = strchr(*artist_ptr, '\n');
+    **album_ptr = 0; ++*album_ptr;
 }
 
 void menu_do_current_file_info(runtime_vars *rtvars, 
@@ -577,30 +575,20 @@ void menu_do_current_file_info(runtime_vars *rtvars,
                             general_buffer_group *bufgroup,
                             widget_bounds_info *bound_info)
 {
+    update_info_buffer(mdata, bufgroup);
+
     struct nk_context *nkctx = rtvars->nuklear_ctx;
     char *infobuf = (char *)bufgroup->info_buffer;
     char *path_begin = strchr(infobuf, '\n');
-    *(path_begin++) = 0;
+    *path_begin = 0; ++path_begin;
     char **title_ptr = &mdata->current_metadata.title_begin_in_buf;
     char **artist_ptr = &mdata->current_metadata.artist_begin_in_buf;
     char **album_ptr = &mdata->current_metadata.album_begin_in_buf;
-#if 0 //not checking this for now
-    if(mdata->metadata_should_update)
-#else
-#endif
-    //this stuff is kinda spaghetti honestly
+
     if(sdlmixer_get_taginfo(mdata))
-    {
-        *title_ptr = path_begin + strlen(path_begin);
-        *((*title_ptr)++) = 0;
-        snprintf(*title_ptr, 1023, "title: %s\nartist: %s\nalbum: %s\000",
-                mdata->current_metadata.tag_title,
-                mdata->current_metadata.tag_artist,
-                mdata->current_metadata.tag_album);
-        *artist_ptr = strchr(*title_ptr, '\n');
-        *((*artist_ptr)++) = 0;
-        *album_ptr = strchr(*artist_ptr, '\n');
-        *((*album_ptr)++) = 0;
+    { 
+        char *meta_begin = path_begin + strlen(path_begin);
+        format_taginfo(mdata, meta_begin); 
     }
 
     int text_width = bound_info->width - (bound_info->height + bound_info->pad) - 30;
@@ -617,23 +605,61 @@ void menu_do_current_file_info(runtime_vars *rtvars,
     nk_layout_row_static(nkctx, 20, text_width, 1);
     nk_label(nkctx, path_begin, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
 
-    if(*title_ptr && *artist_ptr && *album_ptr) //checks after title_ptr are probably redundant
-    {
-        nk_style_set_font(nkctx, &rtvars->big_font->handle);
-        nk_layout_row_static(nkctx, 100, text_width, 1);
-        nk_label(nkctx, *title_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
-        nk_layout_row_static(nkctx, 20, text_width, 1);
-        nk_label(nkctx, *artist_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
-        nk_layout_row_static(nkctx, 20, text_width, 1);
-        nk_label(nkctx, *album_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
-        nk_style_set_font(nkctx, &rtvars->small_font->handle);
-    }
+    nk_style_set_font(nkctx, &rtvars->big_font->handle);
+    nk_layout_row_static(nkctx, 100, text_width, 1);
+    if(*title_ptr) 
+    { nk_label(nkctx, *title_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM); }
+    nk_layout_row_static(nkctx, 20, text_width, 1);
+    if(*artist_ptr) 
+    { nk_label(nkctx, *artist_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM); }
+    nk_layout_row_static(nkctx, 20, text_width, 1);
+    if(*album_ptr)
+    { nk_label(nkctx, *album_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM); }
+    nk_style_set_font(nkctx, &rtvars->small_font->handle);
 
-#if 1
-    pac_nk_draw_bitmap(rtvars, &mdata->cover);
-#endif
+    //pac_nk_draw_bitmap(rtvars, &mdata->cover);
 
     nk_group_end(nkctx);
+}
+
+void pac_nk_set_button_active(struct nk_context *nkctx)
+{
+    nkctx->style.button.normal = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
+    nkctx->style.button.hover = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
+    nkctx->style.button.active = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
+    nkctx->style.button.border_color = nk_rgba(0xBB, 0xBB, 0xBB, 0xFF);
+}
+
+void pac_nk_set_button_normal(struct nk_context *nkctx)
+{
+    nkctx->style.button.normal = nk_style_item_color(nk_rgba(0x15, 0x15, 0x15, 0xFF));
+    nkctx->style.button.hover = nk_style_item_color(nk_rgba(0x33, 0x33, 0x33, 0xFF));
+    nkctx->style.button.active = nk_style_item_color(nk_rgba(63, 98, 126, 0xFF));
+    nkctx->style.button.border_color = nk_rgba(0xAA, 0xAA, 0xAA, 0xFF);
+}
+
+void mlist_handle_keyboard_nav(runtime_vars *rtvars, music_data *mdata)
+{
+    file_list *mlist = &mdata->music_list;
+    if(!rtvars->kbd_state[SDL_SCANCODE_LCTRL] && !rtvars->sflags.text_field_focused)
+    {
+        if(pac_btn_press(SDL_SCANCODE_DOWN, &rtvars->sflags.down_wasdown, rtvars->kbd_state))
+        {
+            do
+            { 
+                if(mlist->sel_index < (mlist->entry_count - 1))
+                { ++mlist->sel_index; }
+            } while(mlist->match_flags[mlist->sel_index]);
+        }
+        if(pac_btn_press(SDL_SCANCODE_UP, &rtvars->sflags.up_wasdown, rtvars->kbd_state))
+        {
+            do 
+            { 
+                if(mlist->sel_index)
+                { --mlist->sel_index; }
+            } while(mlist->match_flags[mlist->sel_index]);
+        }
+    }
 }
 
 void menu_do_music_list(runtime_vars *rtvars, 
@@ -641,6 +667,7 @@ void menu_do_music_list(runtime_vars *rtvars,
                     widget_bounds_info *bound_info)
 {
     struct nk_context *nkctx = rtvars->nuklear_ctx;
+    file_list *mlist = &mdata->music_list;
     nk_layout_space_push(nkctx, 
                         nk_rect(bound_info->height + bound_info->pad, 
                         bound_info->y_offset, 
@@ -655,6 +682,8 @@ void menu_do_music_list(runtime_vars *rtvars,
     nkctx->style.button.text_alignment = NK_TEXT_LEFT;
     nk_layout_row_dynamic(nkctx, bound_info->height - bound_info->y_alignment, 1);
 
+    mlist_handle_keyboard_nav(rtvars, mdata);
+
     //i think this works now but idk
     uint32_t render_index = 0, file_index = 0;
     for(int loop_index = 0;
@@ -662,48 +691,32 @@ void menu_do_music_list(runtime_vars *rtvars,
             ++loop_index)
     {
         render_index = file_index++ + mdata->music_list_view.begin;
-        if(mdata->music_list.match_flags[render_index])
+        if(mlist->match_flags[render_index])
         { --loop_index; continue; }
-        
-        char *btntext = mdata->music_list.filenames_string_loclist[render_index];
-        if(nk_button_label(nkctx, btntext))
-        { file_list_play_file(btntext, render_index, mdata); }
+
+        char *btntext = mlist->filenames_string_loclist[render_index];
+
+        //this looks real dumb
+        if(mlist->sel_index == render_index)
+        { 
+            pac_nk_set_button_active(nkctx); 
+
+            if(nk_button_label(nkctx, btntext) || 
+                    (!rtvars->sflags.text_field_focused &&
+                    pac_btn_press(SDL_SCANCODE_RETURN, &rtvars->sflags.enter_wasdown, rtvars->kbd_state)))
+            { file_list_play_file(btntext, mlist->sel_index, mdata); }
+            pac_nk_set_button_normal(nkctx); 
+        }
+        else
+        { 
+            pac_nk_set_button_normal(nkctx); 
+            if(nk_button_label(nkctx, btntext))
+            { file_list_play_file(btntext, render_index, mdata); }
+        }
     }
 
     nk_list_view_end(&mdata->music_list_view);
     nkctx->style.button.text_alignment = NK_TEXT_CENTERED;
-}
-
-//deprecated
-void menu_show_debuginfo(runtime_vars *rtvars, 
-                        general_buffer_group *bufgroup, 
-                        widget_bounds_info *bound_info,
-                        char *second_debug_buf)
-{
-    nk_layout_space_push(rtvars->nuklear_ctx, 
-                        nk_rect(0, 
-                        bound_info->y_offset, 
-                        bound_info->width, 
-                        bound_info->height - 20));
-    bound_info->y_offset += 20;
-    struct nk_color debug_col = nk_rgba(0xCC, 0xCC, 0x00, 0xFF);
-    nk_text_colored(rtvars->nuklear_ctx, 
-                    (char *)bufgroup->info_buffer, 
-                    strlen((char *)bufgroup->info_buffer), 
-                    NK_TEXT_LEFT, 
-                    debug_col);
-
-    nk_layout_space_push(rtvars->nuklear_ctx,
-                        nk_rect(0, 
-                        bound_info->y_offset, 
-                        bound_info->width, 
-                        bound_info->height - 20));
-    bound_info->y_offset += 20;
-    nk_text_colored(rtvars->nuklear_ctx, 
-                    second_debug_buf, 
-                    strlen(second_debug_buf), 
-                    NK_TEXT_LEFT, 
-                    debug_col);
 }
 
 void str2lowercase(char *string, int len) 
@@ -714,10 +727,10 @@ void str2lowercase(char *string, int len)
     { string[i] = tolower(string[i]); }
 }
 
-char *pac_strcasestr(char *str, char *substr)
+char *pac_strcasestr(char *str, char *substr) 
 {
-    if(!str || !substr)
-    { return 0; }
+    //if(!str || !substr)
+    //{ return 0; }
     char lower_str[NAME_MAX], lower_substr[NAME_MAX];
     strncpy(lower_str, str, NAME_MAX);
     strncpy(lower_substr, substr, NAME_MAX);
@@ -797,6 +810,7 @@ void menu_do_search(runtime_vars *rtvars,
 
     if(field_outflags & NK_EDIT_ACTIVE)
     {
+        rtvars->sflags.text_field_focused = 1;
         new_searchbuf_length = strlen(searchbuf);
         got_input = (searchbuf_length != new_searchbuf_length);
         searchbuf_length = new_searchbuf_length;
@@ -866,6 +880,7 @@ void menu_do_volume_bar(runtime_vars *rtvars,
             { mdata->volume += 2; }
             else
             { mdata->volume = MIX_MAX_VOLUME; }
+            Mix_VolumeMusic(mdata->volume);
         }
         if(rtvars->kbd_state[SDL_SCANCODE_DOWN])
         { 
@@ -873,6 +888,7 @@ void menu_do_volume_bar(runtime_vars *rtvars,
             { mdata->volume -= 2; }
             else
             { mdata->volume = 0; }
+            Mix_VolumeMusic(mdata->volume);
         }
     }
 }
@@ -908,21 +924,14 @@ void pac_main_loop(runtime_vars *rtvars,
 
     if(mdata->sdlmixer_music && (Mix_PlayingMusic() || Mix_PausedMusic()))
     { update_music_info(mdata); }
-    char *second_debug_buf = update_info_buffer(mdata, bufgroup);
 
     pac_begin_frame(rtvars, sdldata);
-
-    ////////////////////////////////
 
     nk_layout_space_begin(nkctx, NK_STATIC, 0, INT_MAX);
     widget_bounds_info bound_info = {};
     query_bounds_info(nkctx, &bound_info);
     float add_width = 100.0f;
     float vol_width = 180.0f;
-
-#if 0
-    menu_show_debuginfo(rtvars, bufgroup, &bound_info, second_debug_buf);
-#endif
 
     nk_layout_space_push(nkctx, 
                         nk_rect(0, 
@@ -933,7 +942,14 @@ void pac_main_loop(runtime_vars *rtvars,
     if(rtvars->kbd_state[SDL_SCANCODE_LALT])
     {
         if(pac_btn_press(SDL_SCANCODE_D, &dn_flags->d_wasdown, rtvars->kbd_state))
-        { nk_edit_focus(nkctx, NK_TEXT_EDIT_MODE_INSERT); }
+        { 
+            nk_edit_focus(nkctx, NK_TEXT_EDIT_MODE_INSERT); 
+            rtvars->sflags.text_field_focused = 1;
+        }
+    }
+    if(rtvars->kbd_state[SDL_SCANCODE_ESCAPE])
+    { 
+        nk_edit_unfocus(nkctx); 
     }
 
     nk_flags file_field_outflags = nk_edit_string_zero_terminated(nkctx, 
@@ -941,6 +957,8 @@ void pac_main_loop(runtime_vars *rtvars,
                                         (char *)bufgroup->inbuf_filename, 
                                         PATH_MAX - 1, 
                                         nk_filter_default);
+    if(file_field_outflags & NK_EDIT_ACTIVE)
+    { rtvars->sflags.text_field_focused = 1; }
 
     nk_layout_space_push(nkctx, 
                         nk_rect(bound_info.width - add_width, 
@@ -960,10 +978,7 @@ void pac_main_loop(runtime_vars *rtvars,
 
     if(rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
             pac_btn_press(SDL_SCANCODE_L, &rtvars->sflags.l_wasdown, rtvars->kbd_state))
-    { 
-        mdata->metadata_should_update = 1;
-        cycle_center_view_state(&rtvars->sflags.viewstate); 
-    }
+    { cycle_center_view_state(&rtvars->sflags.viewstate); }
 
     //i think something with the scroll bar or something in nuklear
     //is busted since it crashes if the window is too small
@@ -1054,13 +1069,58 @@ void pac_main_loop(runtime_vars *rtvars,
     menu_do_volume_bar(rtvars, mdata, &bound_info, vol_width);
     menu_do_seek_bar(rtvars, mdata, &bound_info);
 
-    ////////////////////////////////
-
-    mdata->metadata_should_update = 0;
-
     nk_layout_space_end(nkctx);
     pac_end_frame(rtvars, sdldata);
+    rtvars->sflags.text_field_focused = 0;
 }
+
+#if 1
+//move this shit to another file
+char taglib_get_albumcover(bitmap_info *bmpinfo, char *path)
+{
+    char result = 0;
+    TagLib::MPEG::File file(path);
+    TagLib::ID3v2::Tag *id3tag = file.ID3v2Tag();
+    TagLib::ID3v2::FrameList frames;
+    TagLib::ID3v2::AttachedPictureFrame *pic_frame;
+
+    if(id3tag)
+    {
+        frames = id3tag->frameListMap()["APIC"];
+        if(!frames.isEmpty())
+        {
+            for(TagLib::ID3v2::FrameList::ConstIterator iter = frames.begin(); 
+                    iter != frames.end(); 
+                    ++iter)
+            {
+                pic_frame = (TagLib::ID3v2::AttachedPictureFrame *)(*iter);
+                if(pic_frame->type() == TagLib::ID3v2::AttachedPictureFrame::FrontCover) 
+                {
+                    bmpinfo->img_data = (uint8_t *)pic_frame->picture().data();
+                    bmpinfo->img_data_bytes = pic_frame->picture().size();
+                    result = 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    return result;
+}
+#elif 0
+char id3_get_albumcover(music_data *mdata)
+{
+    if(!mdata || !mdata->sdlmixer_music)
+    { return 0; }
+    ID3v2_Tag *tag = ID3v2_read_tag(mdata->current_filename);
+    if(!tag)
+    { return 0; }
+
+    ID3v2_ApicFrame *apic_frame = ID3v2_Tag_get_album_cover_frame(tag);
+    int x = 100;
+    return 1;
+}
+#endif
 
 char sdlmixer_get_taginfo(music_data *mdata)
 {
@@ -1086,10 +1146,11 @@ void sdlmixer_start_music(music_data *mdata, char *music_path)
         mdata->paused = 0;
         sdlmixer_get_music_type(mdata);
         Mix_FadeInMusic(mdata->sdlmixer_music, 0, 0); 
+        //id3_get_albumcover(mdata);
+        //taglib_get_albumcover(mdata);
     }
     else
     { fprintf(stderr, "failed to load music. desc: %s\n", SDL_GetError()); }
-    mdata->metadata_should_update = 1;
 }
 
 void sdlmixer_stop_music(music_data *mdata)
@@ -1101,7 +1162,6 @@ void sdlmixer_stop_music(music_data *mdata)
         mdata->sdlmixer_music = 0;
         strcpy(mdata->music_type_buf, "NONE");
     }
-    mdata->metadata_should_update = 1;
 }
 
 char pac_init_sdlmixer(music_data *mdata) 

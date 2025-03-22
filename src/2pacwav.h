@@ -13,7 +13,7 @@ extern "C"
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (1)
-#define _2PACWAV_VER_PATCH      (2)
+#define _2PACWAV_VER_PATCH      (3)
 
 #include "ro_heapbuf.h"
 
@@ -26,9 +26,8 @@ extern "C"
 
 #define PAC_FONT_STRING "LiberationMono-Regular.ttf"
 #define PAC_BIG_FONT_STRING "LiberationMono-Regular.ttf"
-
-#define PAC_NUKLEAR_FONTSIZE (14.0f)
-#define PAC_NUKLEAR_BIG_FONTSIZE (24.0f)
+#define PAC_NUKLEAR_FONTSIZE (15.0f)
+#define PAC_NUKLEAR_BIG_FONTSIZE (25.0f)
 
 static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 
@@ -62,6 +61,16 @@ static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 #define SEARCH_BUFFER_SIZE                  (NAME_MAX)
 #define MATCH_FLAGS_BUFFER_SIZE             (PAC_MAX_FILES*sizeof(char))
 
+struct runtime_vars;
+struct general_buffer_group;
+struct file_list;
+struct state_flags;
+struct widget_bounds_info;
+struct audio_metadata_group;
+struct bitmap_info;
+struct sdl_apidata;
+struct music_data;
+
 typedef struct general_buffer_group 
 {
     void *inbuf_filename;
@@ -84,6 +93,7 @@ typedef struct file_list
     uint32_t dirs_added;
     uint32_t current_index;
     uint32_t match_count;
+    uint32_t sel_index;
     char *dirnames_buf;                 //buffer containing the directories added, delimited by null
     char *filenames_buf;                //buffer containing file names, delimited by null
     char **filenames_string_loclist;    //array of pointers which specify the beginnings of strings in the filename array
@@ -130,6 +140,7 @@ typedef struct state_flags
     char enter_wasdown;
     char escape_wasdown;
     char clear_confirmation;
+    char text_field_focused;
     center_view_state viewstate;
 } state_flags;
 
@@ -159,7 +170,8 @@ typedef struct audio_metadata_group
 typedef struct bitmap_info
 {
     struct nk_image nuk_image;
-    uint8_t *data;
+    uint8_t *img_data;
+    int img_data_bytes;
     int width;
     int height;
     int chan;
@@ -170,7 +182,6 @@ typedef struct music_data
 {
     char paused; //Mix_PausedMusic() doesn't work seemingly
     char shuffle_enabled;
-    char metadata_should_update;
     uint16_t pcm_bits;
     int sample_rate;
     int channels;
@@ -180,6 +191,7 @@ typedef struct music_data
     double current_position;
     double current_duration;
     char *current_filename;
+    runtime_vars *rtvars_ptr;
     file_list music_list;
     Mix_Music *sdlmixer_music; //IMPORTANT: ALWAYS SET TO NULL WHEN MUSIC IS UNLOADED
     audio_metadata_group current_metadata;
@@ -229,6 +241,7 @@ void file_list_push_dirname(char *dirname, file_list *flist);
 void set_match_flags(char *searchbuf, music_data *mdata);
 void update_music_info(music_data *mdata);
 void pac_main_loop(runtime_vars *rtvars, sdl_apidata *sdldata, general_buffer_group *bufgroup, music_data *mdata);
+char id3_get_taginfo(music_data *mdata);
 char sdlmixer_get_taginfo(music_data *mdata);
 void sdlmixer_start_music(music_data *mdata, char *music_path);
 void sdlmixer_stop_music(music_data *mdata);
