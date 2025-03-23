@@ -24,8 +24,10 @@ extern "C"
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)16667)
 #define PAC_SEEK_VALUE_MAX (100)
 
-#define PAC_FONT_STRING "LiberationMono-Regular.ttf"
-#define PAC_BIG_FONT_STRING "LiberationMono-Regular.ttf"
+//#define PAC_FONT_STRING "LiberationMono-Regular.ttf"
+//#define PAC_BIG_FONT_STRING "LiberationMono-Regular.ttf"
+#define PAC_FONT_STRING "DejaVuSans.ttf"
+#define PAC_BIG_FONT_STRING "DejaVuSans.ttf"
 #define PAC_NUKLEAR_FONTSIZE (15.0f)
 #define PAC_NUKLEAR_BIG_FONTSIZE (25.0f)
 
@@ -54,6 +56,7 @@ static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 
 #define PAC_MAIN_STORAGE_SIZE               (5*(1024*1024))
 #define DEBUG_BUFFER_SIZE                   (8192)
+#define USERINFO_BUFFER_SIZE                (512)
 #define FILENAMES_BUFFER_SIZE               (PAC_MAX_FILES*NAME_MAX)
 #define DIRNAMES_BUFFER_SIZE                (PAC_MAX_DIRS*PATH_MAX)
 #define FILENAMEBUF_LOCATION_LIST_SIZE      (sizeof(char *)*PAC_MAX_FILES)
@@ -78,7 +81,8 @@ typedef struct general_buffer_group
     void *music_current_filename;
     void *working_directory;
     void *resource_directory;
-    void *info_buffer;
+    void *music_info_buffer;
+    void *userinfo_buffer;
     void *flist_filenames_buf;
     void *flist_dirnames_buf;
     void *flist_filenames_string_loclist;
@@ -93,7 +97,7 @@ typedef struct file_list
     uint32_t dirs_added;
     uint32_t current_index;
     uint32_t match_count;
-    uint32_t sel_index;
+    int sel_index;
     char *dirnames_buf;                 //buffer containing the directories added, delimited by null
     char *filenames_buf;                //buffer containing file names, delimited by null
     char **filenames_string_loclist;    //array of pointers which specify the beginnings of strings in the filename array
@@ -107,6 +111,14 @@ typedef struct frametime_vars
     uint64_t end;
     uint64_t delta;
 } frametime_vars;
+
+typedef enum userinfo_type 
+{
+    USERINFO_TYPE_ERROR = 0,
+    USERINFO_TYPE_WARNING,
+    USERINFO_TYPE_NOTE,
+    USERINFO_TYPE__LAST
+} userinfo_type ;
 
 typedef enum center_view_state
 {
@@ -142,6 +154,7 @@ typedef struct state_flags
     char clear_confirmation;
     char text_field_focused;
     center_view_state viewstate;
+    userinfo_type last_userinfo_type;
 } state_flags;
 
 typedef struct widget_bounds_info
@@ -237,7 +250,10 @@ void sdlapi_correct_gl_viewport_and_clear(sdl_apidata *sdldata);
 void pac_init_bitmap(bitmap_info *bmpinfo, runtime_vars *rtvars);
 void pac_begin_frame(runtime_vars *rtvars, sdl_apidata *sdldata);
 void pac_end_frame(runtime_vars *rtvars, sdl_apidata *sdldata);
+void set_userinfo(runtime_vars *rtvars, char *notice, userinfo_type notice_type);
 void file_list_push_dirname(char *dirname, file_list *flist);
+void goto_next_file(music_data *mdata);
+void goto_prev_file(music_data *mdata);
 void set_match_flags(char *searchbuf, music_data *mdata);
 void update_music_info(music_data *mdata);
 void pac_main_loop(runtime_vars *rtvars, sdl_apidata *sdldata, general_buffer_group *bufgroup, music_data *mdata);
