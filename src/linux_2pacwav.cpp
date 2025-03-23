@@ -243,12 +243,13 @@ void startup_alloc_buffers(ro_heap_buffer *heapbuf, general_buffer_group *bufgro
     } PAC_NOP_MACRO()
 
     memset(heapbuf->memory, 0, PAC_MAIN_STORAGE_SIZE);
-    MEM_INIT_ASSERT(heapbuf, bufgroup->info_buffer,                     DEBUG_BUFFER_SIZE);
+    MEM_INIT_ASSERT(heapbuf, bufgroup->userinfo_buffer,                 USERINFO_BUFFER_SIZE);
+    MEM_INIT_ASSERT(heapbuf, bufgroup->music_info_buffer,               DEBUG_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->music_current_filename,          PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->inbuf_filename,                  PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->inbuf_search,                    PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->working_directory,               PATH_MAX);
-    MEM_INIT_ASSERT(heapbuf, bufgroup->resource_directory,                   PATH_MAX);
+    MEM_INIT_ASSERT(heapbuf, bufgroup->resource_directory,              PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_match_flags,               MATCH_FLAGS_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_filenames_string_loclist,  FILENAMEBUF_LOCATION_LIST_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_string_loclist,   DIRNAMEBUF_LOCATION_LIST_SIZE);
