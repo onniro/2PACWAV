@@ -13,7 +13,7 @@ extern "C"
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (1)
-#define _2PACWAV_VER_PATCH      (3)
+#define _2PACWAV_VER_PATCH      (4)
 
 #include "ro_heapbuf.h"
 
@@ -24,8 +24,6 @@ extern "C"
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)16667)
 #define PAC_SEEK_VALUE_MAX (100)
 
-//#define PAC_FONT_STRING "LiberationMono-Regular.ttf"
-//#define PAC_BIG_FONT_STRING "LiberationMono-Regular.ttf"
 #define PAC_FONT_STRING "DejaVuSans.ttf"
 #define PAC_BIG_FONT_STRING "DejaVuSans.ttf"
 #define PAC_NUKLEAR_FONTSIZE (15.0f)
@@ -64,17 +62,19 @@ static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 #define SEARCH_BUFFER_SIZE                  (NAME_MAX)
 #define MATCH_FLAGS_BUFFER_SIZE             (PAC_MAX_FILES*sizeof(char))
 
-struct runtime_vars;
-struct general_buffer_group;
-struct file_list;
-struct state_flags;
-struct widget_bounds_info;
-struct audio_metadata_group;
-struct bitmap_info;
-struct sdl_apidata;
-struct music_data;
+#define PAC_HOLD_WAIT_FRAMES (20)
 
-typedef struct general_buffer_group 
+struct Runtime_Vars;
+struct General_Buffer_Group;
+struct File_List;
+struct State_Flags;
+struct Widget_Bounds_Info;
+struct Audio_Metadata_Group;
+struct Bitmap_Info;
+struct Sdl_Apidata;
+struct Music_Data;
+
+typedef struct General_Buffer_Group 
 {
     void *inbuf_filename;
     void *inbuf_search;
@@ -89,9 +89,9 @@ typedef struct general_buffer_group
     void *flist_dirnames_string_loclist;
     void *flist_match_flags;
     void *scratch_space;
-} general_buffer_group;
+} General_Buffer_Group;
 
-typedef struct file_list
+typedef struct File_List
 {
     uint32_t entry_count; //(files)
     uint32_t dirs_added;
@@ -103,42 +103,42 @@ typedef struct file_list
     char **filenames_string_loclist;    //array of pointers which specify the beginnings of strings in the filename array
     char **dirnames_string_loclist;     //array of pointers which specify the beginnings of strings in the dirname array
     char *match_flags;                  //buffer whose indices map to indices of filenames_buf, set to 1 if the index should *NOT* be rendered
-} file_list;
+} File_List;
 
-typedef struct frametime_vars
+typedef struct Frametime_Vars
 {
     uint64_t start;
     uint64_t end;
     uint64_t delta;
-} frametime_vars;
+} Frametime_Vars;
 
-typedef enum userinfo_type 
+typedef enum Userinfo_Type 
 {
     USERINFO_TYPE_ERROR = 0,
     USERINFO_TYPE_WARNING,
     USERINFO_TYPE_NOTE,
     USERINFO_TYPE__LAST
-} userinfo_type ;
+} Userinfo_Type;
 
-typedef enum center_view_state
+typedef enum Center_View_State
 {
     CENTER_VIEW_STATE_MUSIC_LIST = 0,
     CENTER_VIEW_STATE_CURRENT_INFO,
     CENTER_VIEW_STATE__LAST
-} center_view_state;
+} Center_View_State;
 
-PAC_DEF void cycle_center_view_state(center_view_state *value)
+PAC_DEF void cycle_center_view_state(Center_View_State *value)
 {
     if(!value) 
     { return; }
     uint8_t new_value = 1 + (uint8_t)(*value);
     if(new_value != CENTER_VIEW_STATE__LAST)
-    { *value = (center_view_state)new_value; }
+    { *value = (Center_View_State)new_value; }
     else
-    { *value = (center_view_state)0; }
+    { *value = (Center_View_State)0; }
 }
 
-typedef struct state_flags
+typedef struct State_Flags
 {
     char d_wasdown;
     char x_wasdown;
@@ -153,11 +153,11 @@ typedef struct state_flags
     char escape_wasdown;
     char clear_confirmation;
     char text_field_focused;
-    center_view_state viewstate;
-    userinfo_type last_userinfo_type;
-} state_flags;
+    Center_View_State viewstate;
+    Userinfo_Type last_userinfo_type;
+} State_Flags;
 
-typedef struct widget_bounds_info
+typedef struct Widget_Bounds_Info
 {
     float width;
     float height;
@@ -166,9 +166,9 @@ typedef struct widget_bounds_info
     float y_offset;
     float x_offset;
     struct nk_rect content_bounds;
-} widget_bounds_info;
+} Widget_Bounds_Info;
 
-typedef struct audio_metadata_group
+typedef struct Audio_Metadata_Group
 {
     const char *tag_title;
     char *title_begin_in_buf;
@@ -178,9 +178,9 @@ typedef struct audio_metadata_group
 
     const char *tag_album;
     char *album_begin_in_buf;
-} audio_metadata_group;
+} Audio_Metadata_Group;
 
-typedef struct bitmap_info
+typedef struct Bitmap_Info
 {
     struct nk_image nuk_image;
     uint8_t *img_data;
@@ -189,9 +189,9 @@ typedef struct bitmap_info
     int height;
     int chan;
     GLuint ogl_tex_id;
-} bitmap_info;
+} Bitmap_Info;
 
-typedef struct music_data
+typedef struct Music_Data
 {
     char paused; //Mix_PausedMusic() doesn't work seemingly
     char shuffle_enabled;
@@ -204,39 +204,39 @@ typedef struct music_data
     double current_position;
     double current_duration;
     char *current_filename;
-    runtime_vars *rtvars_ptr;
-    file_list music_list;
+    Runtime_Vars *rtvars_ptr;
+    File_List music_list;
     Mix_Music *sdlmixer_music; //IMPORTANT: ALWAYS SET TO NULL WHEN MUSIC IS UNLOADED
-    audio_metadata_group current_metadata;
+    Audio_Metadata_Group current_metadata;
     struct nk_list_view music_list_view;
-    bitmap_info cover;
+    Bitmap_Info cover;
     char music_type_buf[16];
-} music_data;
+} Music_Data;
 
-typedef struct sdl_apidata 
+typedef struct Sdl_Apidata 
 {
     int win_width;
     int win_height;
     SDL_Window *window_ptr;
     SDL_GLContext ogl_context;
-    music_data *mdata_ptr;
-} sdl_apidata;
+    Music_Data *mdata_ptr;
+} Sdl_Apidata;
 
-typedef struct runtime_vars 
+typedef struct Runtime_Vars 
 {
     char keep_running;
     char *working_directory;
     char *resource_directory;
-    state_flags sflags;
-    frametime_vars *frametime_info_ptr;
-    general_buffer_group *bufgroup_ptr;
-    ro_heap_buffer main_storage;
-    sdl_apidata *sdldata_ptr;
+    State_Flags sflags;
+    Frametime_Vars *frametime_info_ptr;
+    General_Buffer_Group *bufgroup_ptr;
+    Ro_Heap_Buffer main_storage;
+    Sdl_Apidata *sdldata_ptr;
     const uint8_t *kbd_state;
     struct nk_font *small_font;
     struct nk_font *big_font;
     struct nk_context *nuklear_ctx;
-} runtime_vars;
+} Runtime_Vars;
 
 //(forward declarations)
 
@@ -245,25 +245,25 @@ void get_version_string(char *buffer);
 void show_version(void);
 nk_rune *pac_font_glyph_ranges(void);
 void pac_nuklearapi_paste_callback(nk_handle handle, struct nk_text_edit *txtedit);
-void sdlapi_process_events(runtime_vars *rtvars, sdl_apidata *sdldata);
-void sdlapi_correct_gl_viewport_and_clear(sdl_apidata *sdldata);
-void pac_init_bitmap(bitmap_info *bmpinfo, runtime_vars *rtvars);
-void pac_begin_frame(runtime_vars *rtvars, sdl_apidata *sdldata);
-void pac_end_frame(runtime_vars *rtvars, sdl_apidata *sdldata);
-void set_userinfo(runtime_vars *rtvars, char *notice, userinfo_type notice_type);
-void file_list_push_dirname(char *dirname, file_list *flist);
-void goto_next_file(music_data *mdata);
-void goto_prev_file(music_data *mdata);
-void set_match_flags(char *searchbuf, music_data *mdata);
-void update_music_info(music_data *mdata);
-void pac_main_loop(runtime_vars *rtvars, sdl_apidata *sdldata, general_buffer_group *bufgroup, music_data *mdata);
-char id3_get_taginfo(music_data *mdata);
-char sdlmixer_get_taginfo(music_data *mdata);
-void sdlmixer_start_music(music_data *mdata, char *music_path);
-void sdlmixer_stop_music(music_data *mdata);
-char pac_init_sdlmixer(music_data *mdata);
+void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
+void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata);
+void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars);
+void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
+void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
+void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type);
+void file_list_push_dirname(char *dirname, File_List *flist);
+void goto_next_file(Music_Data *mdata);
+void goto_prev_file(Music_Data *mdata);
+void set_match_flags(char *searchbuf, Music_Data *mdata);
+void update_music_info(Music_Data *mdata);
+void pac_main_loop(Runtime_Vars *rtvars, Sdl_Apidata *sdldata, General_Buffer_Group *bufgroup, Music_Data *mdata);
+char id3_get_taginfo(Music_Data *mdata);
+char sdlmixer_get_taginfo(Music_Data *mdata);
+void sdlmixer_start_music(Music_Data *mdata, char *music_path);
+void sdlmixer_stop_music(Music_Data *mdata);
+char pac_init_sdlmixer(Music_Data *mdata);
 void nuklearapi_set_style(struct nk_context *ctx);
-char pac_init_sdl(sdl_apidata *sdldata);
+char pac_init_sdl(Sdl_Apidata *sdldata);
 
 #ifdef __cplusplus
 }

@@ -27,7 +27,7 @@ Date: Tue 18 Feb 2025 12:57:19 PM EET
 #include "2pacwav.h"
 #include "linux_2pacwav.h"
 
-char *find_res_path(runtime_vars *rtvars, char *out_res_path, int bufsize)
+char *find_res_path(Runtime_Vars *rtvars, char *out_res_path, int bufsize)
 {
     char *result = 0;
     char try_buf[PATH_MAX];
@@ -50,7 +50,7 @@ char *find_res_path(runtime_vars *rtvars, char *out_res_path, int bufsize)
     return result;
 }
 
-void load_font(runtime_vars *rtvars)
+void load_font(Runtime_Vars *rtvars)
 {
     struct nk_context *nuklear_ctx = rtvars->nuklear_ctx;
     char *working_dir = rtvars->working_directory;
@@ -136,8 +136,8 @@ char *pac_dir_next_file(char *line_bgn, char *out_ent)
 
 //im keeping this shit around for now but i think its useless
 int platform_get_directory_listing_presorted(char *path, 
-                                        file_list *out_flist, 
-                                        runtime_vars *rtvars) 
+                                        File_List *out_flist, 
+                                        Runtime_Vars *rtvars) 
 {
     int result = 0;
     int alloc_size = NAME_MAX*1024;
@@ -185,7 +185,7 @@ int platform_get_directory_listing_presorted(char *path,
     return result;
 }
 
-int platform_get_directory_listing(char *path, file_list *out_flist)
+int platform_get_directory_listing(char *path, File_List *out_flist)
 {
     int result = 0;
     dirent *dir_entry;
@@ -231,7 +231,7 @@ int platform_get_directory_listing(char *path, file_list *out_flist)
     return result;
 }
 
-void startup_alloc_buffers(ro_heap_buffer *heapbuf, general_buffer_group *bufgroup) 
+void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf, General_Buffer_Group *bufgroup) 
 {
 #define MEM_INIT_ASSERT(main_buffer, buf2init, size)\
     buf2init = ro_buffer_alloc_region(main_buffer, size);\
@@ -332,16 +332,16 @@ void platform_get_working_directory(char *buf, int buf_size)
     { buf[len - 1] = 0; }
 }
 
-char taglib_get_albumcover(bitmap_info *bmpinfo, char *path);
+//char taglib_get_albumcover(bitmap_info *bmpinfo, char *path);
 
 int main(int arg_count, char **args) 
 {
     handle_command_line(arg_count, args);
 
-    sdl_apidata sdldata = {};
-    runtime_vars rtvars = {};
-    general_buffer_group bufgroup = {};
-    music_data mdata = {};
+    Sdl_Apidata sdldata = {};
+    Runtime_Vars rtvars = {};
+    General_Buffer_Group bufgroup = {};
+    Music_Data mdata = {};
     strcpy(mdata.music_type_buf, "NONE");
 
     setlocale(LC_ALL, "en_US.UTF-8");
@@ -390,7 +390,7 @@ int main(int arg_count, char **args)
 
     srand48(time(0));
 
-    frametime_vars frametime;
+    Frametime_Vars frametime;
     rtvars.frametime_info_ptr = &frametime;
     useconds_t us2sleep;
 

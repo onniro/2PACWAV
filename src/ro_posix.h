@@ -27,12 +27,12 @@ extern "C"
 
 #if !defined(RO_HEAP_BUFFER) && !defined(RO_HEAPBUF_DOT_H)
 
-typedef struct ro_heap_buffer 
+typedef struct Ro_Heap_Buffer 
 {
     void *memory;
     void *write_ptr;
     uint64_t total_bytes;
-} ro_heap_buffer;
+} Ro_Heap_Buffer;
 
 #ifndef RO_MATH_DOT_H
 
@@ -64,7 +64,7 @@ RO_DEF float ro_abs_f32(float number)
 #define RO_MATH_DOT_H 1
 #endif
 
-RO_DEF void *ro_posix_make_heap_buffer(ro_heap_buffer *target, uint64_t bytes) 
+RO_DEF void *ro_posix_make_heap_buffer(Ro_Heap_Buffer *target, uint64_t bytes) 
 {
     target->memory = mmap(0, bytes, PROT_READ|PROT_WRITE, 
                         MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
@@ -73,7 +73,7 @@ RO_DEF void *ro_posix_make_heap_buffer(ro_heap_buffer *target, uint64_t bytes)
     return target->memory;
 }
 
-RO_DEF void ro_posix_free_heap_buffer(ro_heap_buffer *buffer) 
+RO_DEF void ro_posix_free_heap_buffer(Ro_Heap_Buffer *buffer) 
 {
     if(buffer && buffer->memory && buffer->total_bytes) 
     { munmap(buffer->memory, buffer->total_bytes); }
@@ -81,7 +81,7 @@ RO_DEF void ro_posix_free_heap_buffer(ro_heap_buffer *buffer)
 
 //NOTE: neither of these next couple are POSIX-specific
 
-RO_DEF uint64_t ro_buffer_unallocated_bytes(ro_heap_buffer *buffer) 
+RO_DEF uint64_t ro_buffer_unallocated_bytes(Ro_Heap_Buffer *buffer) 
 {
     uint64_t result = 0;
     if(buffer && buffer->memory) 
@@ -93,7 +93,7 @@ RO_DEF uint64_t ro_buffer_unallocated_bytes(ro_heap_buffer *buffer)
     return result;
 }
 
-RO_DEF void *ro_buffer_alloc_region(struct ro_heap_buffer *buffer, uint64_t region_bytes) 
+RO_DEF void *ro_buffer_alloc_region(struct Ro_Heap_Buffer *buffer, uint64_t region_bytes) 
 {
     void *result = 0;
     uint64_t free_bytes = ro_buffer_unallocated_bytes(buffer);
@@ -105,7 +105,7 @@ RO_DEF void *ro_buffer_alloc_region(struct ro_heap_buffer *buffer, uint64_t regi
     return result;
 }
 
-RO_DEF void ro_buffer_move_writeptr(ro_heap_buffer *buffer, 
+RO_DEF void ro_buffer_move_writeptr(Ro_Heap_Buffer *buffer, 
                                     ssize_t bytes, 
                                     char write_zeroes) 
 {

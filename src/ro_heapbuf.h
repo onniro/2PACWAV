@@ -13,12 +13,12 @@ extern "C"
 {
 #endif
 
-typedef struct ro_heap_buffer 
+typedef struct Ro_Heap_Buffer 
 {
     void *memory;
     void *write_ptr;
     uint64_t total_bytes;
-} ro_heap_buffer;
+} Ro_Heap_Buffer;
 
 #ifdef __cplusplus
 }
