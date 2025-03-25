@@ -124,9 +124,7 @@ void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
         switch(event.type) 
         {
         case SDL_QUIT: 
-        {
-            rtvars->keep_running = 0;
-        } break;
+        { rtvars->keep_running = 0; } break;
 
         case SDL_DROPFILE:
         {
@@ -135,13 +133,8 @@ void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
                     PATH_MAX);
         } break;
 
-        case SDL_KEYDOWN:
-        {
-        } break;
-
-        default:
-        {
-        } break;
+        case SDL_KEYDOWN: break;
+        default: break;
         }
         nk_sdl_handle_event(&event);
     }
@@ -699,36 +692,32 @@ void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *mdata)
     {
         //FIXME: this counter thing is an insanely ghetto fix
         uint32_t counter = 0;
+        int increment = 0;
         if(rtvars->kbd_state[SDL_SCANCODE_DOWN])
-        {
-            if((frame_counter == 1) || (frame_counter > PAC_HOLD_WAIT_FRAMES))
-            {
-                do
-                { 
-                    if(mlist->sel_index < ((int)mlist->entry_count - 1))
-                    { ++mlist->sel_index; }
-                    ++counter;
-                } while(mlist->match_flags[mlist->sel_index] && (counter < mlist->entry_count));
-            }
-            if(frame_counter <= 50)
-            { ++frame_counter; }
-        }
+        { increment = 1; }
         else if(rtvars->kbd_state[SDL_SCANCODE_UP]) 
-        {
-            if((frame_counter == 1) || (frame_counter > PAC_HOLD_WAIT_FRAMES))
-            {
-                do 
-                { 
-                    if(mlist->sel_index)
-                    { --mlist->sel_index; }
-                    ++counter;
-                } while(mlist->match_flags[mlist->sel_index] && (counter < mlist->entry_count));
-            }
-            if(frame_counter <= 50)
-            { ++frame_counter; }
-        }
+        { increment = -1; }
         else
+        { frame_counter = 0; return; }
+
+        if((frame_counter == 1) ||
+                (frame_counter > PAC_HOLD_WAIT_FRAMES &&
+                (frame_counter % PAC_HOLD_INCREMENT_MODULO == 0)))
+        {
+            do 
+            { 
+                if(((increment == -1) && 
+                        mlist->sel_index) ||
+                        ((increment == 1) && 
+                        (mlist->sel_index < ((int)mlist->entry_count - 1))))
+                { mlist->sel_index += increment; }
+                ++counter;
+            } while(mlist->match_flags[mlist->sel_index] && 
+                    (counter < mlist->entry_count));
+        }
+        if(frame_counter >= 0x7FFFFFFF)
         { frame_counter = 0; }
+        ++frame_counter;
     }
 }
 
@@ -766,9 +755,12 @@ void menu_do_music_list(Runtime_Vars *rtvars,
 #if 1
         if(rtvars->kbd_state[SDL_SCANCODE_DOWN] &&
                 (mlist->sel_index > (mdata->music_list_view.end - 2)) && 
-                (mlist->sel_index < (int)mlist->entry_count - 1))
+                (mlist->sel_index < (int)mlist->entry_count))
         { 
-            nk_group_set_scroll(nkctx, "music_list", 0, mdata->music_list_view.end + 1); 
+            //nk_group_set_scroll(nkctx, "music_list", 0, mdata->music_list_view.end + 1); 
+            //above function was causing some weird shit so im doing this unless
+            //i see it starting to break some internal state
+            ++mdata->music_list_view.scroll_value;
         }
         else if(rtvars->kbd_state[SDL_SCANCODE_UP] &&
                 (mlist->sel_index < (mdata->music_list_view.begin)) &&

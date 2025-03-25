@@ -13,7 +13,7 @@ extern "C"
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (1)
-#define _2PACWAV_VER_PATCH      (4)
+#define _2PACWAV_VER_PATCH      (6)
 
 #include "ro_heapbuf.h"
 
@@ -62,7 +62,8 @@ static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 #define SEARCH_BUFFER_SIZE                  (NAME_MAX)
 #define MATCH_FLAGS_BUFFER_SIZE             (PAC_MAX_FILES*sizeof(char))
 
-#define PAC_HOLD_WAIT_FRAMES (20)
+#define PAC_HOLD_WAIT_FRAMES (25)
+#define PAC_HOLD_INCREMENT_MODULO (3)   
 
 struct Runtime_Vars;
 struct General_Buffer_Group;
