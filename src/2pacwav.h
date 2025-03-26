@@ -18,6 +18,8 @@ extern "C"
 #include "ro_heapbuf.h"
 
 #define PAC_DEF static inline
+#define PAC_INTERNAL static
+#define PAC_LOCAL_STATIC static
 
 #define WINDOW_WIDTH    1024
 #define WINDOW_HEIGHT   768
@@ -63,7 +65,7 @@ static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 #define MATCH_FLAGS_BUFFER_SIZE             (PAC_MAX_FILES*sizeof(char))
 
 #define PAC_HOLD_WAIT_FRAMES (25)
-#define PAC_HOLD_INCREMENT_MODULO (3)   
+#define PAC_HOLD_INCREMENT_MODULO (3)
 
 struct Runtime_Vars;
 struct General_Buffer_Group;
@@ -145,6 +147,7 @@ typedef struct State_Flags
     char x_wasdown;
     char s_wasdown;
     char l_wasdown;
+    char f_wasdown;
     char right_wasdown;
     char left_wasdown;
     char up_wasdown;
@@ -244,24 +247,25 @@ typedef struct Runtime_Vars
 void pac_nop(void);
 void get_version_string(char *buffer);
 void show_version(void);
+void pac_do_command_args(int arg_count, char **args);
 nk_rune *pac_font_glyph_ranges(void);
 void pac_nuklearapi_paste_callback(nk_handle handle, struct nk_text_edit *txtedit);
-void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
-void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata);
-void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars);
-void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
-void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
+PAC_INTERNAL void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
+PAC_INTERNAL void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata);
+PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars);
+PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
+PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
 void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type);
 void file_list_push_dirname(char *dirname, File_List *flist);
-void goto_next_file(Music_Data *mdata);
-void goto_prev_file(Music_Data *mdata);
-void set_match_flags(char *searchbuf, Music_Data *mdata);
-void update_music_info(Music_Data *mdata);
+PAC_INTERNAL void goto_next_file(Music_Data *mdata);
+PAC_INTERNAL void goto_prev_file(Music_Data *mdata);
+PAC_INTERNAL void set_match_flags(char *searchbuf, Music_Data *mdata);
+PAC_INTERNAL void update_music_info(Music_Data *mdata);
 void pac_main_loop(Runtime_Vars *rtvars, Sdl_Apidata *sdldata, General_Buffer_Group *bufgroup, Music_Data *mdata);
-char id3_get_taginfo(Music_Data *mdata);
-char sdlmixer_get_taginfo(Music_Data *mdata);
-void sdlmixer_start_music(Music_Data *mdata, char *music_path);
-void sdlmixer_stop_music(Music_Data *mdata);
+PAC_INTERNAL char id3_get_taginfo(Music_Data *mdata);
+PAC_INTERNAL char sdlmixer_get_taginfo(Music_Data *mdata);
+PAC_INTERNAL void sdlmixer_start_music(Music_Data *mdata, char *music_path);
+PAC_INTERNAL void sdlmixer_stop_music(Music_Data *mdata);
 char pac_init_sdlmixer(Music_Data *mdata);
 void nuklearapi_set_style(struct nk_context *ctx);
 char pac_init_sdl(Sdl_Apidata *sdldata);

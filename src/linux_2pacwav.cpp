@@ -27,7 +27,7 @@ Date: Tue 18 Feb 2025 12:57:19 PM EET
 #include "2pacwav.h"
 #include "linux_2pacwav.h"
 
-char *find_res_path(Runtime_Vars *rtvars, char *out_res_path, int bufsize)
+PAC_INTERNAL char *find_res_path(Runtime_Vars *rtvars, char *out_res_path, int bufsize)
 {
     char *result = 0;
     char try_buf[PATH_MAX];
@@ -50,7 +50,7 @@ char *find_res_path(Runtime_Vars *rtvars, char *out_res_path, int bufsize)
     return result;
 }
 
-void load_font(Runtime_Vars *rtvars)
+PAC_INTERNAL void load_font(Runtime_Vars *rtvars)
 {
     struct nk_context *nuklear_ctx = rtvars->nuklear_ctx;
     char *working_dir = rtvars->working_directory;
@@ -96,19 +96,10 @@ int platform_get_directory_listing(char *path, File_List *out_flist)
 
     if(dir_struct) 
     {
-#if 0
-        int toplevel_dir_len = strlen(path);
-        char *current_top_level = out_flist->dirnames_string_loclist[out_flist->dirs_added];
-        strncpy(current_top_level, path, PATH_MAX - 1);
-        current_top_level[toplevel_dir_len + 1] = 0x0;
-        out_flist->dirnames_string_loclist[out_flist->dirs_added + 1] = current_top_level + toplevel_dir_len + 1;
-        ++out_flist->dirs_added;
-#else
         file_list_push_dirname(path, out_flist);
-#endif
+
         int filename_len;
         char *write_ptr;
-
         while(1) 
         {
             dir_entry = readdir(dir_struct);
@@ -134,7 +125,8 @@ int platform_get_directory_listing(char *path, File_List *out_flist)
     return result;
 }
 
-void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf, General_Buffer_Group *bufgroup) 
+PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf, 
+                                    General_Buffer_Group *bufgroup) 
 {
 #define MEM_INIT_ASSERT(main_buffer, buf2init, size)\
     buf2init = ro_buffer_alloc_region(main_buffer, size);\
@@ -191,20 +183,6 @@ int platform_write_file(char *file_path, void *in_buffer, uint64_t buffer_size)
     return ro_posix_write_file(file_path, in_buffer, buffer_size);
 }
 
-void handle_command_line(int arg_count, char **args)
-{
-    for(int arg_index = 1; arg_index < arg_count; ++arg_index)
-    {
-        if(!strcmp("--", args[arg_index]))
-        { break; }
-        else if(!strcmp("-v", args[arg_index]))
-        {
-            show_version();
-            exit(0);
-        }
-    }
-}
-
 void platform_log(char *fmt_string, ...)
 {
     char buf[4096];
@@ -235,11 +213,9 @@ void platform_get_working_directory(char *buf, int buf_size)
     { buf[len - 1] = 0; }
 }
 
-//char taglib_get_albumcover(bitmap_info *bmpinfo, char *path);
-
 int main(int arg_count, char **args) 
 {
-    handle_command_line(arg_count, args);
+    pac_do_command_args(arg_count, args);
 
     Sdl_Apidata sdldata = {};
     Runtime_Vars rtvars = {};

@@ -58,12 +58,26 @@ void show_version(void)
     platform_log("%s\n", verbuf);
 }
 
+void pac_do_command_args(int arg_count, char **args)
+{
+    for(int arg_index = 1; arg_index < arg_count; ++arg_index)
+    {
+        if(!strcmp("--", args[arg_index]))
+        { break; }
+        else if(!strcmp("-v", args[arg_index]))
+        {
+            show_version();
+            exit(0);
+        }
+    }
+}
+
 nk_rune *pac_font_glyph_ranges(void) 
 {
     //NOTE: pasted from nuklear.h
     //CLEANUP: ULTRA SUPER DUPER MEGA HOOD GHETTO WALMART FIX 
     //(fixes crash at least but the glyphs dont actually render)
-    static const nk_rune ranges[] = 
+    PAC_LOCAL_STATIC const nk_rune ranges[] = 
     {
 #if 0
         0x0020, 0x00FF,
@@ -99,7 +113,7 @@ void pac_nuklearapi_paste_callback(nk_handle handle, struct nk_text_edit *txtedi
     }
 }
 
-char pac_btn_press(SDL_Scancode scan, char *wasdown, const uint8_t *kbd_state) 
+PAC_INTERNAL char pac_btn_press(SDL_Scancode scan, char *wasdown, const uint8_t *kbd_state) 
 {
     char state = 0;
     if(kbd_state[scan]) 
@@ -112,7 +126,7 @@ char pac_btn_press(SDL_Scancode scan, char *wasdown, const uint8_t *kbd_state)
     return state;
 }
 
-void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
+PAC_INTERNAL void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
 {
     SDL_Event event;
     nk_input_begin(rtvars->nuklear_ctx);
@@ -142,7 +156,7 @@ void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     nk_input_end(rtvars->nuklear_ctx);
 }
 
-void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata)
+PAC_INTERNAL void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata)
 {
     SDL_GetWindowSize(sdldata->window_ptr, &sdldata->win_width, &sdldata->win_height);
     glViewport(0, 0, sdldata->win_width, sdldata->win_height);
@@ -150,7 +164,7 @@ void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 }
 
-void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
+PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
 {
     sdlapi_correct_gl_viewport_and_clear(sdldata);
     sdlapi_process_events(rtvars, sdldata);
@@ -160,16 +174,15 @@ void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
             NK_WINDOW_NO_INPUT|NK_WINDOW_NO_SCROLLBAR);
 }
 
-void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
+PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
 {
     nk_end(rtvars->nuklear_ctx);
     nk_sdl_render(NK_ANTI_ALIASING_ON);
     SDL_GL_SwapWindow(sdldata->window_ptr);
 }
 
-void update_music_info(Music_Data *mdata)
+PAC_INTERNAL void update_music_info(Music_Data *mdata)
 {
-    //static char music_has_ended = 0;
     mdata->current_duration = Mix_MusicDuration(mdata->sdlmixer_music);
     mdata->current_position = Mix_GetMusicPosition(mdata->sdlmixer_music);
 
@@ -177,23 +190,23 @@ void update_music_info(Music_Data *mdata)
     { goto_next_file(mdata); } 
 }
 
-int pac_qsort_strcmp(const void *a, const void *b)
+PAC_INTERNAL int pac_qsort_strcmp(const void *a, const void *b)
 {
     int result = strcasecmp(*(const char **)a, *(const char **)b);
     return result;
 }
 
-void sort_file_list_alpha(File_List *flist)
+PAC_INTERNAL void sort_file_list_alpha(File_List *flist)
 {
     char **strings = flist->filenames_string_loclist;
     int sort_count = flist->entry_count;
     qsort(strings, sort_count, sizeof(char **), pac_qsort_strcmp);
 }
 
-void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bufgroup) 
+PAC_INTERNAL void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bufgroup) 
 {
     snprintf((char *)bufgroup->music_info_buffer, DEBUG_BUFFER_SIZE - 1, 
-            "[srate:%dhz][pcm_bits:%d][chan:%d][vol:%d/128][pos:%6.1f/%6.1f][type:%s]\n[path:%s]", 
+            "[srate:%dhz][pcm_bits:%d][chan:%d][vol:%d/128][pos:%06.1f/%06.1f][type:%s]\n[path:%s]", 
             mdata->sample_rate, 
             mdata->pcm_bits, 
             mdata->channels,
@@ -204,7 +217,7 @@ void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bufgroup)
             mdata->current_filename);
 }
 
-void sdlmixer_get_music_type(Music_Data *mdata)
+PAC_INTERNAL void sdlmixer_get_music_type(Music_Data *mdata)
 {
     Mix_MusicType music_type = Mix_GetMusicType(mdata->sdlmixer_music);
     switch(music_type)
@@ -224,7 +237,7 @@ void sdlmixer_get_music_type(Music_Data *mdata)
     }
 }
 
-void load_file_from_path(char *path, Music_Data *mdata)
+PAC_INTERNAL void load_file_from_path(char *path, Music_Data *mdata)
 {
     if(platform_file_exists(path))
     { sdlmixer_start_music(mdata, path); }
@@ -237,7 +250,7 @@ void load_file_from_path(char *path, Music_Data *mdata)
     }
 }
 
-char *separate_file_and_dir_name(char *dir_in_out, char *name_out) 
+PAC_INTERNAL char *separate_file_and_dir_name(char *dir_in_out, char *name_out) 
 {
     int length = strlen(dir_in_out);
     char *temp_in = dir_in_out + length;
@@ -256,7 +269,7 @@ char *separate_file_and_dir_name(char *dir_in_out, char *name_out)
     return dir_in_out;
 }
 
-char check_dir_already_added(char *dir, File_List *flist)
+PAC_INTERNAL char check_dir_already_added(char *dir, File_List *flist)
 {
     char result = 0, *current_dir;
     char **all_dirs = flist->dirnames_string_loclist;
@@ -270,7 +283,7 @@ char check_dir_already_added(char *dir, File_List *flist)
     return result;
 }
 
-void query_bounds_info(struct nk_context *nuklear_ctx, Widget_Bounds_Info *bound_info)
+PAC_INTERNAL void query_bounds_info(struct nk_context *nuklear_ctx, Widget_Bounds_Info *bound_info)
 {
     struct nk_rect widget_bounds = nk_layout_widget_bounds(nuklear_ctx);
     bound_info->width = widget_bounds.w;
@@ -283,7 +296,7 @@ void query_bounds_info(struct nk_context *nuklear_ctx, Widget_Bounds_Info *bound
     bound_info->y_offset = 0.0f;
 }
 
-double conv_slide_value2songpos(Music_Data *mdata)
+PAC_INTERNAL double conv_slide_value2songpos(Music_Data *mdata)
 {
     double result = 0;
     if(mdata->sdlmixer_music && 
@@ -297,7 +310,7 @@ double conv_slide_value2songpos(Music_Data *mdata)
     return result;
 }
 
-float conv_songpos2slide_value(Music_Data *mdata) 
+PAC_INTERNAL float conv_songpos2slide_value(Music_Data *mdata) 
 {
     float result = 0.0f;
     if(mdata->sdlmixer_music && 
@@ -327,7 +340,7 @@ void file_list_push_dirname(char *dirname, File_List *flist)
     flist->dirnames_string_loclist[flist->dirs_added] = write_ptr + dirlen + 1;
 }
 
-void add_single_file_to_music_list(char *path, Music_Data *mdata)
+PAC_INTERNAL void add_single_file_to_music_list(char *path, Music_Data *mdata)
 {
     char dir[PATH_MAX];
     char name[NAME_MAX];
@@ -349,7 +362,7 @@ void add_single_file_to_music_list(char *path, Music_Data *mdata)
     ++mdata->music_list.entry_count;
 }
 
-void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars)
+PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars)
 {
     int old_file_count = mdata->music_list.entry_count, new_file_count, added_files;
 
@@ -381,7 +394,7 @@ void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars)
     set_userinfo(rtvars, info_buf, USERINFO_TYPE_NOTE);
 }
 
-char *find_top_level_path4file(char *filename, File_List *flist)
+PAC_INTERNAL char *find_top_level_path4file(char *filename, File_List *flist)
 {
     char *result = 0, *dirname;
     char pathbuf[PATH_MAX];
@@ -395,7 +408,9 @@ char *find_top_level_path4file(char *filename, File_List *flist)
     return result;
 }
 
-void file_list_play_file(char *selected_file, uint32_t file_index, Music_Data *mdata)
+PAC_INTERNAL void file_list_play_file(char *selected_file, 
+                                    uint32_t file_index, 
+                                    Music_Data *mdata)
 {
     char path_buf[PATH_MAX];
     char *toplevel_path = find_top_level_path4file(selected_file, &mdata->music_list);
@@ -423,7 +438,7 @@ void file_list_play_file(char *selected_file, uint32_t file_index, Music_Data *m
     }
 }
 
-void goto_next_file(Music_Data *mdata)
+PAC_INTERNAL void goto_next_file(Music_Data *mdata)
 {
     if(!mdata->sdlmixer_music || (mdata->music_list.entry_count < 1))
     { return; }
@@ -454,7 +469,7 @@ void goto_next_file(Music_Data *mdata)
     }
 }
 
-void goto_prev_file(Music_Data *mdata)
+PAC_INTERNAL void goto_prev_file(Music_Data *mdata)
 {
     if(!mdata->sdlmixer_music || (mdata->music_list.current_index == 0))
     { return; }
@@ -465,7 +480,7 @@ void goto_prev_file(Music_Data *mdata)
     file_list_play_file(prev_file, cur_index -1, mdata);
 }
 
-void clear_file_list(Music_Data *mdata)
+PAC_INTERNAL void clear_file_list(Music_Data *mdata)
 {
     if(!mdata->music_list.entry_count)
     { return; }
@@ -496,9 +511,9 @@ void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type)
     strncpy(note_buf, notice, USERINFO_BUFFER_SIZE);
 }
 
-void menu_show_userinfo(Runtime_Vars *rtvars, 
-                    General_Buffer_Group *bufgroup, 
-                    Widget_Bounds_Info *bound_info)
+PAC_INTERNAL void menu_show_userinfo(Runtime_Vars *rtvars, 
+                                    General_Buffer_Group *bufgroup, 
+                                    Widget_Bounds_Info *bound_info)
 {
     struct nk_context *nkctx = rtvars->nuklear_ctx;
     struct nk_color col;
@@ -522,9 +537,9 @@ void menu_show_userinfo(Runtime_Vars *rtvars,
     bound_info->y_offset += bound_info->height - bound_info->pad;
 }
 
-void menu_confirm_clear_file_list(Runtime_Vars *rtvars, 
-                                Widget_Bounds_Info *bound_info,
-                                Music_Data *mdata)
+PAC_INTERNAL void menu_confirm_clear_file_list(Runtime_Vars *rtvars, 
+                                            Widget_Bounds_Info *bound_info,
+                                            Music_Data *mdata)
 {
     float confirm_width = 400.0f; 
     float confirm_height = (bound_info->height - bound_info->pad)*3;
@@ -563,7 +578,7 @@ void menu_confirm_clear_file_list(Runtime_Vars *rtvars,
     { dn_flags->clear_confirmation = 0; }
 }
 
-void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
+PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
 {
     bmpinfo->img_data = stbi_load_from_memory(bmpinfo->img_data,
                                 bmpinfo->img_data_bytes,
@@ -594,14 +609,14 @@ void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
     bmpinfo->nuk_image = nk_image_id((int)bmpinfo->ogl_tex_id);
 }
 
-void pac_nk_draw_bitmap(Runtime_Vars *rtvars, Bitmap_Info *bmpinfo)
+PAC_INTERNAL void pac_nk_draw_bitmap(Runtime_Vars *rtvars, Bitmap_Info *bmpinfo)
 {
     //change width and height (+ you will probably have to do resizing on the image)
     nk_layout_row_static(rtvars->nuklear_ctx, bmpinfo->width, bmpinfo->height, 1);
     nk_image(rtvars->nuklear_ctx, bmpinfo->nuk_image);
 }
 
-void format_taginfo(Music_Data *mdata, char *begin)
+PAC_INTERNAL void format_taginfo(Music_Data *mdata, char *begin)
 {
     char **title_ptr = &mdata->current_metadata.title_begin_in_buf;
     char **artist_ptr = &mdata->current_metadata.artist_begin_in_buf;
@@ -619,10 +634,10 @@ void format_taginfo(Music_Data *mdata, char *begin)
     **album_ptr = 0; ++*album_ptr;
 }
 
-void menu_do_current_file_info(Runtime_Vars *rtvars, 
-                            Music_Data *mdata, 
-                            General_Buffer_Group *bufgroup,
-                            Widget_Bounds_Info *bound_info)
+PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars, 
+                                        Music_Data *mdata, 
+                                        General_Buffer_Group *bufgroup,
+                                        Widget_Bounds_Info *bound_info)
 {
     update_info_buffer(mdata, bufgroup);
 
@@ -668,7 +683,7 @@ void menu_do_current_file_info(Runtime_Vars *rtvars,
     nk_group_end(nkctx);
 }
 
-void pac_nk_set_button_active(struct nk_context *nkctx)
+PAC_INTERNAL void pac_nk_set_button_active(struct nk_context *nkctx)
 {
     nkctx->style.button.normal = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
     nkctx->style.button.hover = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
@@ -676,7 +691,7 @@ void pac_nk_set_button_active(struct nk_context *nkctx)
     nkctx->style.button.border_color = nk_rgba(0xBB, 0xBB, 0xBB, 0xFF);
 }
 
-void pac_nk_set_button_normal(struct nk_context *nkctx)
+PAC_INTERNAL void pac_nk_set_button_normal(struct nk_context *nkctx)
 {
     nkctx->style.button.normal = nk_style_item_color(nk_rgba(0x15, 0x15, 0x15, 0xFF));
     nkctx->style.button.hover = nk_style_item_color(nk_rgba(0x33, 0x33, 0x33, 0xFF));
@@ -684,13 +699,12 @@ void pac_nk_set_button_normal(struct nk_context *nkctx)
     nkctx->style.button.border_color = nk_rgba(0xAA, 0xAA, 0xAA, 0xFF);
 }
 
-void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *mdata)
+PAC_INTERNAL void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *mdata)
 {
     File_List *mlist = &mdata->music_list;
-    static int frame_counter = 0;
+    PAC_LOCAL_STATIC int frame_counter = 0;
     if(!rtvars->kbd_state[SDL_SCANCODE_LCTRL] && !rtvars->sflags.text_field_focused)
     {
-        //FIXME: this counter thing is an insanely ghetto fix
         uint32_t counter = 0;
         int increment = 0;
         if(rtvars->kbd_state[SDL_SCANCODE_DOWN])
@@ -721,9 +735,9 @@ void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *mdata)
     }
 }
 
-void menu_do_music_list(Runtime_Vars *rtvars, 
-                    Music_Data *mdata, 
-                    Widget_Bounds_Info *bound_info)
+PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, 
+                                    Music_Data *mdata, 
+                                    Widget_Bounds_Info *bound_info)
 {
     struct nk_context *nkctx = rtvars->nuklear_ctx;
     File_List *mlist = &mdata->music_list;
@@ -739,7 +753,6 @@ void menu_do_music_list(Runtime_Vars *rtvars,
 
     mlist_handle_keyboard_nav(rtvars, mdata);
 
-    //i think this works now but idk
     uint32_t render_index = 0, file_index = 0;
     for(int loop_index = 0;
             loop_index < mdata->music_list_view.count;
@@ -751,8 +764,6 @@ void menu_do_music_list(Runtime_Vars *rtvars,
 
         char *btntext = mlist->filenames_string_loclist[render_index];
 
-        nk_uint x, y;
-#if 1
         if(rtvars->kbd_state[SDL_SCANCODE_DOWN] &&
                 (mlist->sel_index > (mdata->music_list_view.end - 2)) && 
                 (mlist->sel_index < (int)mlist->entry_count))
@@ -773,7 +784,6 @@ void menu_do_music_list(Runtime_Vars *rtvars,
             if(mdata->music_list_view.scroll_value > 0)
             { --mdata->music_list_view.scroll_value; }
         }
-#endif
 
         if(mlist->sel_index == (int)render_index) 
         { 
@@ -810,7 +820,7 @@ char *pac_strcasestr(char *str, char *substr)
     { return 0; }
     //fun fact: if these aren't static the return value gets optimized out
     //(meaning that this function will always return null)
-    static char lower_str[NAME_MAX], lower_substr[NAME_MAX];
+    PAC_LOCAL_STATIC char lower_str[NAME_MAX], lower_substr[NAME_MAX];
     strncpy(lower_str, str, NAME_MAX);
     strncpy(lower_substr, substr, NAME_MAX);
     str2lowercase(lower_str, strlen(lower_str));
@@ -852,14 +862,13 @@ void set_match_flags(char *searchbuf, Music_Data *mdata)
     }
 }
 
-void menu_do_search(Runtime_Vars *rtvars, 
-                General_Buffer_Group *bufgroup,
-                Music_Data *mdata,
-                Widget_Bounds_Info *bound_info, 
-                float add_width)
+PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars, 
+                            General_Buffer_Group *bufgroup,
+                            Music_Data *mdata,
+                            Widget_Bounds_Info *bound_info, 
+                            float add_width)
 {
-    static char f_wasdown = 0;
-    static int searchbuf_length = 0;
+    PAC_LOCAL_STATIC int searchbuf_length = 0;
     int new_searchbuf_length;
     char got_input = 0;
     char *searchbuf = (char *)bufgroup->inbuf_search;
@@ -877,7 +886,7 @@ void menu_do_search(Runtime_Vars *rtvars,
                         bound_info->height - (bound_info->y_alignment + bound_info->pad)));
 
     if(rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
-            pac_btn_press(SDL_SCANCODE_F, &f_wasdown, rtvars->kbd_state))
+            pac_btn_press(SDL_SCANCODE_F, &rtvars->sflags.f_wasdown, rtvars->kbd_state))
     { nk_edit_focus(rtvars->nuklear_ctx, NK_TEXT_EDIT_MODE_INSERT); }
 
     nk_flags field_outflags = nk_edit_string_zero_terminated(rtvars->nuklear_ctx, 
@@ -907,10 +916,10 @@ void menu_do_search(Runtime_Vars *rtvars,
     }
 }
 
-void menu_do_list_control(Runtime_Vars *rtvars,
-                        Music_Data *mdata,
-                        Widget_Bounds_Info *bound_info,
-                        float add_width)
+PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars,
+                                    Music_Data *mdata,
+                                    Widget_Bounds_Info *bound_info,
+                                    float add_width)
 {
     struct nk_context *nkctx = rtvars->nuklear_ctx;
     State_Flags *dn_flags = &rtvars->sflags;
@@ -945,10 +954,10 @@ void menu_do_list_control(Runtime_Vars *rtvars,
     { menu_confirm_clear_file_list(rtvars, bound_info, mdata); }
 }
 
-void menu_do_volume_bar(Runtime_Vars *rtvars,
-                    Music_Data *mdata,
-                    Widget_Bounds_Info *bound_info,
-                    float vol_width)
+PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
+                                    Music_Data *mdata,
+                                    Widget_Bounds_Info *bound_info,
+                                    float vol_width)
 {
     struct nk_context *nkctx = rtvars->nuklear_ctx; 
     nk_layout_space_push(nkctx, 
@@ -980,9 +989,9 @@ void menu_do_volume_bar(Runtime_Vars *rtvars,
     }
 }
 
-void menu_do_seek_bar(Runtime_Vars *rtvars, 
-                    Music_Data *mdata, 
-                    Widget_Bounds_Info *bound_info)
+PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, 
+                                Music_Data *mdata, 
+                                Widget_Bounds_Info *bound_info)
 {
     struct nk_context *nkctx = rtvars->nuklear_ctx; 
     mdata->seek_value = conv_songpos2slide_value(mdata);
@@ -1166,7 +1175,7 @@ void pac_main_loop(Runtime_Vars *rtvars,
     rtvars->sflags.text_field_focused = 0;
 }
 
-char sdlmixer_get_taginfo(Music_Data *mdata)
+PAC_INTERNAL char sdlmixer_get_taginfo(Music_Data *mdata)
 {
     if(!mdata || !mdata->sdlmixer_music)
     { return 0; }
@@ -1178,7 +1187,7 @@ char sdlmixer_get_taginfo(Music_Data *mdata)
     return 1;
 }
 
-void sdlmixer_start_music(Music_Data *mdata, char *music_path) 
+PAC_INTERNAL void sdlmixer_start_music(Music_Data *mdata, char *music_path) 
 {
     if(mdata->sdlmixer_music && (Mix_PlayingMusic() || Mix_PausedMusic()))
     { sdlmixer_stop_music(mdata); }
@@ -1197,7 +1206,7 @@ void sdlmixer_start_music(Music_Data *mdata, char *music_path)
     { fprintf(stderr, "failed to load music. desc: %s\n", SDL_GetError()); }
 }
 
-void sdlmixer_stop_music(Music_Data *mdata)
+PAC_INTERNAL void sdlmixer_stop_music(Music_Data *mdata)
 {
     if(mdata->sdlmixer_music)
     {
