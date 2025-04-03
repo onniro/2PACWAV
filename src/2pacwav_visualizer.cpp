@@ -3,8 +3,7 @@
 File: 2pacwav_visualizer.cpp
 Date: Fri 28 Mar 2025 02:09:17 PM EET
 
-TODO: implement smoothing for spectrum
-TODO: implement oscilloscope
+TODO: fix spectrum
 */
 
 #ifndef __STDC_IEC_559_COMPLEX__
@@ -222,7 +221,7 @@ PAC_INTERNAL void spectrum_fill_verts_point(float *verts,
 
 #define TWO_TO_15TH (32768.0f)
 
-PAC_INTERNAL void oscilloscope_fill_verts_point(float *verts,
+PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
                                         int num_elements,
                                         int num_primitives,
                                         Runtime_Vars *rtvars,
@@ -246,7 +245,7 @@ PAC_INTERNAL void oscilloscope_fill_verts_point(float *verts,
     int elements_per_primitive = 2;
     float xpos = -1.0f + (90.0f/(float)sdldata->win_width);
     float sample_pos;
-    float y_scale = 1.5f;
+    float y_scale = (float)(MIX_MAX_VOLUME - mdata->volume)/100.0f;
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
     for(int vert_index = 0, sample_index = 0; 
             vert_index < num_elements; 
@@ -278,7 +277,7 @@ R"(
 #version 120
 void main()
 {
-    gl_FragColor = vec4(1.0, 0.2, 0.2, 0.7f);
+    gl_FragColor = vec4(0.7, 0.0, 0.0, 0.5f);
 }
 )";
 
@@ -300,7 +299,7 @@ void main()
                 rtvars,
                 sdldata);
 #else
-        oscilloscope_fill_verts_point(verts,
+        oscilloscope_fill_verts_line(verts,
                 sizeof(verts)/sizeof(*verts),
                 PAC_OSCILLOSCOPE_POINT_COUNT,
                 rtvars,

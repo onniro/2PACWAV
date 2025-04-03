@@ -1160,7 +1160,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
                         bound_info.height));
     if(nk_button_label(nkctx, ">>") ||
             (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
-            pac_btn_press(SDL_SCANCODE_N, &rtvars->sflags.n_wasdown, rtvars->kbd_state)))
+            pac_btn_press(SDL_SCANCODE_N, &rtvars->sflags.n_wasdown, rtvars->kbd_state))) 
     { 
         goto_next_file(mdata); 
     }
