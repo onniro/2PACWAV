@@ -4,7 +4,7 @@
 BASEDIR="$PWD"
 SRCDIR="$BASEDIR/src"
 
-SOURCES="$SRCDIR/linux_2pacwav.cpp $SRCDIR/2pacwav.cpp"
+SOURCES="$SRCDIR/linux_2pacwav.cpp"
 INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2 -I$BASEDIR/3rd_party/SDL2/include -I$BASEDIR/3rd_party -I$BASEDIR/3rd_party/nuklear -I$BASEDIR/3rd_party/id3v2lib/include -I$BASEDIR/3rd_party/taglib/include -I$BASEDIR/3rd_party/taglib/include/mpeg/id3v2/ -I$BASEDIR/3rd_party/taglib/include/mpeg/" 
 COMP_FLAGS="-O2 -gdwarf"
 LINK_FLAGS="-o 2pacwav"
