@@ -228,10 +228,15 @@ PAC_INTERNAL void oscilloscope_fill_verts_point(float *verts,
                                         Runtime_Vars *rtvars,
                                         Sdl_Apidata *sdldata)
 {
-    Audio_Stream *astream = &rtvars->mdata_ptr->astream;
+    Music_Data *mdata = rtvars->mdata_ptr;
+    Audio_Stream *astream = &mdata->astream;
     int16_t *pcm_buffer = (int16_t *)astream->stream;
     for(int dst_index = 0, src_index = 0; 
+#if 0
             dst_index < astream->stream_size/2; 
+#else
+            dst_index < mdata->chunk_size/2;
+#endif
             ++dst_index, src_index += sizeof(int16_t)*2) 
     {
         astream->real32_buffer_in[dst_index] = (float)pcm_buffer[src_index];
@@ -377,7 +382,7 @@ void main()
 
     //idk if this glBufferSubData call is really good
 #if 1 
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(2*PAC_SPECTRUM_FREQ_BIN_COUNT)), &verts[0]);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(2*PAC_OSCILLOSCOPE_POINT_COUNT)), &verts[0]);
     glDrawArrays(GL_LINE_STRIP, 0, PAC_OSCILLOSCOPE_POINT_COUNT);
 #else
     glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(4*PAC_SPECTRUM_FREQ_BIN_COUNT)), &verts[0]);

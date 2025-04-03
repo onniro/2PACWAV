@@ -28,11 +28,9 @@ typedef float _Complex Complex32;
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)11111) //90fps
 #define PAC_SEEK_VALUE_MAX (100)
 
-//#define PAC_FONT_STRING "DejaVuSans.ttf"
-//#define PAC_BIG_FONT_STRING "DejaVuSans.ttf"
-#define PAC_FONT_STRING "inconsolatalgc.ttf"
-#define PAC_BIG_FONT_STRING "inconsolatalgc.ttf"
-#define PAC_NUKLEAR_FONTSIZE (17.0f)
+#define PAC_FONT_STRING "DejaVuSans.ttf"
+#define PAC_BIG_FONT_STRING "DejaVuSans.ttf"
+#define PAC_NUKLEAR_FONTSIZE (16.0f)
 #define PAC_NUKLEAR_BIG_FONTSIZE (28.0f)
 
 static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
@@ -86,7 +84,7 @@ static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 #define FFT_FLOAT_COUNT                     (8192) //this is probably way too big
 #define FFT_COMPLEX32_BUFFER_SIZE           ((FFT_FLOAT_COUNT)*sizeof(Complex32))
 #define PAC_SPECTRUM_FREQ_BIN_COUNT         (800)
-#define PAC_OSCILLOSCOPE_POINT_COUNT        (1000)
+#define PAC_OSCILLOSCOPE_POINT_COUNT        (1024)
 
 #define PAC_HOLD_WAIT_FRAMES (25)
 #define PAC_HOLD_INCREMENT_MODULO (3)

@@ -22,14 +22,14 @@ char taglib_get_albumcover(bitmap_info *bmpinfo, char *path)
     TagLib::ID3v2::FrameList frames;
     TagLib::ID3v2::AttachedPictureFrame *pic_frame;
 
-    if(id3tag)
+    if(id3tag) 
     {
         frames = id3tag->frameListMap()["APIC"];
-        if(!frames.isEmpty())
+        if(!frames.isEmpty()) 
         {
             for(TagLib::ID3v2::FrameList::ConstIterator iter = frames.begin(); 
                     iter != frames.end(); 
-                    ++iter)
+                    ++iter) 
             {
                 pic_frame = (TagLib::ID3v2::AttachedPictureFrame *)(*iter);
                 if(pic_frame->type() == TagLib::ID3v2::AttachedPictureFrame::FrontCover) 

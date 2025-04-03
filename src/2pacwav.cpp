@@ -363,8 +363,6 @@ PAC_INTERNAL char add_single_file_to_music_list(char *path, Music_Data *mdata)
 
     if(!cont_dir_already_added) 
     { file_list_push_dirname(dir, mlist); } 
-    else 
-    { mdata->rtvars_ptr->sflags.add_dup_dir_confirmation = 1; }
 
     mlist->filenames_string_loclist[mlist->entry_count + 1] = file_entry + file_len + 1;
     ++mdata->music_list.entry_count;
@@ -1351,7 +1349,6 @@ PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata)
 
         SDL_SetHintWithPriority(SDL_HINT_APP_NAME, wintitle, SDL_HINT_OVERRIDE);
         SDL_SetHintWithPriority(SDL_HINT_AUDIO_DEVICE_APP_NAME, wintitle, SDL_HINT_OVERRIDE);
-        //SDL_SetHintWithPriority(SDL_HINT_AUDIO_DEVICE_STREAM_NAME, "2pacwav", SDL_HINT_OVERRIDE);
         SDL_SetHintWithPriority(SDL_HINT_AUDIO_DEVICE_STREAM_ROLE, "music player", SDL_HINT_OVERRIDE);
 
         sdldata->window_ptr = SDL_CreateWindow(wintitle,
