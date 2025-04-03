@@ -13,6 +13,8 @@ extern "C"
 {
 #endif
 
+#include <stdint.h>
+
 typedef struct Ro_Heap_Buffer 
 {
     void *memory;

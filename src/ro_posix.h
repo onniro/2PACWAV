@@ -42,7 +42,7 @@ RO_DEF uint64_t ro_abs_i64(int64_t number)
     uint64_t mask = number >> 63;
     result ^= mask;
     result += mask & 1;
-    return result;
+    return(result);
 }
 
 RO_DEF uint32_t ro_abs_i32(int32_t number)
@@ -51,14 +51,14 @@ RO_DEF uint32_t ro_abs_i32(int32_t number)
     uint32_t mask = number >> 31;
     result ^= mask;
     result += mask & 1;
-    return result;
+    return(result);
 }
 
 RO_DEF float ro_abs_f32(float number)
 {
     float result = number;
     *(uint32_t *)&result &= (0xFFFFFFFF >> 1);
-    return result;
+    return(result);
 }
 
 #define RO_MATH_DOT_H 1
@@ -70,7 +70,7 @@ RO_DEF void *ro_posix_make_heap_buffer(Ro_Heap_Buffer *target, uint64_t bytes)
                         MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     target->write_ptr = target->memory;
     target->total_bytes = bytes;
-    return target->memory;
+    return(target->memory);
 }
 
 RO_DEF void ro_posix_free_heap_buffer(Ro_Heap_Buffer *buffer) 
@@ -90,7 +90,7 @@ RO_DEF uint64_t ro_buffer_unallocated_bytes(Ro_Heap_Buffer *buffer)
                 buffer->total_bytes) - 
                 (uint64_t)buffer->write_ptr;
     }
-    return result;
+    return(result);
 }
 
 RO_DEF void *ro_buffer_alloc_region(struct Ro_Heap_Buffer *buffer, uint64_t region_bytes) 
@@ -102,7 +102,7 @@ RO_DEF void *ro_buffer_alloc_region(struct Ro_Heap_Buffer *buffer, uint64_t regi
         result = buffer->write_ptr;
         buffer->write_ptr = (void *)((uintptr_t)buffer->write_ptr + region_bytes);
     } 
-    return result;
+    return(result);
 }
 
 RO_DEF void ro_buffer_move_writeptr(Ro_Heap_Buffer *buffer, 
@@ -141,7 +141,7 @@ RO_DEF char *ro_posix_get_working_directory(char *destination, uint64_t buffer_s
         else 
         { break; }
     }
-    return destination;
+    return(destination);
 }
 
 RO_DEF uint64_t ro_posix_get_timestamp(void) 
@@ -150,7 +150,7 @@ RO_DEF uint64_t ro_posix_get_timestamp(void)
     struct timespec tspec = {};
     clock_gettime(CLOCK_MONOTONIC, &tspec);
     result = (tspec.tv_sec*1000000) + (tspec.tv_nsec/1000);
-    return result;
+    return(result);
 }
 
 RO_DEF void ro_posix_sleep_microsec(uint64_t microseconds) 
@@ -175,7 +175,7 @@ RO_DEF char ro_posix_file_exists(char *file_path)
     struct stat stat_struct;
     if(!stat(file_path, &stat_struct) && !(S_ISDIR(stat_struct.st_mode))) 
     { result = 1; }
-    return result;
+    return(result);
 }
 
 RO_DEF char ro_posix_directory_exists(char *directory_name) 
@@ -184,7 +184,7 @@ RO_DEF char ro_posix_directory_exists(char *directory_name)
     struct stat stat_struct;
     if(!stat(directory_name, &stat_struct) && S_ISDIR(stat_struct.st_mode)) 
     { result = 1; }
-    return result;
+    return(result);
 }
 
 RO_DEF int ro_posix_read_file(char *file_path, char *destination, uint64_t *dest_bytes) 
@@ -200,7 +200,7 @@ RO_DEF int ro_posix_read_file(char *file_path, char *destination, uint64_t *dest
         if(*dest_bytes == (uint64_t)stat_buf.st_size) 
         { result = 1; }
     }
-    return result;
+    return(result);
 }
 
 RO_DEF int ro_posix_write_file(char *file_path, void *in_buffer, uint64_t buffer_size) 
@@ -214,7 +214,7 @@ RO_DEF int ro_posix_write_file(char *file_path, void *in_buffer, uint64_t buffer
         if(write_status == (int64_t)buffer_size) 
         { result = 1; }
     }
-    return result;
+    return(result);
 }
 
 RO_DEF int ro_posix_get_stdout(char *command, 
@@ -255,7 +255,7 @@ RO_DEF int ro_posix_get_stdout(char *command,
         *output_fd = pipe_fd[STDIN_FILENO];
         result = 1;
     }
-    return result;
+    return(result);
 }
 
 #ifdef __cplusplus
