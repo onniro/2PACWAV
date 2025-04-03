@@ -2,6 +2,8 @@
 /*
 File: linux_2pacwav.cpp
 Date: Tue 18 Feb 2025 12:57:19 PM EET
+
+TODO: make it so that you can run this program as root
 */
 
 #include <stdio.h>
@@ -11,7 +13,9 @@ Date: Tue 18 Feb 2025 12:57:19 PM EET
 #include <dirent.h>
 #include <time.h>
 #include <locale.h>
+#include <complex.h>
 
+#define GL_GLEXT_PROTOTYPES 1
 #include "SDL.h"
 #include "SDL_mixer.h"
 #include <GL/gl.h>
@@ -26,6 +30,8 @@ Date: Tue 18 Feb 2025 12:57:19 PM EET
 #include "ro_posix.h"
 #include "2pacwav.h"
 #include "linux_2pacwav.h"
+
+#include "2pacwav.cpp"
 
 PAC_INTERNAL char *find_res_path(Runtime_Vars *rtvars, char *out_res_path, int bufsize)
 {
@@ -47,7 +53,7 @@ PAC_INTERNAL char *find_res_path(Runtime_Vars *rtvars, char *out_res_path, int b
         last_ptr = strstr(end_ptr, "/res/");
         *last_ptr = 0;
     }
-    return result;
+    return(result);
 }
 
 PAC_INTERNAL void load_font(Runtime_Vars *rtvars)
@@ -122,7 +128,7 @@ int platform_get_directory_listing(char *path, File_List *out_flist)
     else
     { platform_log("directory listing failed. reason: failed to initialize directory struct\n"); }
 
-    return result;
+    return(result);
 }
 
 PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf, 
@@ -145,6 +151,7 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
     MEM_INIT_ASSERT(heapbuf, bufgroup->inbuf_search,                    PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->working_directory,               PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->resource_directory,              PATH_MAX);
+    MEM_INIT_ASSERT(heapbuf, bufgroup->fft_complex32_buffer,            FFT_COMPLEX32_BUFFER_SIZE*2);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_match_flags,               MATCH_FLAGS_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_filenames_string_loclist,  FILENAMEBUF_LOCATION_LIST_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_string_loclist,   DIRNAMEBUF_LOCATION_LIST_SIZE);
@@ -165,22 +172,22 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
 
 char platform_file_exists(char *path)
 {
-    return ro_posix_file_exists(path);
+    return(ro_posix_file_exists(path));
 }
 
 char platform_directory_exists(char *path)
 {
-    return ro_posix_directory_exists(path);
+    return(ro_posix_directory_exists(path));
 }
 
 int platform_read_file(char *file_path, char *dest, uint64_t *dest_bytes)
 {
-    return ro_posix_read_file(file_path, dest, dest_bytes);
+    return(ro_posix_read_file(file_path, dest, dest_bytes));
 }
 
 int platform_write_file(char *file_path, void *in_buffer, uint64_t buffer_size)
 {
-    return ro_posix_write_file(file_path, in_buffer, buffer_size);
+    return(ro_posix_write_file(file_path, in_buffer, buffer_size));
 }
 
 void platform_log(char *fmt_string, ...)
@@ -205,12 +212,11 @@ void platform_dbg_log(char *fmt_string, ...)
 #endif
 }
 
-void platform_get_working_directory(char *buf, int buf_size)
+PAC_INTERNAL void platform_get_working_directory(char *buf, int buf_size)
 {
     ro_posix_get_working_directory(buf, buf_size);
     int len = strlen(buf);
-    if(buf[len - 1] == '/')
-    { buf[len - 1] = 0; }
+    if(buf[len - 1] == '/') { buf[len - 1] = 0; }
 }
 
 int main(int arg_count, char **args) 
@@ -228,21 +234,22 @@ int main(int arg_count, char **args)
     rtvars.sdldata_ptr = &sdldata;
     rtvars.bufgroup_ptr = &bufgroup;
     sdldata.mdata_ptr = &mdata;
+
     if(!pac_init_sdl(&sdldata)) 
     {
         fprintf(stderr, "failed to init SDL\n");
-        return -1; 
+        return(-1); 
     }
     if(!pac_init_sdlmixer(&mdata)) 
     {
         fprintf(stderr, "failed to init SDL mixer\n");
-        return -1; 
+        return(-1); 
     }
         
     if(ro_posix_make_heap_buffer(&rtvars.main_storage, PAC_MAIN_STORAGE_SIZE)) 
     { startup_alloc_buffers(&rtvars.main_storage, &bufgroup); }
     else
-    { fprintf(stderr, "failed to get memory\n"); return -1; }
+    { fprintf(stderr, "failed to get memory\n"); return(-1); }
     mdata.current_filename = (char *)bufgroup.music_current_filename;
     mdata.rtvars_ptr = &rtvars;
     rtvars.working_directory = (char *)bufgroup.working_directory;
@@ -265,18 +272,37 @@ int main(int arg_count, char **args)
     mdata.music_list.dirnames_string_loclist[0] = (char *)mdata.music_list.dirnames_buf;
     mdata.music_list.match_flags = (char *)bufgroup.flist_match_flags;
 
+    mdata.astream.complex32_buffer_in = (Complex32 *)bufgroup.fft_complex32_buffer;
+    mdata.astream.complex32_buffer_out = mdata.astream.complex32_buffer_in + (FFT_COMPLEX32_BUFFER_SIZE/2);
+
     rtvars.keep_running = 1;
 
     srand48(time(0));
 
     Frametime_Vars frametime;
     rtvars.frametime_info_ptr = &frametime;
+    rtvars.mdata_ptr = &mdata;
     useconds_t us2sleep;
 
-    //if(taglib_get_albumcover(&mdata.cover, "/home/onni/source/2pacwav/res/beware.mp3"))
-    //{
-    //    pac_init_bitmap(&mdata.cover, &rtvars);
-    //}
+    Mix_SetPostMix(pac_sdlmixer_postmix_callback, (void *)&rtvars);
+
+#if _2PACWAV_DEBUG
+    {
+        int gl_maj, gl_min;
+        SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &gl_maj);
+        SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &gl_min);            
+        platform_dbg_log("OpenGL vendor: %s\n"
+                "OpenGL version: %s\n"
+                "renderer: %s\n"
+                "GLSL version: %s\n"
+                "SDL OpenGL context version: %d.%d\n",
+                glGetString(GL_VENDOR),
+                glGetString(GL_VERSION),
+                glGetString(GL_RENDERER),
+                glGetString(GL_SHADING_LANGUAGE_VERSION),
+                gl_maj, gl_min);
+    }
+#endif
 
     while(rtvars.keep_running) 
     {
@@ -291,12 +317,13 @@ int main(int arg_count, char **args)
         }
     }
 
-    if(mdata.sdlmixer_music) 
-    { Mix_FreeMusic(mdata.sdlmixer_music); }
+    if(mdata.sdlmixer_music) { Mix_FreeMusic(mdata.sdlmixer_music); }
     Mix_CloseAudio();
 
     nk_sdl_shutdown();
     SDL_GL_DeleteContext(sdldata.ogl_context);
     SDL_DestroyWindow(sdldata.window_ptr);
     SDL_Quit();
+
+    return(0);
 }

@@ -11,9 +11,11 @@ extern "C"
 {
 #endif
 
+typedef float _Complex Complex32;
+
 #define _2PACWAV_VER_MAJOR      (0)
-#define _2PACWAV_VER_MINOR      (1)
-#define _2PACWAV_VER_PATCH      (6)
+#define _2PACWAV_VER_MINOR      (2)
+#define _2PACWAV_VER_PATCH      (2)
 
 #include "ro_heapbuf.h"
 
@@ -23,17 +25,32 @@ extern "C"
 
 #define WINDOW_WIDTH    1024
 #define WINDOW_HEIGHT   768
-#define MAX_FRAMETIME_MICROSEC ((useconds_t)16667)
+#define MAX_FRAMETIME_MICROSEC ((useconds_t)11111) //90fps
 #define PAC_SEEK_VALUE_MAX (100)
 
-#define PAC_FONT_STRING "DejaVuSans.ttf"
-#define PAC_BIG_FONT_STRING "DejaVuSans.ttf"
-#define PAC_NUKLEAR_FONTSIZE (15.0f)
-#define PAC_NUKLEAR_BIG_FONTSIZE (25.0f)
+//#define PAC_FONT_STRING "DejaVuSans.ttf"
+//#define PAC_BIG_FONT_STRING "DejaVuSans.ttf"
+#define PAC_FONT_STRING "inconsolatalgc.ttf"
+#define PAC_BIG_FONT_STRING "inconsolatalgc.ttf"
+#define PAC_NUKLEAR_FONTSIZE (17.0f)
+#define PAC_NUKLEAR_BIG_FONTSIZE (28.0f)
 
 static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 
 #define PAC_NOP_MACRO(...)
+#if _2PACWAV_LINUX
+    #define PLATFORM_EXITCALL(code) _exit(code)
+#else
+    #define PLATFORM_EXITCALL(code) ExitProcess(code)
+#endif
+
+#define PAC_ASSERT(expression)\
+    if(!(expression))\
+    {\
+        platform_log("ASSERTION FAILED. file: %s @ L%d\nexpression: (%s)\n",\
+                __FILE__, __LINE__, #expression);\
+        PLATFORM_EXITCALL(666);\
+    } PAC_NOP_MACRO()
 
 #ifndef PAC_SAMPLE_RATE
     #define PAC_SAMPLE_RATE MIX_DEFAULT_FREQUENCY
@@ -54,6 +71,8 @@ static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 #define PAC_MAX_FILES   (8192)
 #define PAC_MAX_DIRS    (128)
 
+#define PAC_PI32 (3.14159265f)
+
 #define PAC_MAIN_STORAGE_SIZE               (5*(1024*1024))
 #define DEBUG_BUFFER_SIZE                   (8192)
 #define USERINFO_BUFFER_SIZE                (512)
@@ -64,8 +83,14 @@ static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 #define SEARCH_BUFFER_SIZE                  (NAME_MAX)
 #define MATCH_FLAGS_BUFFER_SIZE             (PAC_MAX_FILES*sizeof(char))
 
+#define FFT_FLOAT_COUNT                     (8192) //this is probably way too big
+#define FFT_COMPLEX32_BUFFER_SIZE           ((FFT_FLOAT_COUNT)*sizeof(Complex32))
+#define PAC_SPECTRUM_FREQ_BIN_COUNT         (150)
+
 #define PAC_HOLD_WAIT_FRAMES (25)
 #define PAC_HOLD_INCREMENT_MODULO (3)
+
+#define PAC_DEFAULT_SEEK_INCREMENT (10) //(seconds)
 
 struct Runtime_Vars;
 struct General_Buffer_Group;
@@ -92,6 +117,7 @@ typedef struct General_Buffer_Group
     void *flist_dirnames_string_loclist;
     void *flist_match_flags;
     void *scratch_space;
+    void *fft_complex32_buffer;
 } General_Buffer_Group;
 
 typedef struct File_List
@@ -148,6 +174,9 @@ typedef struct State_Flags
     char s_wasdown;
     char l_wasdown;
     char f_wasdown;
+    char n_wasdown;
+    char p_wasdown;
+    char r_wasdown;
     char right_wasdown;
     char left_wasdown;
     char up_wasdown;
@@ -156,6 +185,7 @@ typedef struct State_Flags
     char enter_wasdown;
     char escape_wasdown;
     char clear_confirmation;
+    char add_dup_dir_confirmation;
     char text_field_focused;
     Center_View_State viewstate;
     Userinfo_Type last_userinfo_type;
@@ -176,10 +206,8 @@ typedef struct Audio_Metadata_Group
 {
     const char *tag_title;
     char *title_begin_in_buf;
-
     const char *tag_artist;
     char *artist_begin_in_buf;
-
     const char *tag_album;
     char *album_begin_in_buf;
 } Audio_Metadata_Group;
@@ -195,6 +223,17 @@ typedef struct Bitmap_Info
     GLuint ogl_tex_id;
 } Bitmap_Info;
 
+typedef struct Audio_Stream
+{
+    int stream_size; 
+    uint8_t *stream;
+    Complex32 *complex32_buffer_in;
+    Complex32 *complex32_buffer_out;
+    float real32_buffer_final[PAC_SPECTRUM_FREQ_BIN_COUNT];
+    float real32_buffer_out[FFT_FLOAT_COUNT];
+    float real32_buffer_in[FFT_FLOAT_COUNT];
+} Audio_Stream;
+
 typedef struct Music_Data
 {
     char paused; //Mix_PausedMusic() doesn't work seemingly
@@ -204,10 +243,12 @@ typedef struct Music_Data
     int channels;
     int volume;
     int chunk_size;
+    int seek_increment;
     float seek_value;
     double current_position;
     double current_duration;
     char *current_filename;
+    Audio_Stream astream;
     Runtime_Vars *rtvars_ptr;
     File_List music_list;
     Mix_Music *sdlmixer_music; //IMPORTANT: ALWAYS SET TO NULL WHEN MUSIC IS UNLOADED
@@ -236,6 +277,7 @@ typedef struct Runtime_Vars
     General_Buffer_Group *bufgroup_ptr;
     Ro_Heap_Buffer main_storage;
     Sdl_Apidata *sdldata_ptr;
+    Music_Data *mdata_ptr;
     const uint8_t *kbd_state;
     struct nk_font *small_font;
     struct nk_font *big_font;
@@ -243,11 +285,10 @@ typedef struct Runtime_Vars
 } Runtime_Vars;
 
 //(forward declarations)
-
-void pac_nop(void);
-void get_version_string(char *buffer);
-void show_version(void);
-void pac_do_command_args(int arg_count, char **args);
+PAC_INTERNAL void pac_nop(void);
+PAC_INTERNAL void get_version_string(char *buffer);
+PAC_INTERNAL void show_version(void);
+PAC_INTERNAL void pac_do_command_args(int arg_count, char **args);
 nk_rune *pac_font_glyph_ranges(void);
 void pac_nuklearapi_paste_callback(nk_handle handle, struct nk_text_edit *txtedit);
 PAC_INTERNAL void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
@@ -255,20 +296,21 @@ PAC_INTERNAL void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata);
 PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars);
 PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
 PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
-void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type);
-void file_list_push_dirname(char *dirname, File_List *flist);
+PAC_INTERNAL void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type);
+PAC_INTERNAL void file_list_push_dirname(char *dirname, File_List *flist);
 PAC_INTERNAL void goto_next_file(Music_Data *mdata);
 PAC_INTERNAL void goto_prev_file(Music_Data *mdata);
 PAC_INTERNAL void set_match_flags(char *searchbuf, Music_Data *mdata);
 PAC_INTERNAL void update_music_info(Music_Data *mdata);
-void pac_main_loop(Runtime_Vars *rtvars, Sdl_Apidata *sdldata, General_Buffer_Group *bufgroup, Music_Data *mdata);
+PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars, Sdl_Apidata *sdldata, General_Buffer_Group *bufgroup, Music_Data *mdata);
 PAC_INTERNAL char id3_get_taginfo(Music_Data *mdata);
 PAC_INTERNAL char sdlmixer_get_taginfo(Music_Data *mdata);
 PAC_INTERNAL void sdlmixer_start_music(Music_Data *mdata, char *music_path);
 PAC_INTERNAL void sdlmixer_stop_music(Music_Data *mdata);
-char pac_init_sdlmixer(Music_Data *mdata);
-void nuklearapi_set_style(struct nk_context *ctx);
-char pac_init_sdl(Sdl_Apidata *sdldata);
+void pac_sdlmixer_postmix_callback(void *udata, uint8_t *stream, int len);
+PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata);
+PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata);
+PAC_INTERNAL void nuklearapi_set_style(struct nk_context *ctx);
 
 #ifdef __cplusplus
 }
