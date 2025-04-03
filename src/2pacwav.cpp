@@ -31,6 +31,8 @@ Date: Sat 22 Feb 2025 06:29:25 PM EET
 #elif _2PACWAV_WIN32
 #endif
 
+#include "2pacwav_visualizer.cpp"
+
 void pac_nop(void) 
 {
     return; 
@@ -174,8 +176,6 @@ PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
             NK_WINDOW_NO_INPUT|NK_WINDOW_NO_SCROLLBAR);
 }
 
-#include "2pacwav_spectrum.cpp"
-
 PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
 {
     nk_end(rtvars->nuklear_ctx);
@@ -183,7 +183,7 @@ PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     //im gonna come back to this at some point (hopefully)
     if(rtvars->sflags.viewstate == CENTER_VIEW_STATE_CURRENT_INFO) 
     {
-        test_draw_freq_spectrum(rtvars, sdldata); //XXX
+        do_visualizer(rtvars, sdldata); //XXX
     }
     SDL_GL_SwapWindow(sdldata->window_ptr);
 }
@@ -697,9 +697,9 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
     if(*artist_ptr) 
     { nk_label(nkctx, *artist_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM); }
     nk_layout_row_static(nkctx, 20, text_width, 1);
+    nk_style_set_font(nkctx, &rtvars->small_font->handle);
     if(*album_ptr)
     { nk_label(nkctx, *album_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM); }
-    nk_style_set_font(nkctx, &rtvars->small_font->handle);
 
     //pac_nk_draw_bitmap(rtvars, &mdata->cover);
 
@@ -1208,7 +1208,8 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     { playback_btn_text[0] = '|'; playback_btn_text[1] = '|'; }
 
     if(nk_button_label(nkctx, playback_btn_text) || 
-            pac_btn_press(SDL_SCANCODE_SPACE, &dn_flags->space_wasdown, rtvars->kbd_state))
+            (pac_btn_press(SDL_SCANCODE_SPACE, &dn_flags->space_wasdown, rtvars->kbd_state) &&
+            !rtvars->sflags.text_field_focused))
     {
         if(!mdata->paused && mdata->sdlmixer_music) 
         { mdata->paused = 1;  Mix_PauseMusic(); } 
@@ -1314,22 +1315,13 @@ PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata)
     mdata->chunk_size = PAC_SDLMIXER_CHUNKSIZE;
     mdata->volume = 20;
     mdata->seek_increment = PAC_DEFAULT_SEEK_INCREMENT;
-#if 0
-    if(Mix_OpenAudio(mdata->sample_rate, mdata->pcm_bits, mdata->channels, mdata->chunk_size)) 
-    { fprintf(stderr, "Mix_OpenAudio failed. desc: %s\n", SDL_GetError()); } 
-#else
     if(Mix_OpenAudioDevice(mdata->sample_rate, 
             mdata->pcm_bits, 
             mdata->channels, 
             mdata->chunk_size,
-#if 0
-            0,
-#else
             dev2open,
-#endif
             flags)) 
     { fprintf(stderr, "failed to open audio device. desc: %s\n", SDL_GetError()); } 
-#endif
     else
     { 
         result = 1; 

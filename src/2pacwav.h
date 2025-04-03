@@ -15,7 +15,7 @@ typedef float _Complex Complex32;
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (2)
-#define _2PACWAV_VER_PATCH      (2)
+#define _2PACWAV_VER_PATCH      (3)
 
 #include "ro_heapbuf.h"
 
@@ -85,7 +85,8 @@ static const uint8_t _stop_btn_glyph[4] = {0xE2, 0x96, 0xA0, 0x00};
 
 #define FFT_FLOAT_COUNT                     (8192) //this is probably way too big
 #define FFT_COMPLEX32_BUFFER_SIZE           ((FFT_FLOAT_COUNT)*sizeof(Complex32))
-#define PAC_SPECTRUM_FREQ_BIN_COUNT         (150)
+#define PAC_SPECTRUM_FREQ_BIN_COUNT         (800)
+#define PAC_OSCILLOSCOPE_POINT_COUNT        (1000)
 
 #define PAC_HOLD_WAIT_FRAMES (25)
 #define PAC_HOLD_INCREMENT_MODULO (3)
