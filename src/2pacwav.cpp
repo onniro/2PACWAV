@@ -166,7 +166,7 @@ PAC_INTERNAL void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 }
 
-PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
+PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
 {
     sdlapi_correct_gl_viewport_and_clear(sdldata);
     sdlapi_process_events(rtvars, sdldata);
@@ -182,9 +182,7 @@ PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     nk_sdl_render(NK_ANTI_ALIASING_ON);
     //im gonna come back to this at some point (hopefully)
     if(rtvars->sflags.viewstate == CENTER_VIEW_STATE_CURRENT_INFO) 
-    {
-        do_visualizer(rtvars, sdldata); //XXX
-    }
+    { do_visualizer(rtvars, sdldata); }
     SDL_GL_SwapWindow(sdldata->window_ptr);
 }
 
@@ -635,7 +633,7 @@ PAC_INTERNAL void format_taginfo(Music_Data *mdata, char *begin)
     **title_ptr = 0; ++*title_ptr;
     Audio_Metadata_Group *meta = &mdata->current_metadata;
     File_List *mlist = &mdata->music_list;
-    if(strlen(mdata->current_metadata.tag_title))
+    if(strlen(mdata->current_metadata.tag_title)) 
     {
         snprintf(*title_ptr, 1023, "%s\n%s\n%s\000",
                 meta->tag_title,
@@ -1183,11 +1181,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
                         bound_info.height, 
                         bound_info.height));
     //NOTE: some fonts dont have a codepoint for this glyph
-#if 1
     if(nk_button_label(nkctx, (char *)_stop_btn_glyph)) //stop
-#else
-    if(nk_button_label(nkctx, "[]")) //stop
-#endif
     { 
         sdlmixer_stop_music(mdata); 
         mdata->current_filename[0] = 0x0;

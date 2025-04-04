@@ -231,11 +231,7 @@ PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
     Audio_Stream *astream = &mdata->astream;
     int16_t *pcm_buffer = (int16_t *)astream->stream;
     for(int dst_index = 0, src_index = 0; 
-#if 0
-            dst_index < astream->stream_size/2; 
-#else
             dst_index < mdata->chunk_size/2;
-#endif
             ++dst_index, src_index += sizeof(int16_t)*2) 
     {
         astream->real32_buffer_in[dst_index] = (float)pcm_buffer[src_index];
@@ -262,8 +258,6 @@ PAC_INTERNAL void do_visualizer(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     PAC_LOCAL_STATIC const char _shdr_vert_src[] = 
 R"(
 #version 120
-//uniform mat4 model;
-//uniform mat4 projection;
 attribute vec3 position;
 void main()
 {
