@@ -21,9 +21,9 @@ TODO: make it so that you can run this program as root
 #include <GL/gl.h>
 #include <GL/glu.h>
 
-#define NK_INCLUDE_STANDARD_IO
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_STANDARD_IO 1
+#define NK_INCLUDE_DEFAULT_ALLOCATOR 1
+#define NK_INCLUDE_FONT_BAKING 1
 #include "nuklear.h"
 #include "nuklear_sdl_gl2.h"
 
@@ -56,12 +56,27 @@ PAC_INTERNAL char *find_res_path(Runtime_Vars *rtvars, char *out_res_path, int b
     return(result);
 }
 
-PAC_INTERNAL void load_font(Runtime_Vars *rtvars)
+//i had to paste these in here because for some reason 
+//#defining NK_INCLUDE_DEFAULT_ALLOCATOR wasn't working
+NK_LIB void *nk_malloc(nk_handle unused, void *old,nk_size size)
 {
-    struct nk_context *nuklear_ctx = rtvars->nuklear_ctx;
+    NK_UNUSED(unused);
+    NK_UNUSED(old);
+    return malloc(size);
+}
+
+NK_LIB void nk_mfree(nk_handle unused, void *ptr)
+{
+    NK_UNUSED(unused);
+    free(ptr);
+}
+
+PAC_INTERNAL void load_and_bake_font(Runtime_Vars *rtvars)
+{
+    struct nk_context *nkctx = rtvars->nuklear_ctx;
     char *working_dir = rtvars->working_directory;
     char *res_dir = rtvars->resource_directory;
-    char small_font_path[PATH_MAX], big_font_path[PATH_MAX];
+    char small_font_path[PATH_MAX], big_font_path[PATH_MAX], cjk_font_path[PATH_MAX];
 
     if(find_res_path(rtvars, res_dir, PATH_MAX - 1))
     {
@@ -69,16 +84,78 @@ PAC_INTERNAL void load_font(Runtime_Vars *rtvars)
         snprintf(big_font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_BIG_FONT_STRING);
     }
     else
-    { platform_log("cannot load resources. reason: path missing.\nexiting.\n"); exit(1); }
+    { 
+        platform_log("cannot load resources. reason: path missing.\nexiting.\n"); 
+        PLATFORM_EXITCALL(1);
+    }
+    
+    //struct nk_font_atlas atlas;
+    struct nk_font_config ft_config = {};
+    ft_config.oversample_v = 1;
+    ft_config.oversample_h = 1;
+    ft_config.range = pac_font_glyph_ranges();
+    nk_font_atlas_init_default(&rtvars->ft_atlas);
+    nk_font_atlas_begin(&rtvars->ft_atlas);
+
+    rtvars->small_font = nk_font_atlas_add_from_file(&rtvars->ft_atlas, 
+                            small_font_path, 
+                            PAC_NUKLEAR_FONTSIZE, 
+                            &ft_config);
+    rtvars->big_font = nk_font_atlas_add_from_file(&rtvars->ft_atlas, 
+                            big_font_path, 
+                            PAC_NUKLEAR_BIG_FONTSIZE, 
+                            &ft_config);
+    //rtvars->cjk_font = nk_font_atlas_add_from_file(&rtvars->ft_atlas, 
+    //                        cjk_font_path, 
+    //                        PAC_NUKLEAR_FONTSIZE, 
+    //                        &ft_config);
+    int img_width, img_height;
+    const void* img = nk_font_atlas_bake(&rtvars->ft_atlas, &img_width, &img_height, NK_FONT_ATLAS_RGBA32);
+    uint32_t atl_tex;
+    glGenTextures(1, &atl_tex);
+    glBindTexture(GL_TEXTURE_2D, atl_tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 
+            0, 
+            GL_RGBA,
+            img_width,
+            img_height,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            img);
+    nk_font_atlas_end(&rtvars->ft_atlas, nk_handle_id(atl_tex), 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    nk_init_default(nkctx, &rtvars->small_font->handle);
+    nk_init_default(nkctx, &rtvars->big_font->handle);
+    nk_style_set_font(nkctx, &rtvars->small_font->handle);
+}
+
+PAC_INTERNAL void load_font(Runtime_Vars *rtvars)
+{
+    struct nk_context *nuklear_ctx = rtvars->nuklear_ctx;
+    char *working_dir = rtvars->working_directory;
+    char *res_dir = rtvars->resource_directory;
+    char small_font_path[PATH_MAX], big_font_path[PATH_MAX], cjk_font_path[PATH_MAX];
+
+    if(find_res_path(rtvars, res_dir, PATH_MAX - 1))
+    {
+        snprintf(small_font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_FONT_STRING);
+        snprintf(big_font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_BIG_FONT_STRING);
+    }
+    else
+    { 
+        platform_log("cannot load resources. reason: path missing.\nexiting.\n"); 
+        PLATFORM_EXITCALL(1);
+    }
 
     struct nk_font_config ft_config = {};
-    ft_config.oversample_h = 2;
-    ft_config.oversample_v = 2;
-#if 0
-    ft_config.range = nk_font_cyrillic_glyph_ranges();
-#else
+    //struct nk_font_config ft_config = nk_font_config(14);
+    ft_config.oversample_h = 1;
+    ft_config.oversample_v = 1;
     ft_config.range = pac_font_glyph_ranges();
-#endif
     
     struct nk_font_atlas *ft_atlas;
     nk_sdl_font_stash_begin(&ft_atlas);
@@ -243,7 +320,7 @@ int main(int arg_count, char **args)
     if(!pac_init_sdlmixer(&mdata)) 
     {
         fprintf(stderr, "failed to init SDL mixer\n");
-        return(-1); 
+        return( -1); 
     }
         
     if(ro_posix_make_heap_buffer(&rtvars.main_storage, PAC_MAIN_STORAGE_SIZE)) 
@@ -258,7 +335,8 @@ int main(int arg_count, char **args)
     platform_get_working_directory(rtvars.working_directory, PATH_MAX);
 
     rtvars.nuklear_ctx = nk_sdl_init(sdldata.window_ptr);
-    load_font(&rtvars);
+    //load_font(&rtvars);
+    load_and_bake_font(&rtvars);
 
     nuklearapi_set_style(rtvars.nuklear_ctx);
     rtvars.nuklear_ctx->style.button.rounding = 0;
@@ -295,7 +373,7 @@ int main(int arg_count, char **args)
                 "OpenGL version: %s\n"
                 "renderer: %s\n"
                 "GLSL version: %s\n"
-                "SDL OpenGL context version: %d.%d\n",
+                "SDL_GL context version: %d.%d\n",
                 glGetString(GL_VENDOR),
                 glGetString(GL_VERSION),
                 glGetString(GL_RENDERER),
@@ -319,8 +397,9 @@ int main(int arg_count, char **args)
 
     if(mdata.sdlmixer_music) { Mix_FreeMusic(mdata.sdlmixer_music); }
     Mix_CloseAudio();
-
-    nk_sdl_shutdown();
+    //nk_font_atlas_cleanup(&rtvars.ft_atlas);
+    //nk_font_atlas_clear(&rtvars.ft_atlas);
+    //nk_sdl_shutdown(); //fuck this function (honestly all these nk_sdl things are buggy as shit)
     SDL_GL_DeleteContext(sdldata.ogl_context);
     SDL_DestroyWindow(sdldata.window_ptr);
     SDL_Quit();

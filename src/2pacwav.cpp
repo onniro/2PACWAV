@@ -15,8 +15,10 @@ Date: Sat 22 Feb 2025 06:29:25 PM EET
 #include <GL/glu.h>
 #include <GL/glext.h>
 
-#define NK_INCLUDE_FONT_BAKING
-#define NK_ASSERT
+#define NK_INCLUDE_FONT_BAKING 1
+#define NK_INCLUDE_DEFAULT_ALLOCATOR 1
+//#define NK_ASSERT 1
+#define NK_ASSERT(exp) PAC_NOP_MACRO()
 #include "nuklear.h"
 #include "nuklear_sdl_gl2.h"
 
@@ -201,11 +203,21 @@ PAC_INTERNAL int pac_qsort_strcmp(const void *a, const void *b)
     return(result);
 }
 
-PAC_INTERNAL void sort_file_list_alpha(File_List *flist)
+PAC_INTERNAL int pac_qsort_strcmp_rev(const void *a, const void *b)
+{
+    int result = strcasecmp(*(const char **)b, *(const char **)a);
+    return(result);
+}
+
+typedef int (*Sort_Comp_Func)(const void *, const void *);
+
+PAC_INTERNAL void sort_file_list_alpha(File_List *flist, char reversed)
 {
     char **strings = flist->filenames_string_loclist;
     int sort_count = flist->entry_count;
-    qsort(strings, sort_count, sizeof(char **), pac_qsort_strcmp);
+    Sort_Comp_Func cmpf = pac_qsort_strcmp;
+    if(reversed) { cmpf = pac_qsort_strcmp_rev; }
+    qsort(strings, sort_count, sizeof(char **), cmpf);
 }
 
 PAC_INTERNAL void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bufgroup) 
@@ -731,7 +743,10 @@ PAC_INTERNAL void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *md
         else if(rtvars->kbd_state[SDL_SCANCODE_UP]) 
         { increment = -1; }
         else
-        { frame_counter = 0; return; }
+        { 
+            frame_counter = 0; 
+            return; 
+        }
 
         if((frame_counter == 1) ||
                 (frame_counter > PAC_HOLD_WAIT_FRAMES &&
@@ -938,39 +953,78 @@ PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars,
                                     Widget_Bounds_Info *bound_info,
                                     float add_width)
 {
+    PAC_LOCAL_STATIC char sort_text[16] = "sort (a-z)";
+    PAC_LOCAL_STATIC char sort_reversed = 0;
     struct nk_context *nkctx = rtvars->nuklear_ctx;
-    State_Flags *dn_flags = &rtvars->sflags;
+    State_Flags *sflags = &rtvars->sflags;
+    int btn_count = 0;
 
     nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info->height + bound_info->pad, 
+                        nk_rect(bound_info->height + (bound_info->pad*btn_count) + (add_width*btn_count),
                         bound_info->y_offset, 
                         add_width, 
                         bound_info->height - (bound_info->y_alignment + bound_info->pad)));
-    if(nk_button_label(nkctx, "sort (a-z)") ||
+    ++btn_count;
+
+    if(nk_button_label(nkctx, sort_text) ||
             ((rtvars->kbd_state[SDL_SCANCODE_LSHIFT] &&
             rtvars->kbd_state[SDL_SCANCODE_LCTRL]) &&
-            pac_btn_press(SDL_SCANCODE_S, &dn_flags->s_wasdown, rtvars->kbd_state)))
+            pac_btn_press(SDL_SCANCODE_S, &sflags->s_wasdown, rtvars->kbd_state)))
     {
         if(mdata->music_list.entry_count)
-        { sort_file_list_alpha(&mdata->music_list); }
+        { 
+            if(!sort_reversed)
+            {
+                sort_file_list_alpha(&mdata->music_list, 0); 
+                strcpy(sort_text, "sort (z-a)");
+                sort_reversed = 1;
+            }
+            else
+            {
+                sort_file_list_alpha(&mdata->music_list, 1); 
+                strcpy(sort_text, "sort (a-z)");
+                sort_reversed = 0;
+            }
+        }
     }
 
     nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info->height + (bound_info->pad*2) + add_width,
+                        nk_rect(bound_info->height + (bound_info->pad*btn_count) + (add_width*btn_count),
                         bound_info->y_offset, 
                         add_width, 
                         bound_info->height - (bound_info->y_alignment + bound_info->pad)));
+    ++btn_count;
 
     if(nk_button_label(nkctx, "clear list") ||
             ((rtvars->kbd_state[SDL_SCANCODE_LSHIFT] && 
             rtvars->kbd_state[SDL_SCANCODE_LCTRL]) &&
-            pac_btn_press(SDL_SCANCODE_X, &dn_flags->x_wasdown, rtvars->kbd_state))) 
-    { 
+            pac_btn_press(SDL_SCANCODE_X, &sflags->x_wasdown, rtvars->kbd_state))) 
+    {
         nk_edit_unfocus(nkctx);
-        dn_flags->clear_confirmation = !dn_flags->clear_confirmation; 
+        sflags->clear_confirmation = !sflags->clear_confirmation; 
     }
 
-    if(dn_flags->clear_confirmation)
+    PAC_LOCAL_STATIC char toggle_btn[16];
+    Center_View_State vs = rtvars->sflags.viewstate;
+    if(vs == CENTER_VIEW_STATE_MUSIC_LIST)
+    { strcpy(toggle_btn, "hide list"); }
+    else if(vs == CENTER_VIEW_STATE_CURRENT_INFO)
+    { strcpy(toggle_btn, "show list"); }
+
+    nk_layout_space_push(nkctx, 
+                        nk_rect(bound_info->height + (bound_info->pad*btn_count) + (add_width*btn_count),
+                        bound_info->y_offset, 
+                        add_width, 
+                        bound_info->height - (bound_info->y_alignment + bound_info->pad)));
+    ++btn_count;
+    if(nk_button_label(nkctx, toggle_btn) ||
+            (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
+            pac_btn_press(SDL_SCANCODE_L, &sflags->l_wasdown, rtvars->kbd_state)))
+    {
+        cycle_center_view_state(&sflags->viewstate);
+    }
+
+    if(sflags->clear_confirmation)
     { menu_confirm_clear_file_list(rtvars, bound_info, mdata); }
 }
 
@@ -1112,10 +1166,6 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
 
     menu_do_search(rtvars, bufgroup, mdata, &bound_info, add_width);
 
-    if(rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
-            pac_btn_press(SDL_SCANCODE_L, &rtvars->sflags.l_wasdown, rtvars->kbd_state))
-    { cycle_center_view_state(&rtvars->sflags.viewstate); }
-
     //i think something with the scroll bar or something in nuklear
     //is busted since it crashes if the window is too small
     //stops happening with this check, amazingly (might be my fault as well idk)
@@ -1148,7 +1198,9 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     else 
     { shuffle_btn_text[0] = '~'; }
     if(nk_button_label(nkctx, shuffle_btn_text) ||
-            pac_btn_press(SDL_SCANCODE_S, &rtvars->sflags.s_wasdown, rtvars->kbd_state)) 
+            ((rtvars->kbd_state[SDL_SCANCODE_LCTRL] && 
+            rtvars->kbd_state[SDL_SCANCODE_LSHIFT]) &&
+            pac_btn_press(SDL_SCANCODE_R, &rtvars->sflags.r_wasdown, rtvars->kbd_state))) 
     { mdata->shuffle_enabled = !mdata->shuffle_enabled; }
 
     nk_layout_space_push(nkctx, 
