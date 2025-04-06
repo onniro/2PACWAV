@@ -56,6 +56,7 @@ PAC_INTERNAL char *find_res_path(Runtime_Vars *rtvars, char *out_res_path, int b
     return(result);
 }
 
+#if 0
 //i had to paste these in here because for some reason 
 //#defining NK_INCLUDE_DEFAULT_ALLOCATOR wasn't working
 NK_LIB void *nk_malloc(nk_handle unused, void *old,nk_size size)
@@ -70,13 +71,14 @@ NK_LIB void nk_mfree(nk_handle unused, void *ptr)
     NK_UNUSED(unused);
     free(ptr);
 }
+#endif
 
 PAC_INTERNAL void load_and_bake_font(Runtime_Vars *rtvars)
 {
     struct nk_context *nkctx = rtvars->nuklear_ctx;
     char *working_dir = rtvars->working_directory;
     char *res_dir = rtvars->resource_directory;
-    char small_font_path[PATH_MAX], big_font_path[PATH_MAX], cjk_font_path[PATH_MAX];
+    char small_font_path[PATH_MAX], big_font_path[PATH_MAX];
 
     if(find_res_path(rtvars, res_dir, PATH_MAX - 1))
     {
@@ -105,10 +107,6 @@ PAC_INTERNAL void load_and_bake_font(Runtime_Vars *rtvars)
                             big_font_path, 
                             PAC_NUKLEAR_BIG_FONTSIZE, 
                             &ft_config);
-    //rtvars->cjk_font = nk_font_atlas_add_from_file(&rtvars->ft_atlas, 
-    //                        cjk_font_path, 
-    //                        PAC_NUKLEAR_FONTSIZE, 
-    //                        &ft_config);
     int img_width, img_height;
     const void* img = nk_font_atlas_bake(&rtvars->ft_atlas, &img_width, &img_height, NK_FONT_ATLAS_RGBA32);
     uint32_t atl_tex;
@@ -133,12 +131,12 @@ PAC_INTERNAL void load_and_bake_font(Runtime_Vars *rtvars)
     nk_style_set_font(nkctx, &rtvars->small_font->handle);
 }
 
-PAC_INTERNAL void load_font(Runtime_Vars *rtvars)
+PAC_INTERNAL void load_font(Runtime_Vars *rtvars) //NOTE: this is kinda deprecated now
 {
     struct nk_context *nuklear_ctx = rtvars->nuklear_ctx;
     char *working_dir = rtvars->working_directory;
     char *res_dir = rtvars->resource_directory;
-    char small_font_path[PATH_MAX], big_font_path[PATH_MAX], cjk_font_path[PATH_MAX];
+    char small_font_path[PATH_MAX], big_font_path[PATH_MAX];
 
     if(find_res_path(rtvars, res_dir, PATH_MAX - 1))
     {
@@ -313,15 +311,9 @@ int main(int arg_count, char **args)
     sdldata.mdata_ptr = &mdata;
 
     if(!pac_init_sdl(&sdldata)) 
-    {
-        fprintf(stderr, "failed to init SDL\n");
-        return(-1); 
-    }
+    { return(-1); }
     if(!pac_init_sdlmixer(&mdata)) 
-    {
-        fprintf(stderr, "failed to init SDL mixer\n");
-        return( -1); 
-    }
+    { return( -1); }
         
     if(ro_posix_make_heap_buffer(&rtvars.main_storage, PAC_MAIN_STORAGE_SIZE)) 
     { startup_alloc_buffers(&rtvars.main_storage, &bufgroup); }

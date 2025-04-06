@@ -216,7 +216,8 @@ PAC_INTERNAL void sort_file_list_alpha(File_List *flist, char reversed)
     char **strings = flist->filenames_string_loclist;
     int sort_count = flist->entry_count;
     Sort_Comp_Func cmpf = pac_qsort_strcmp;
-    if(reversed) { cmpf = pac_qsort_strcmp_rev; }
+    if(reversed) 
+    { cmpf = pac_qsort_strcmp_rev; }
     qsort(strings, sort_count, sizeof(char **), cmpf);
 }
 
@@ -294,7 +295,8 @@ PAC_INTERNAL char check_dir_already_added(char *dir, File_List *flist)
     for(int dir_index = 0; dir_index < dir_count; ++dir_index) 
     {
         current_dir = all_dirs[dir_index];
-        if (!strcmp(current_dir, dir)) { result = 1; break; }
+        if (!strcmp(current_dir, dir)) 
+        { result = 1; break; }
     }
     return(result);
 }
@@ -459,7 +461,7 @@ PAC_INTERNAL void file_list_play_file(char *selected_file,
 
 PAC_INTERNAL void goto_next_file(Music_Data *mdata)
 {
-    if(!mdata->sdlmixer_music || (mdata->music_list.entry_count < 1))
+    if(mdata->music_list.entry_count < 1)
     { return; }
 
     File_List *mlist = &mdata->music_list;
@@ -695,7 +697,7 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
     nk_layout_row_static(nkctx, 20, text_width, 1);
     nk_label(nkctx, path_begin, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
 
-    float middle = bound_info->content_bounds.h / 4;
+    float middle = bound_info->content_bounds.h/4;
 
     nk_style_set_font(nkctx, &rtvars->big_font->handle);
     nk_layout_row_static(nkctx, middle, text_width, 1);
@@ -1370,7 +1372,7 @@ PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata)
     { 
         result = 1; 
         Mix_VolumeMusic(mdata->volume);
-        //Mix_SetMusicCMD(SDL_getenv("MUSIC_CMD"));
+        Mix_SetMusicCMD(SDL_getenv("MUSIC_CMD"));
         Mix_HookMusicFinished(pac_sdlmixer_music_finished_callback);
         Mix_QuerySpec(&mdata->sample_rate, &mdata->pcm_bits, &mdata->channels);
         mdata->pcm_bits &= 0xFF;
@@ -1395,6 +1397,7 @@ PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata)
 
         SDL_SetHintWithPriority(SDL_HINT_APP_NAME, wintitle, SDL_HINT_OVERRIDE);
         SDL_SetHintWithPriority(SDL_HINT_AUDIO_DEVICE_APP_NAME, wintitle, SDL_HINT_OVERRIDE);
+        SDL_SetHintWithPriority(SDL_HINT_AUDIO_DEVICE_STREAM_NAME, "audio stream", SDL_HINT_OVERRIDE);
         SDL_SetHintWithPriority(SDL_HINT_AUDIO_DEVICE_STREAM_ROLE, "music player", SDL_HINT_OVERRIDE);
 
         sdldata->window_ptr = SDL_CreateWindow(wintitle,

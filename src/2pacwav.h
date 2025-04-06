@@ -29,14 +29,10 @@ typedef float _Complex Complex32;
 //#define MAX_FRAMETIME_MICROSEC ((useconds_t)16667) //60fps
 #define PAC_SEEK_VALUE_MAX (100)
 
-//#define PAC_FONT_STRING "DejaVuSans.ttf"
-//#define PAC_BIG_FONT_STRING "DejaVuSans.ttf"
-//#define PAC_NUKLEAR_FONTSIZE (16.0f)
-//#define PAC_NUKLEAR_BIG_FONTSIZE (28.0f)
 #define PAC_FONT_STRING "NotoSansHK-Regular.ttf"
 #define PAC_BIG_FONT_STRING "NotoSansHK-Regular.ttf"
 #define PAC_NUKLEAR_FONTSIZE (21.0f)
-#define PAC_NUKLEAR_BIG_FONTSIZE (34.0f)
+#define PAC_NUKLEAR_BIG_FONTSIZE (36.0f)
 
 static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 
@@ -286,7 +282,7 @@ typedef struct Runtime_Vars
     struct nk_font_atlas ft_atlas;
     struct nk_font *small_font;
     struct nk_font *big_font;
-    struct nk_font *cjk_font;
+    //struct nk_font *cjk_font; //this isnt needed atm since NotoSansHK includes (some) CJK glyphs
     struct nk_context *nuklear_ctx;
 } Runtime_Vars;
 

@@ -149,8 +149,8 @@ PAC_INTERNAL void spectrum_fill_verts_lineseg(float *verts,
     spectrum_squash(astream->complex32_buffer_in, 
             astream->real32_buffer_final, 
             PAC_SPECTRUM_FREQ_BIN_COUNT,
-            (FFT_FLOAT_COUNT/10)/PAC_SPECTRUM_FREQ_BIN_COUNT,
-            log10f); //i dont really know why this value works
+            (FFT_FLOAT_COUNT/10)/PAC_SPECTRUM_FREQ_BIN_COUNT, //i dont really know why this value works
+            log10f);
 
     int elements_per_primitive = 4;
     float xpos = -1.0f + (85.0f/(float)sdldata->win_width);
@@ -271,7 +271,7 @@ R"(
 #version 120
 void main()
 {
-    gl_FragColor = vec4(0.7, 0.0, 0.0, 0.5f);
+    gl_FragColor = vec4(0.8, 0.2, 0.2, 0.5f);
 }
 )";
 
