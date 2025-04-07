@@ -15,7 +15,7 @@ typedef float _Complex Complex32;
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (2)
-#define _2PACWAV_VER_PATCH      (3)
+#define _2PACWAV_VER_PATCH      (5)
 
 #include "ro_heapbuf.h"
 
@@ -27,12 +27,13 @@ typedef float _Complex Complex32;
 #define WINDOW_HEIGHT   768
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)11111) //90fps
 //#define MAX_FRAMETIME_MICROSEC ((useconds_t)16667) //60fps
-#define PAC_SEEK_VALUE_MAX (100)
+//#define PAC_SEEK_VALUE_MAX (100)
+#define PAC_SEEK_VALUE_MAX (1000)
 
 #define PAC_FONT_STRING "NotoSansHK-Regular.ttf"
 #define PAC_BIG_FONT_STRING "NotoSansHK-Regular.ttf"
-#define PAC_NUKLEAR_FONTSIZE (21.0f)
-#define PAC_NUKLEAR_BIG_FONTSIZE (36.0f)
+#define PAC_NUKLEAR_FONTSIZE (20.0f)
+#define PAC_NUKLEAR_BIG_FONTSIZE (40.0f)
 
 static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 
@@ -91,6 +92,7 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 #define PAC_HOLD_INCREMENT_MODULO (3) //controls how fast u scroll
 
 #define PAC_DEFAULT_SEEK_INCREMENT (10) //(seconds)
+#define PAC_DEFAULT_VOLUME_INCREMENT (5) //(seconds)
 
 struct Runtime_Vars;
 struct General_Buffer_Group;
@@ -167,6 +169,10 @@ PAC_DEF void cycle_center_view_state(Center_View_State *value)
     { *value = (Center_View_State)0; }
 }
 
+#define PAC_SDL_MOUSELEFT   (1)
+#define PAC_SDL_MOUSEMIDDLE (2)
+#define PAC_SDL_MOUSERIGHT  (3)
+
 typedef struct State_Flags
 {
     char d_wasdown;
@@ -179,6 +185,9 @@ typedef struct State_Flags
     char r_wasdown;
     char right_wasdown;
     char left_wasdown;
+    char mouse_down;
+    char mousel_wasdown;
+    char mouser_wasdown;
     char up_wasdown;
     char down_wasdown;
     char space_wasdown;
@@ -189,6 +198,11 @@ typedef struct State_Flags
     char text_field_focused;
     Center_View_State viewstate;
     Userinfo_Type last_userinfo_type;
+    struct //NOTE: this only gets updated when there is a click event
+    {
+        Sint32 x;
+        Sint32 y;
+    } mouse_pos;
 } State_Flags;
 
 typedef struct Widget_Bounds_Info
@@ -241,10 +255,10 @@ typedef struct Music_Data
     uint16_t pcm_bits;
     int sample_rate;
     int channels;
-    int volume;
     int chunk_size;
     int seek_increment;
-    float seek_value;
+    uint64_t volume;
+    uint64_t seek_value;
     double current_position;
     double current_duration;
     char *current_filename;

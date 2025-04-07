@@ -151,7 +151,15 @@ PAC_INTERNAL void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdlda
                     PATH_MAX);
         } break;
 
+        case SDL_MOUSEBUTTONDOWN:
+        {
+            rtvars->sflags.mouse_down = event.button.button; //i wish these were bit flags but they're not
+            rtvars->sflags.mouse_pos.x = event.button.x;
+            rtvars->sflags.mouse_pos.y = event.button.y;
+        } break;
+
         case SDL_KEYDOWN: break;
+
         default: break;
         }
         nk_sdl_handle_event(&event);
@@ -182,7 +190,6 @@ PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
 {
     nk_end(rtvars->nuklear_ctx);
     nk_sdl_render(NK_ANTI_ALIASING_ON);
-    //im gonna come back to this at some point (hopefully)
     if(rtvars->sflags.viewstate == CENTER_VIEW_STATE_CURRENT_INFO) 
     { do_visualizer(rtvars, sdldata); }
     SDL_GL_SwapWindow(sdldata->window_ptr);
@@ -209,7 +216,7 @@ PAC_INTERNAL int pac_qsort_strcmp_rev(const void *a, const void *b)
     return(result);
 }
 
-typedef int (*Sort_Comp_Func)(const void *, const void *);
+typedef int (*Sort_Comp_Func)(const void *a, const void *b);
 
 PAC_INTERNAL void sort_file_list_alpha(File_List *flist, char reversed)
 {
@@ -779,6 +786,7 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars,
 {
     struct nk_context *nkctx = rtvars->nuklear_ctx;
     File_List *mlist = &mdata->music_list;
+    State_Flags *sflags = &rtvars->sflags;
 
     nk_list_view_begin(nkctx, 
                     &mdata->music_list_view, 
@@ -790,6 +798,15 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars,
     nk_layout_row_dynamic(nkctx, bound_info->height - bound_info->y_alignment, 1);
 
     mlist_handle_keyboard_nav(rtvars, mdata);
+    struct nk_rect bnds = 
+    {
+        (float)sflags->mouse_pos.x, 
+        (float)sflags->mouse_pos.y, 
+        100, 
+        300
+    };
+
+    PAC_LOCAL_STATIC int context_index, ctx_active;
 
     uint32_t render_index = 0, file_index = 0;
     for(int loop_index = 0;
@@ -826,7 +843,9 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars,
             if(nk_button_label(nkctx, btntext) || 
                     (!rtvars->sflags.text_field_focused &&
                     pac_btn_press(SDL_SCANCODE_RETURN, &rtvars->sflags.enter_wasdown, rtvars->kbd_state)))
-            { file_list_play_file(btntext, mlist->sel_index, mdata); }
+            { 
+                file_list_play_file(btntext, mlist->sel_index, mdata); 
+            }
             pac_nk_set_button_normal(nkctx); 
         } 
         else 
@@ -843,7 +862,7 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars,
 
 PAC_INTERNAL void str2lowercase(char *string, int len) 
 {
-    //if(!string)
+    //if(!string) //gay
     //{ return; }
     for(int i = 0; i < len; ++i)
     { string[i] = tolower(string[i]); }
@@ -961,8 +980,9 @@ PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars,
     State_Flags *sflags = &rtvars->sflags;
     int btn_count = 0;
 
+    //CLEANUP: this code related to the spacing is real jank
     nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info->height + (bound_info->pad*btn_count) + (add_width*btn_count),
+                        nk_rect(bound_info->height + (bound_info->pad*(btn_count + 1)) + (add_width*btn_count),
                         bound_info->y_offset, 
                         add_width, 
                         bound_info->height - (bound_info->y_alignment + bound_info->pad)));
@@ -991,10 +1011,10 @@ PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars,
     }
 
     nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info->height + (bound_info->pad*btn_count) + (add_width*btn_count),
-                        bound_info->y_offset, 
-                        add_width, 
-                        bound_info->height - (bound_info->y_alignment + bound_info->pad)));
+            nk_rect(bound_info->height + (bound_info->pad*(btn_count + 1)) + (add_width*btn_count),
+            bound_info->y_offset, 
+            add_width, 
+            bound_info->height - (bound_info->y_alignment + bound_info->pad)));
     ++btn_count;
 
     if(nk_button_label(nkctx, "clear list") ||
@@ -1014,16 +1034,16 @@ PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars,
     { strcpy(toggle_btn, "show list"); }
 
     nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info->height + (bound_info->pad*btn_count) + (add_width*btn_count),
-                        bound_info->y_offset, 
-                        add_width, 
-                        bound_info->height - (bound_info->y_alignment + bound_info->pad)));
+            nk_rect(bound_info->height + (bound_info->pad*(btn_count + 1)) + (add_width*btn_count),
+            bound_info->y_offset, 
+            add_width, 
+            bound_info->height - (bound_info->y_alignment + bound_info->pad)));
     ++btn_count;
     if(nk_button_label(nkctx, toggle_btn) ||
             (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
             pac_btn_press(SDL_SCANCODE_L, &sflags->l_wasdown, rtvars->kbd_state)))
-    {
-        cycle_center_view_state(&sflags->viewstate);
+    { 
+        cycle_center_view_state(&sflags->viewstate); 
     }
 
     if(sflags->clear_confirmation)
@@ -1036,28 +1056,31 @@ PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
                                     float vol_width)
 {
     struct nk_context *nkctx = rtvars->nuklear_ctx; 
+    State_Flags *sflags = &rtvars->sflags;
     nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info->x_offset, 
-                        bound_info->content_bounds.h - bound_info->height - bound_info->pad, 
-                        vol_width, bound_info->height));
+                        nk_rect(bound_info->x_offset + bound_info->pad, 
+                        bound_info->content_bounds.h - bound_info->height + bound_info->pad, 
+                        vol_width, 
+                        bound_info->height - bound_info->pad*3));
     bound_info->x_offset += (bound_info->height + (vol_width - bound_info->y_alignment));
 
-    if(nk_slider_int(nkctx, 0, &mdata->volume, MIX_MAX_VOLUME, 1))
+    if(nk_progress(nkctx, &mdata->volume, MIX_MAX_VOLUME, NK_MODIFIABLE))
     { Mix_VolumeMusic(mdata->volume); }
+
     if(rtvars->kbd_state[SDL_SCANCODE_LCTRL])
     {
-        if(rtvars->kbd_state[SDL_SCANCODE_UP])
+        if(pac_btn_press(SDL_SCANCODE_UP, &sflags->up_wasdown, rtvars->kbd_state))
         { 
-            if((mdata->volume + 2) < MIX_MAX_VOLUME)
-            { mdata->volume += 2; }
+            if((mdata->volume + PAC_DEFAULT_SEEK_INCREMENT) < MIX_MAX_VOLUME)
+            { mdata->volume += PAC_DEFAULT_SEEK_INCREMENT; }
             else
             { mdata->volume = MIX_MAX_VOLUME; }
             Mix_VolumeMusic(mdata->volume);
         }
-        if(rtvars->kbd_state[SDL_SCANCODE_DOWN])
+        if(pac_btn_press(SDL_SCANCODE_DOWN, &sflags->down_wasdown, rtvars->kbd_state))
         { 
-            if((mdata->volume - 2) > 0)
-            { mdata->volume -= 2; }
+            if((mdata->volume - PAC_DEFAULT_SEEK_INCREMENT) > 0)
+            { mdata->volume -= PAC_DEFAULT_SEEK_INCREMENT; }
             else
             { mdata->volume = 0; }
             Mix_VolumeMusic(mdata->volume);
@@ -1075,13 +1098,13 @@ PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars,
     mdata->seek_value = conv_songpos2slide_value(mdata);
     nk_layout_space_push(nkctx, 
             nk_rect(bound_info->x_offset, 
-            bound_info->content_bounds.h - bound_info->height - bound_info->pad, 
+            bound_info->content_bounds.h - bound_info->height + bound_info->pad, 
             bound_info->width - bound_info->x_offset - bound_info->pad, 
-            bound_info->height));
-    if(nk_slider_float(nkctx, 0.0f, &mdata->seek_value, PAC_SEEK_VALUE_MAX, 1.0f) &&
-            mdata->sdlmixer_music)
+            bound_info->height - bound_info->pad*3));
+    if(nk_progress(nkctx, &mdata->seek_value, PAC_SEEK_VALUE_MAX, NK_MODIFIABLE))
     {
-        Mix_SetMusicPosition(conv_slide_value2songpos(mdata));
+        double new_seek = conv_slide_value2songpos(mdata);
+        Mix_SetMusicPosition(new_seek);
     }
 
     if(mdata->sdlmixer_music && kbd[SDL_SCANCODE_LCTRL])
