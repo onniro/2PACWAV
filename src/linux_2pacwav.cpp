@@ -4,6 +4,7 @@ File: linux_2pacwav.cpp
 Date: Tue 18 Feb 2025 12:57:19 PM EET
 
 TODO: make it so that you can run this program as root
+TODO: speed up glyph loading somehow
 */
 
 #include <stdio.h>
@@ -73,17 +74,64 @@ NK_LIB void nk_mfree(nk_handle unused, void *ptr)
 }
 #endif
 
+PAC_INTERNAL void export_atlas(Runtime_Vars *rtvars, 
+                            int imgw, 
+                            int imgh, 
+                            void *atlasdata, 
+                            struct nk_font_atlas *atl)
+{
+#if _2PACWAV_DEBUG
+    int bytes = imgw*imgh;
+    char *atlas8 = (char *)atlasdata;
+    for(int i = bytes; i >= 0; --i)
+    { 
+        if(atlas8[bytes])
+        { break; }
+        --bytes;
+    }
+    platform_dbg_log("atlas:\nw=%d, h=%d, bytes(?)=%d\n", imgw, imgh, bytes);
+    char exp_path[PATH_MAX];
+    snprintf(exp_path, PATH_MAX - 1, "%s/font.tex_atlas", rtvars->resource_directory);
+    ro_posix_write_file(exp_path, atlasdata, bytes);
+    snprintf(exp_path, PATH_MAX - 1, "%s/atlas.cstruct", rtvars->resource_directory);
+    ro_posix_write_file(exp_path, (void *)atl, sizeof(nk_font_atlas));
+#endif
+}
+
+PAC_INTERNAL void make_font_atlas(Runtime_Vars *rtvars, 
+                                char *small_path, 
+                                char *big_path,
+                                struct nk_font_config *ft_config,
+                                int *img_width, 
+                                int *img_height, 
+                                void **img)
+{
+    rtvars->small_font = nk_font_atlas_add_from_file(&rtvars->ft_atlas, 
+                            small_path, 
+                            PAC_NUKLEAR_FONTSIZE, 
+                            ft_config);
+    rtvars->big_font = nk_font_atlas_add_from_file(&rtvars->ft_atlas, 
+                            big_path, 
+                            PAC_NUKLEAR_BIG_FONTSIZE, 
+                            ft_config);
+
+    *img = (void *)nk_font_atlas_bake(&rtvars->ft_atlas, img_width, img_height, NK_FONT_ATLAS_ALPHA8);
+    export_atlas(rtvars, *img_width, *img_height, *img, &rtvars->ft_atlas);
+}
+
 PAC_INTERNAL void load_and_bake_font(Runtime_Vars *rtvars)
 {
     struct nk_context *nkctx = rtvars->nuklear_ctx;
     char *working_dir = rtvars->working_directory;
     char *res_dir = rtvars->resource_directory;
-    char small_font_path[PATH_MAX], big_font_path[PATH_MAX];
+    char small_font_path[PATH_MAX], big_font_path[PATH_MAX], cache_path[PATH_MAX];
+    General_Buffer_Group *bufgroup = rtvars->bufgroup_ptr;
 
     if(find_res_path(rtvars, res_dir, PATH_MAX - 1))
     {
         snprintf(small_font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_FONT_STRING);
         snprintf(big_font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_BIG_FONT_STRING);
+        snprintf(cache_path, PATH_MAX - 1, "%s/font.tex_atlas", res_dir);
     }
     else
     { 
@@ -99,16 +147,17 @@ PAC_INTERNAL void load_and_bake_font(Runtime_Vars *rtvars)
     nk_font_atlas_init_default(&rtvars->ft_atlas);
     nk_font_atlas_begin(&rtvars->ft_atlas);
 
-    rtvars->small_font = nk_font_atlas_add_from_file(&rtvars->ft_atlas, 
-                            small_font_path, 
-                            PAC_NUKLEAR_FONTSIZE, 
-                            &ft_config);
-    rtvars->big_font = nk_font_atlas_add_from_file(&rtvars->ft_atlas, 
-                            big_font_path, 
-                            PAC_NUKLEAR_BIG_FONTSIZE, 
-                            &ft_config);
     int img_width, img_height;
-    const void* img = nk_font_atlas_bake(&rtvars->ft_atlas, &img_width, &img_height, NK_FONT_ATLAS_RGBA32);
+    void *img;
+
+    make_font_atlas(rtvars, 
+            small_font_path, 
+            big_font_path,
+            &ft_config,
+            &img_width, 
+            &img_height, 
+            &img);
+
     uint32_t atl_tex;
     glGenTextures(1, &atl_tex);
     glBindTexture(GL_TEXTURE_2D, atl_tex);
@@ -116,11 +165,11 @@ PAC_INTERNAL void load_and_bake_font(Runtime_Vars *rtvars)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexImage2D(GL_TEXTURE_2D, 
             0, 
-            GL_RGBA,
+            GL_ALPHA8,
             img_width,
             img_height,
             0,
-            GL_RGBA,
+            GL_ALPHA,
             GL_UNSIGNED_BYTE,
             img);
     nk_font_atlas_end(&rtvars->ft_atlas, nk_handle_id(atl_tex), 0);
@@ -150,9 +199,9 @@ PAC_INTERNAL void load_font(Runtime_Vars *rtvars) //NOTE: this is kinda deprecat
     }
 
     struct nk_font_config ft_config = {};
-    //struct nk_font_config ft_config = nk_font_config(14);
     ft_config.oversample_h = 1;
     ft_config.oversample_v = 1;
+    ft_config.fallback_glyph = '?'; //this doesnt stop the crashing unfortunately
     ft_config.range = pac_font_glyph_ranges();
     
     struct nk_font_atlas *ft_atlas;
@@ -169,7 +218,7 @@ PAC_INTERNAL void load_font(Runtime_Vars *rtvars) //NOTE: this is kinda deprecat
     nk_style_set_font(nuklear_ctx, &rtvars->small_font->handle);
 }
 
-int platform_get_directory_listing(char *path, File_List *out_flist)
+PAC_INTERNAL int platform_get_directory_listing(char *path, File_List *out_flist)
 {
     int result = 0;
     dirent *dir_entry;
@@ -245,22 +294,22 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
 #endif
 }
 
-char platform_file_exists(char *path)
+PAC_INTERNAL char platform_file_exists(char *path)
 {
     return(ro_posix_file_exists(path));
 }
 
-char platform_directory_exists(char *path)
+PAC_INTERNAL char platform_directory_exists(char *path)
 {
     return(ro_posix_directory_exists(path));
 }
 
-int platform_read_file(char *file_path, char *dest, uint64_t *dest_bytes)
+PAC_INTERNAL int platform_read_file(char *file_path, char *dest, uint64_t *dest_bytes)
 {
     return(ro_posix_read_file(file_path, dest, dest_bytes));
 }
 
-int platform_write_file(char *file_path, void *in_buffer, uint64_t buffer_size)
+PAC_INTERNAL int platform_write_file(char *file_path, void *in_buffer, uint64_t buffer_size)
 {
     return(ro_posix_write_file(file_path, in_buffer, buffer_size));
 }
@@ -291,7 +340,8 @@ PAC_INTERNAL void platform_get_working_directory(char *buf, int buf_size)
 {
     ro_posix_get_working_directory(buf, buf_size);
     int len = strlen(buf);
-    if(buf[len - 1] == '/') { buf[len - 1] = 0; }
+    if(buf[len - 1] == '/') 
+    { buf[len - 1] = 0; }
 }
 
 int main(int arg_count, char **args) 
@@ -318,7 +368,10 @@ int main(int arg_count, char **args)
     if(ro_posix_make_heap_buffer(&rtvars.main_storage, PAC_MAIN_STORAGE_SIZE)) 
     { startup_alloc_buffers(&rtvars.main_storage, &bufgroup); }
     else
-    { fprintf(stderr, "failed to get memory\n"); return(-1); }
+    { 
+        fprintf(stderr, "failed to get memory\n"); 
+        return(-1); 
+    }
     mdata.current_filename = (char *)bufgroup.music_current_filename;
     mdata.rtvars_ptr = &rtvars;
     rtvars.working_directory = (char *)bufgroup.working_directory;
@@ -327,11 +380,21 @@ int main(int arg_count, char **args)
     platform_get_working_directory(rtvars.working_directory, PATH_MAX);
 
     rtvars.nuklear_ctx = nk_sdl_init(sdldata.window_ptr);
-    //load_font(&rtvars);
-    load_and_bake_font(&rtvars);
+
+    {
+#if _2PACWAV_DEBUG
+        uint64_t before = ro_posix_get_timestamp();
+#endif
+        //load_font(&rtvars);
+        load_and_bake_font(&rtvars);
+#if _2PACWAV_DEBUG
+        uint64_t after = ro_posix_get_timestamp();
+        platform_dbg_log("font atlas setup: %.1fms\n", ((float)after - (float)before)/1000.0f);
+#endif
+    }
 
     nuklearapi_set_style(rtvars.nuklear_ctx);
-    rtvars.nuklear_ctx->style.button.rounding = 0;
+    //rtvars.nuklear_ctx->style.button.rounding = 0;
     rtvars.nuklear_ctx->clip.paste = pac_nuklearapi_paste_callback;
 
     mdata.music_list.filenames_buf = (char *)bufgroup.flist_filenames_buf;
@@ -341,6 +404,7 @@ int main(int arg_count, char **args)
     mdata.music_list.dirnames_string_loclist = (char **)bufgroup.flist_dirnames_string_loclist;
     mdata.music_list.dirnames_string_loclist[0] = (char *)mdata.music_list.dirnames_buf;
     mdata.music_list.match_flags = (char *)bufgroup.flist_match_flags;
+    mdata.volume = 30;
 
     mdata.astream.complex32_buffer_in = (Complex32 *)bufgroup.fft_complex32_buffer;
     mdata.astream.complex32_buffer_out = mdata.astream.complex32_buffer_in + (FFT_COMPLEX32_BUFFER_SIZE/2);

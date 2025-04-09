@@ -15,15 +15,15 @@ extern "C"
 
 //(forward declarations)
 
-void load_font(struct nk_context *nuklear_ctx, char *working_dir);
-void platform_log(char *fmt_string, ...);
-void platform_dbg_log(char *fmt_string, ...);
-char platform_file_exists(char *path);
-char platform_directory_exists(char *path);
-int platform_get_directory_listing_presorted(char *path, File_List *out_flist, Runtime_Vars *rtvars);
-int platform_get_directory_listing(char *path, File_List *out_flist);
-int platform_read_file(char *file_path, char *dest, uint64_t *dest_bytes);
-int platform_write_file(char *file_path, char *dest, uint64_t *dest_bytes);
+PAC_INTERNAL void load_font(struct nk_context *nuklear_ctx, char *working_dir);
+PAC_INTERNAL void platform_log(char *fmt_string, ...);
+PAC_INTERNAL void platform_dbg_log(char *fmt_string, ...);
+PAC_INTERNAL char platform_file_exists(char *path);
+PAC_INTERNAL char platform_directory_exists(char *path);
+PAC_INTERNAL int platform_get_directory_listing_presorted(char *path, File_List *out_flist, Runtime_Vars *rtvars);
+PAC_INTERNAL int platform_get_directory_listing(char *path, File_List *out_flist);
+PAC_INTERNAL int platform_read_file(char *file_path, char *dest, uint64_t *dest_bytes);
+PAC_INTERNAL int platform_write_file(char *file_path, char *dest, uint64_t *dest_bytes);
 
 #ifdef __cplusplus
 }
