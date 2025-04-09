@@ -173,7 +173,7 @@ PAC_INTERNAL void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata)
     SDL_GetWindowSize(sdldata->window_ptr, &sdldata->win_width, &sdldata->win_height);
     glViewport(0, 0, sdldata->win_width, sdldata->win_height);
     glClear(GL_COLOR_BUFFER_BIT);
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(0.024f, 0.0031f, 0.031f, 1.0f);
 }
 
 PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
@@ -466,6 +466,16 @@ PAC_INTERNAL void file_list_play_file(char *selected_file,
     }
 }
 
+PAC_INTERNAL int get_random_file_index(Music_Data *mdata)
+{
+    File_List *mlist = &mdata->music_list;
+    int cur_index = (int)mlist->current_index;
+    int next_index = cur_index;
+    while(next_index == cur_index)
+    { next_index = ((double)(mlist->entry_count) - 1.0)*drand48(); }
+    return(next_index);
+}
+
 PAC_INTERNAL void goto_next_file(Music_Data *mdata)
 {
     if(mdata->music_list.entry_count < 1)
@@ -473,6 +483,7 @@ PAC_INTERNAL void goto_next_file(Music_Data *mdata)
 
     File_List *mlist = &mdata->music_list;
     uint32_t cur_index = mlist->current_index;
+    mdata->previous_index = cur_index;
     char *next_file;
     if(!mdata->shuffle_enabled)
     {
@@ -486,10 +497,7 @@ PAC_INTERNAL void goto_next_file(Music_Data *mdata)
     {
         uint32_t next_index = cur_index;
         if(mlist->entry_count != 2)
-        {
-            while(next_index == cur_index)
-            { next_index = (uint32_t)(((double)(mlist->entry_count) - 1.0)*drand48()); }
-        }
+        { next_index = get_random_file_index(mdata); }
         else
         { next_index = !next_index; }
         next_file = mlist->filenames_string_loclist[next_index];
@@ -497,6 +505,7 @@ PAC_INTERNAL void goto_next_file(Music_Data *mdata)
     }
 }
 
+//for now this is kinda bogus if youre using shuffle
 PAC_INTERNAL void goto_prev_file(Music_Data *mdata)
 {
     if(!mdata->sdlmixer_music || (mdata->music_list.current_index == 0))
@@ -504,7 +513,10 @@ PAC_INTERNAL void goto_prev_file(Music_Data *mdata)
 
     File_List *mlist = &mdata->music_list;
     uint32_t cur_index = mlist->current_index;
-    char *prev_file = mlist->filenames_string_loclist[cur_index - 1];
+    int goto_index = cur_index - 1;
+    if((goto_index < 0) || (goto_index >= (int)mlist->entry_count))
+    { goto_index = get_random_file_index(mdata); }
+    char *prev_file = mlist->filenames_string_loclist[goto_index];
     file_list_play_file(prev_file, cur_index - 1, mdata);
 }
 
@@ -710,7 +722,7 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
     nk_layout_row_static(nkctx, middle, text_width, 1);
     if(*title_ptr) 
     { nk_label(nkctx, *title_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM); }
-    nk_layout_row_static(nkctx, 20, text_width, 1);
+    nk_layout_row_static(nkctx, 25, text_width, 1);
     if(*artist_ptr) 
     { nk_label(nkctx, *artist_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM); }
     nk_layout_row_static(nkctx, 20, text_width, 1);
@@ -723,27 +735,28 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
     nk_group_end(nkctx);
 }
 
+#define PAC_NK_NORMAL_BTNCOLOR(...) nk_rgba(0x1A, 0x1A, 0x1A, 0xFF)
+
 PAC_INTERNAL void pac_nk_set_button_active(struct nk_context *nkctx)
 {
     nkctx->style.button.normal = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
     nkctx->style.button.hover = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
     nkctx->style.button.active = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
-    nkctx->style.button.border_color = nk_rgba(0xBB, 0xBB, 0xBB, 0xFF);
 }
 
 PAC_INTERNAL void pac_nk_set_button_normal(struct nk_context *nkctx)
 {
-    nkctx->style.button.normal = nk_style_item_color(nk_rgba(0x15, 0x15, 0x15, 0xFF));
-    nkctx->style.button.hover = nk_style_item_color(nk_rgba(0x33, 0x33, 0x33, 0xFF));
-    nkctx->style.button.active = nk_style_item_color(nk_rgba(63, 98, 126, 0xFF));
-    nkctx->style.button.border_color = nk_rgba(0xAA, 0xAA, 0xAA, 0xFF);
+    nkctx->style.button.normal = nk_style_item_color(PAC_NK_NORMAL_BTNCOLOR());
+    nkctx->style.button.hover = nk_style_item_color(nk_rgba(0x22, 0x44, 0x55, 0xFF));
+    nkctx->style.button.active = nk_style_item_color(PAC_NK_NORMAL_BTNCOLOR());
 }
 
 PAC_INTERNAL void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *mdata)
 {
     File_List *mlist = &mdata->music_list;
     PAC_LOCAL_STATIC int frame_counter = 0;
-    if(!rtvars->kbd_state[SDL_SCANCODE_LCTRL] && !rtvars->sflags.text_field_focused)
+    if(!rtvars->kbd_state[SDL_SCANCODE_LCTRL] && 
+            !rtvars->sflags.text_field_focused)
     {
         uint32_t counter = 0;
         int increment = 0;
@@ -798,15 +811,6 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars,
     nk_layout_row_dynamic(nkctx, bound_info->height - bound_info->y_alignment, 1);
 
     mlist_handle_keyboard_nav(rtvars, mdata);
-    struct nk_rect bnds = 
-    {
-        (float)sflags->mouse_pos.x, 
-        (float)sflags->mouse_pos.y, 
-        100, 
-        300
-    };
-
-    PAC_LOCAL_STATIC int context_index, ctx_active;
 
     uint32_t render_index = 0, file_index = 0;
     for(int loop_index = 0;
@@ -819,22 +823,21 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars,
 
         char *btntext = mlist->filenames_string_loclist[render_index];
 
-        if(rtvars->kbd_state[SDL_SCANCODE_DOWN] &&
-                (mlist->sel_index > (mdata->music_list_view.end - 2)) && 
-                (mlist->sel_index < (int)mlist->entry_count))
+        if(rtvars->kbd_state[SDL_SCANCODE_DOWN])
         { 
-            ++mdata->music_list_view.scroll_value;
+            if((mlist->sel_index > (mdata->music_list_view.end - 2)) && 
+                    (mlist->sel_index < (int)mlist->entry_count))
+            {
+                ++mdata->music_list_view.scroll_value;
+            }
         }
-        else if(rtvars->kbd_state[SDL_SCANCODE_UP] &&
-                (mlist->sel_index < (mdata->music_list_view.begin)) &&
-                (mlist->sel_index >= 0))
+        else if(rtvars->kbd_state[SDL_SCANCODE_UP])
         {
-            //nk_group_set_scroll(nkctx, "music_list", mdata->music_list_view.begin - 1, 1); 
-            //WARNING: below works but above doesn't. might cause problems
-            //since i'm fucking with this value without updating any related 
-            //values which may or may not exist
-            if(mdata->music_list_view.scroll_value > 0)
-            { --mdata->music_list_view.scroll_value; }
+            if((mlist->sel_index < (mdata->music_list_view.begin)) &&
+                    (mlist->sel_index >= 0))
+            {
+                --mdata->music_list_view.scroll_value; 
+            }
         }
 
         if(mlist->sel_index == (int)render_index) 
@@ -1065,22 +1068,24 @@ PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
     bound_info->x_offset += (bound_info->height + (vol_width - bound_info->y_alignment));
 
     if(nk_progress(nkctx, &mdata->volume, MIX_MAX_VOLUME, NK_MODIFIABLE))
-    { Mix_VolumeMusic(mdata->volume); }
+    { 
+        Mix_VolumeMusic(mdata->volume); 
+    }
 
     if(rtvars->kbd_state[SDL_SCANCODE_LCTRL])
     {
         if(pac_btn_press(SDL_SCANCODE_UP, &sflags->up_wasdown, rtvars->kbd_state))
         { 
-            if((mdata->volume + PAC_DEFAULT_SEEK_INCREMENT) < MIX_MAX_VOLUME)
-            { mdata->volume += PAC_DEFAULT_SEEK_INCREMENT; }
+            if((mdata->volume + PAC_DEFAULT_VOLUME_INCREMENT) < MIX_MAX_VOLUME)
+            { mdata->volume += PAC_DEFAULT_VOLUME_INCREMENT; }
             else
             { mdata->volume = MIX_MAX_VOLUME; }
             Mix_VolumeMusic(mdata->volume);
         }
         if(pac_btn_press(SDL_SCANCODE_DOWN, &sflags->down_wasdown, rtvars->kbd_state))
         { 
-            if((mdata->volume - PAC_DEFAULT_SEEK_INCREMENT) > 0)
-            { mdata->volume -= PAC_DEFAULT_SEEK_INCREMENT; }
+            if(((int)mdata->volume - PAC_DEFAULT_VOLUME_INCREMENT) > 0)
+            { mdata->volume -= PAC_DEFAULT_VOLUME_INCREMENT; }
             else
             { mdata->volume = 0; }
             Mix_VolumeMusic(mdata->volume);
@@ -1448,37 +1453,41 @@ PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata)
 PAC_INTERNAL void nuklearapi_set_style(struct nk_context *ctx) 
 {
     struct nk_color color_tbl[NK_COLOR_COUNT];
-    color_tbl[NK_COLOR_TEXT] = nk_rgba(0xDD, 0xDD, 0xDD, 0xFF);
-    color_tbl[NK_COLOR_WINDOW] = nk_rgba(0, 0, 0, 0xFF);
-    color_tbl[NK_COLOR_HEADER] = nk_rgba(51, 51, 56, 220);
-    color_tbl[NK_COLOR_BORDER] = nk_rgba(0xAA, 0xAA, 0xAA, 0xFF);
-    color_tbl[NK_COLOR_BUTTON] = nk_rgba(0x15, 0x15, 0x15, 0xFF);
-    color_tbl[NK_COLOR_BUTTON_HOVER] = nk_rgba(0x33, 0x33, 0x55, 0xFF);
-    color_tbl[NK_COLOR_BUTTON_ACTIVE] = nk_rgba(63, 98, 126, 0xFF);
-    color_tbl[NK_COLOR_TOGGLE] = nk_rgba(50, 58, 61, 0xFF);
-    color_tbl[NK_COLOR_TOGGLE_HOVER] = nk_rgba(45, 53, 56, 0xFF);
-    color_tbl[NK_COLOR_TOGGLE_CURSOR] = nk_rgba(48, 83, 111, 0xFF);
-    color_tbl[NK_COLOR_SELECT] = nk_rgba(57, 67, 61, 0xFF);
-    color_tbl[NK_COLOR_SELECT_ACTIVE] = nk_rgba(48, 83, 111, 0xFF);
-    color_tbl[NK_COLOR_SLIDER] = nk_rgba(50, 58, 61, 0xFF);
-    color_tbl[NK_COLOR_SLIDER_CURSOR] = nk_rgba(0xAA, 0xAA, 0xAA, 245);
-    color_tbl[NK_COLOR_SLIDER_CURSOR_HOVER] = nk_rgba(53, 88, 116, 0xFF);
-    color_tbl[NK_COLOR_SLIDER_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 0xFF);
-    color_tbl[NK_COLOR_PROPERTY] = nk_rgba(50, 58, 61, 0xFF);
-    color_tbl[NK_COLOR_EDIT] = nk_rgba(0x15, 0x15, 0x15, 0xFF);
-    color_tbl[NK_COLOR_EDIT_CURSOR] = nk_rgba(210, 210, 210, 0xFF);
-    color_tbl[NK_COLOR_COMBO] = nk_rgba(50, 58, 61, 0xFF);
-    color_tbl[NK_COLOR_CHART] = nk_rgba(50, 58, 61, 0xFF);
-    color_tbl[NK_COLOR_CHART_COLOR] = nk_rgba(48, 83, 111, 0xFF);
-    color_tbl[NK_COLOR_CHART_COLOR_HIGHLIGHT] = nk_rgba(0xFF, 0, 0, 0xFF);
-    color_tbl[NK_COLOR_SCROLLBAR] = nk_rgba(50, 58, 61, 0xFF);
-    color_tbl[NK_COLOR_SCROLLBAR_CURSOR] = nk_rgba(48, 83, 111, 0xFF);
-    color_tbl[NK_COLOR_SCROLLBAR_CURSOR_HOVER] = nk_rgba(53, 88, 116, 0xFF);
-    color_tbl[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] = nk_rgba(58, 93, 121, 0xFF);
-    color_tbl[NK_COLOR_TAB_HEADER] = nk_rgba(48, 83, 111, 0xFF);
+    color_tbl[NK_COLOR_TEXT] =                      nk_rgba(0xDD, 0xDD, 0xDD, 0xFF);
+    color_tbl[NK_COLOR_WINDOW] =                    nk_rgba(0, 0, 0, 0xFF);
+    color_tbl[NK_COLOR_HEADER] =                    nk_rgba(51, 51, 56, 220);
+    color_tbl[NK_COLOR_BORDER] =                    nk_rgba(0x88, 0x88, 0x88, 0xFF);
+    color_tbl[NK_COLOR_BUTTON] =                    PAC_NK_NORMAL_BTNCOLOR();
+    color_tbl[NK_COLOR_BUTTON_ACTIVE] =             PAC_NK_NORMAL_BTNCOLOR();
+    color_tbl[NK_COLOR_BUTTON_HOVER] =              nk_rgba(0x22, 0x44, 0x55, 0xFF);
+    color_tbl[NK_COLOR_TOGGLE] =                    nk_rgba(50, 58, 61, 0xFF);
+    color_tbl[NK_COLOR_TOGGLE_HOVER] =              nk_rgba(45, 53, 56, 0xFF);
+    color_tbl[NK_COLOR_TOGGLE_CURSOR] =             nk_rgba(48, 83, 111, 0xFF);
+    color_tbl[NK_COLOR_SELECT] =                    nk_rgba(57, 67, 61, 0xFF);
+    color_tbl[NK_COLOR_SELECT_ACTIVE] =             nk_rgba(48, 83, 111, 0xFF);
+    color_tbl[NK_COLOR_SLIDER] =                    nk_rgba(50, 58, 61, 0xFF);
+    color_tbl[NK_COLOR_SLIDER_CURSOR] =             nk_rgba(0xAA, 0xAA, 0xAA, 245);
+    color_tbl[NK_COLOR_SLIDER_CURSOR_HOVER] =       nk_rgba(53, 88, 116, 0xFF);
+    color_tbl[NK_COLOR_SLIDER_CURSOR_ACTIVE] =      nk_rgba(58, 93, 121, 0xFF);
+    color_tbl[NK_COLOR_PROPERTY] =                  nk_rgba(50, 58, 61, 0xFF);
+    color_tbl[NK_COLOR_EDIT] =                      PAC_NK_NORMAL_BTNCOLOR();
+    color_tbl[NK_COLOR_EDIT_CURSOR] =               nk_rgba(210, 210, 210, 0xFF);
+    color_tbl[NK_COLOR_COMBO] =                     nk_rgba(50, 58, 61, 0xFF);
+    color_tbl[NK_COLOR_CHART] =                     nk_rgba(50, 58, 61, 0xFF);
+    color_tbl[NK_COLOR_CHART_COLOR] =               nk_rgba(48, 83, 111, 0xFF);
+    color_tbl[NK_COLOR_CHART_COLOR_HIGHLIGHT] =     nk_rgba(0xFF, 0, 0, 0xFF);
+    color_tbl[NK_COLOR_SCROLLBAR] =                 nk_rgba(50, 58, 61, 0xFF);
+    color_tbl[NK_COLOR_SCROLLBAR_CURSOR] =          nk_rgba(48, 83, 111, 0xFF);
+    color_tbl[NK_COLOR_SCROLLBAR_CURSOR_HOVER] =    nk_rgba(53, 88, 116, 0xFF);
+    color_tbl[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] =   nk_rgba(58, 93, 121, 0xFF);
+    color_tbl[NK_COLOR_TAB_HEADER] =                nk_rgba(48, 83, 111, 0xFF);
     color_tbl[NK_COLOR_KNOB] = color_tbl[NK_COLOR_SLIDER];
     color_tbl[NK_COLOR_KNOB_CURSOR] = color_tbl[NK_COLOR_SLIDER_CURSOR];
     color_tbl[NK_COLOR_KNOB_CURSOR_HOVER] = color_tbl[NK_COLOR_SLIDER_CURSOR_HOVER];
     color_tbl[NK_COLOR_KNOB_CURSOR_ACTIVE] = color_tbl[NK_COLOR_SLIDER_CURSOR_ACTIVE];
     nk_style_from_table(ctx, color_tbl);
+    ctx->style.button.rounding = 0;
+    ctx->style.button.border = 1;
+    ctx->style.edit.border = 1;
+    ctx->style.progress.border = 0;
 }

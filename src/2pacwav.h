@@ -26,13 +26,11 @@ typedef float _Complex Complex32;
 #define WINDOW_WIDTH    1024
 #define WINDOW_HEIGHT   768
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)11111) //90fps
-//#define MAX_FRAMETIME_MICROSEC ((useconds_t)16667) //60fps
-//#define PAC_SEEK_VALUE_MAX (100)
 #define PAC_SEEK_VALUE_MAX (1000)
 
 #define PAC_FONT_STRING "NotoSansHK-Regular.ttf"
 #define PAC_BIG_FONT_STRING "NotoSansHK-Regular.ttf"
-#define PAC_NUKLEAR_FONTSIZE (20.0f)
+#define PAC_NUKLEAR_FONTSIZE (19.0f)
 #define PAC_NUKLEAR_BIG_FONTSIZE (40.0f)
 
 static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
@@ -49,7 +47,7 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
     {\
         platform_log("ASSERTION FAILED. file: %s @ L%d\nexpression: (%s)\n",\
                 __FILE__, __LINE__, #expression);\
-        PLATFORM_EXITCALL(666);\
+        PLATFORM_EXITCALL(1337);\
     } PAC_NOP_MACRO()
 
 #ifndef PAC_SAMPLE_RATE
@@ -73,7 +71,7 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 
 #define PAC_PI32 (3.14159265f)
 
-#define PAC_MAIN_STORAGE_SIZE               (5*(1024*1024))
+#define PAC_MAIN_STORAGE_SIZE               (3*(1024*1024))
 #define DEBUG_BUFFER_SIZE                   (8192)
 #define USERINFO_BUFFER_SIZE                (512)
 #define FILENAMES_BUFFER_SIZE               (PAC_MAX_FILES*NAME_MAX)
@@ -126,7 +124,7 @@ typedef struct File_List
 {
     uint32_t entry_count; //(files)
     uint32_t dirs_added;
-    uint32_t current_index;
+    uint32_t current_index; //why is this here
     uint32_t match_count;
     int sel_index;
     char *dirnames_buf;                 //buffer containing the directories added, delimited by null
@@ -200,8 +198,8 @@ typedef struct State_Flags
     Userinfo_Type last_userinfo_type;
     struct //NOTE: this only gets updated when there is a click event
     {
-        Sint32 x;
-        Sint32 y;
+        int x;
+        int y;
     } mouse_pos;
 } State_Flags;
 
@@ -241,6 +239,7 @@ typedef struct Audio_Stream
 {
     int stream_size; 
     uint8_t *stream;
+    //(unused (((((for now at least))))))
     Complex32 *complex32_buffer_in;
     Complex32 *complex32_buffer_out;
     float real32_buffer_final[PAC_SPECTRUM_FREQ_BIN_COUNT];
@@ -250,13 +249,14 @@ typedef struct Audio_Stream
 
 typedef struct Music_Data
 {
-    char paused; //Mix_PausedMusic() doesn't work seemingly
+    char paused;
     char shuffle_enabled;
     uint16_t pcm_bits;
     int sample_rate;
     int channels;
     int chunk_size;
     int seek_increment;
+    int previous_index;
     uint64_t volume;
     uint64_t seek_value;
     double current_position;
