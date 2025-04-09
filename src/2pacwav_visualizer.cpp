@@ -239,7 +239,7 @@ PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
     }
 
     int elements_per_primitive = 2;
-    float xpos = -1.0f + (90.0f/(float)sdldata->win_width);
+    float xpos = -1.0f + (95.0f/(float)sdldata->win_width);
     float sample_pos;
     float y_scale = (float)(MIX_MAX_VOLUME - mdata->volume)/100.0f;
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
@@ -278,7 +278,7 @@ void main()
     PAC_LOCAL_STATIC char _opengl_err[4096];
     //PAC_LOCAL_STATIC float verts[4*PAC_SPECTRUM_FREQ_BIN_COUNT];
     PAC_LOCAL_STATIC float verts[2*PAC_OSCILLOSCOPE_POINT_COUNT];
-    if(!rtvars->mdata_ptr->paused)
+    if(!rtvars->mdata_ptr->paused) 
     {
 #if 0
         spectrum_fill_verts_lineseg(verts, 
