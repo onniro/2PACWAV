@@ -15,7 +15,7 @@ typedef float _Complex Complex32;
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (3)
-#define _2PACWAV_VER_PATCH      (1)
+#define _2PACWAV_VER_PATCH      (2)
 
 #include "ro_heapbuf.h"
 
@@ -30,8 +30,6 @@ typedef float _Complex Complex32;
 
 #define PAC_FONT_STRING "NotoSansHK-Regular.ttf"
 #define PAC_BIG_FONT_STRING "NotoSansHK-Regular.ttf"
-//#define PAC_FONT_STRING "DejaVuSansMono.ttf"
-//#define PAC_BIG_FONT_STRING "DejaVuSansMono.ttf"
 #define PAC_NUKLEAR_FONTSIZE (20.0f)
 //#define PAC_NUKLEAR_BIG_FONTSIZE (20.0f)
 
