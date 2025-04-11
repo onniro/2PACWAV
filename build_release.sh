@@ -13,7 +13,7 @@ LINK_FLAGS="-o $EXE_NAME"
 SDL_DIR="$BASEDIR/3rd_party/SDL2"
 CODEC_DIR="$BASEDIR/3rd_party/codecs"
 
-LIB_DIRS="-L$BASEDIR/3rd_party/SDL2/lib -L$BASEDIR/3rd_party/codecs/lib -L$BASEDIR/3rd_party/taglib/lib -L$BASEDIR/3rd_party/id3v2lib/lib"
+LIB_DIRS="-L$BASEDIR/3rd_party/SDL2/lib -L$BASEDIR/3rd_party/taglib/lib"
 OBJ_FILES="$BASEDIR/lib/nuklear_sdl2_gl2_implementation.o"
 #LINK_LIBS="$SDL_DIR/lib/libSDL2.a -lm -lGL $SDL_DIR/lib/libSDL2_mixer.a $BASEDIR/lib/libnuklear_sdl2_gl2.a -l:libtag.a -l:libz.a -l:libbsd.a"
 LINK_LIBS="$SDL_DIR/lib/libSDL2.a -lm -lGL $SDL_DIR/lib/libSDL2_mixer.a -l:libtag.a -l:libz.a -l:libbsd.a"
