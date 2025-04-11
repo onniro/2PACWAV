@@ -252,7 +252,7 @@ PAC_INTERNAL void sort_file_list_alpha(File_List *flist, char reversed)
 PAC_INTERNAL void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bufgroup) 
 {
     snprintf((char *)bufgroup->music_info_buffer, DEBUG_BUFFER_SIZE - 1, 
-            "[srate:%dhz][pcm_bits:%d][chan:%d][vol:%d/128][pos:%06.1f/%06.1f][type:%s]\n[path:%s]", 
+            "[srate:%dhz][pcm_bits:%d][chan:%d][vol:%ld/128][pos:%06.1f/%06.1f][type:%s]\n[path:%s]", 
             mdata->sample_rate, 
             mdata->pcm_bits, 
             mdata->channels,
@@ -691,14 +691,14 @@ PAC_INTERNAL void format_taginfo(Music_Data *mdata, char *begin, char separate)
     {
         if(strlen(mdata->current_metadata.tag_title)) 
         {
-            snprintf(*title_ptr, 1023, "%s\n%s\n%s\000",
+            snprintf(*title_ptr, 1023, "%s\n%s\n%s",
                     meta->tag_title,
                     meta->tag_artist,
                     meta->tag_album);
         }
         else
         {
-            snprintf(*title_ptr, 1023, "%s\000",
+            snprintf(*title_ptr, 1023, "%s",
                     mlist->filenames_string_loclist[mlist->current_index]);
         }
         *artist_ptr = strchr(*title_ptr, '\n');
@@ -710,14 +710,14 @@ PAC_INTERNAL void format_taginfo(Music_Data *mdata, char *begin, char separate)
     {
         if(strlen(mdata->current_metadata.tag_title)) 
         {
-            snprintf(*title_ptr, 1023, "%s  -  %s  -  %s\000",
+            snprintf(*title_ptr, 1023, "%s  -  %s  -  %s",
                     meta->tag_title,
                     meta->tag_artist,
                     meta->tag_album);
         }
         else
         {
-            snprintf(*title_ptr, 1023, "%s\000",
+            snprintf(*title_ptr, 1023, "%s",
                     mlist->filenames_string_loclist[mlist->current_index]);
         }
     }
@@ -871,7 +871,6 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
                 (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
                 pac_btn_press(SDL_SCANCODE_RETURN, &sflags->enter_wasdown, rtvars->kbd_state)))
         {
-            platform_dbg_log("tryna open file %s\n", meta->editor_current);
             Tag_Ref tr;
             if(tag_open_file(meta->editor_current, &tr))
             {

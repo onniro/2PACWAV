@@ -34,7 +34,9 @@ PAC_INTERNAL void tag_get_title(Tag_Ref *ref, char *recv, int recv_size)
     if(ref && recv && recv_size && !ref->ref.isNull())
     {
         TagLib::String _title = ref->ref.tag()->title().to8Bit(1);
-        const char *title = _title.toCString();
+        //NOTE: passing false for utf8 below here since we called this to8Bit thing
+        //seemingly saying you want utf8 twice makes it break
+        const char *title = _title.toCString(0);
         if(title)
         { strncpy(recv, title, recv_size); }
     }
@@ -45,7 +47,7 @@ PAC_INTERNAL void tag_get_artist(Tag_Ref *ref, char *recv, int recv_size)
     if(ref && recv && recv_size && !ref->ref.isNull())
     {
         TagLib::String _artist = ref->ref.tag()->artist().to8Bit(1);
-        const char *artist = _artist.toCString();
+        const char *artist = _artist.toCString(0);
         if(artist)
         { strncpy(recv, artist, recv_size); }
     }
@@ -56,7 +58,7 @@ PAC_INTERNAL void tag_get_album(Tag_Ref *ref, char *recv, int recv_size)
     if(ref && recv && recv_size && !ref->ref.isNull())
     {
         TagLib::String _album = ref->ref.tag()->album().to8Bit(1);
-        const char *album = _album.toCString();
+        const char *album = _album.toCString(0);
         if(album)
         { strncpy(recv, album, recv_size); }
     }
@@ -100,9 +102,9 @@ PAC_INTERNAL void tag_set_title(Tag_Ref *ref, char *string)
 {
     if(ref && string && !ref->ref.isNull() && ref->ref.tag())
     {
-        ref->ref.tag()->setTitle(string);
+        TagLib::String s(string, TagLib::String::UTF8);
+        ref->ref.tag()->setTitle(s);
         ref->ref.save();
-        platform_dbg_log("title: %s\n", string);
     }
 }
 
@@ -110,9 +112,9 @@ PAC_INTERNAL void tag_set_artist(Tag_Ref *ref, char *string)
 {
     if(ref && string && !ref->ref.isNull() && ref->ref.tag())
     {
-        ref->ref.tag()->setArtist(string);
+        TagLib::String s(string, TagLib::String::UTF8);
+        ref->ref.tag()->setArtist(s);
         ref->ref.save();
-        platform_dbg_log("artist: %s\n", string);
     }
 }
 
@@ -120,9 +122,9 @@ PAC_INTERNAL void tag_set_album(Tag_Ref *ref, char *string)
 {
     if(ref && string && !ref->ref.isNull() && ref->ref.tag())
     {
-        ref->ref.tag()->setAlbum(string);
+        TagLib::String s(string, TagLib::String::UTF8);
+        ref->ref.tag()->setAlbum(s);
         ref->ref.save();
-        platform_dbg_log("album: %s\n", string);
     }
 }
 
