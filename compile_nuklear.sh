@@ -14,11 +14,11 @@ INCLUDE_DIRS="-I$PWD/3rd_party/SDL2 -I$PWD/3rd_party/SDL2/include -I$PWD/3rd_par
 SOURCENAME="nuklear_sdl2_gl2_implementation"
 SOURCES="$PWD/src/$SOURCENAME.cpp"
 OBJS="$SOURCENAME.o"
-COMP_FLAGS="-O3"
+COMP_FLAGS="-O3 -gdwarf"
 AR_FLAGS="rcs"
 OUT_LIB="libnuklear_sdl2_gl2.a"
 
 mkdir -p $PWD/lib; cd $PWD/lib
-gcc -c $INCLUDE_DIRS $COMP_FLAGS $SOURCES
-ar $AR_FLAGS $OUT_LIB $OBJS
+gcc -c $INCLUDE_DIRS $COMP_FLAGS $SOURCES -o $OBJS
+#ar $AR_FLAGS $OUT_LIB $OBJS
 cd ..
