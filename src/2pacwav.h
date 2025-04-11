@@ -15,7 +15,7 @@ typedef float _Complex Complex32;
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (3)
-#define _2PACWAV_VER_PATCH      (0)
+#define _2PACWAV_VER_PATCH      (1)
 
 #include "ro_heapbuf.h"
 
@@ -202,6 +202,7 @@ typedef struct State_Flags
     char down_wasdown;
     char space_wasdown;
     char enter_wasdown;
+    char tab_wasdown;
     char escape_wasdown;
     char clear_confirmation;
     char add_dup_dir_confirmation;

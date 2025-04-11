@@ -786,53 +786,103 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
     struct nk_context *nkctx = rtvars->nuklear_ctx;
     int text_width = bound_info->width - (bound_info->height + bound_info->pad) - 30;
     Metadata_Editor *meta = &mdata->metaed;
+    State_Flags *sflags = &rtvars->sflags;
     File_List *mlist = &mdata->music_list;
     int index = mlist->context_index;
     char *filename = meta->editor_current;
+    PAC_LOCAL_STATIC nk_flags title_outflags = 0, 
+            artist_outflags = 0, 
+            album_outflags = 0;
 
     nk_group_begin(nkctx, "metadata_editor", NK_WINDOW_BORDER);
     if(meta->editor_current[0])
     {
+        char tab_pressed = 0;
+        if(pac_btn_press(SDL_SCANCODE_TAB, 
+                &rtvars->sflags.tab_wasdown,
+                rtvars->kbd_state))
+        { tab_pressed = 1; }
+
+        if(!(title_outflags & NK_EDIT_ACTIVE) &&
+                !(artist_outflags & NK_EDIT_ACTIVE) &&
+                !(album_outflags & NK_EDIT_ACTIVE))
+        {
+            if(tab_pressed)
+            {
+                nk_edit_focus(nkctx, NK_TEXT_EDIT_MODE_INSERT); 
+                tab_pressed = 0;
+            }
+        }
+        else
+        { sflags->text_field_focused = 1; }
+
         nk_layout_row_dynamic(nkctx, 30, 1);
         nk_label(nkctx, filename, NK_TEXT_CENTERED);
         nk_layout_row_dynamic(nkctx, 30, 3);
         nk_label(nkctx, "title: ", NK_TEXT_RIGHT);
-        nk_flags title_outflags = nk_edit_string_zero_terminated(nkctx,
-                                        NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
-                                        meta->inbuf_title,
-                                        META_EDITOR_BUFSIZE - 1,
-                                        nk_filter_default);
+
+        title_outflags = nk_edit_string_zero_terminated(nkctx,
+                                NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
+                                meta->inbuf_title,
+                                META_EDITOR_BUFSIZE - 1,
+                                nk_filter_default);
+        if(tab_pressed && (title_outflags & NK_EDIT_ACTIVE))
+        {
+            nk_edit_focus(nkctx, NK_TEXT_EDIT_MODE_INSERT); 
+            tab_pressed = 0;
+        }
+
         nk_label(nkctx, "", NK_TEXT_RIGHT);
 
         nk_layout_row_dynamic(nkctx, 30, 3);
         nk_label(nkctx, "artist: ", NK_TEXT_RIGHT);
-        nk_flags artist_outflags = nk_edit_string_zero_terminated(nkctx,
-                                        NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
-                                        meta->inbuf_artist,
-                                        META_EDITOR_BUFSIZE - 1,
-                                        nk_filter_default);
+        artist_outflags = nk_edit_string_zero_terminated(nkctx,
+                                NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
+                                meta->inbuf_artist,
+                                META_EDITOR_BUFSIZE - 1,
+                                nk_filter_default);
+        if(tab_pressed && (artist_outflags & NK_EDIT_ACTIVE))
+        {
+            nk_edit_focus(nkctx, NK_TEXT_EDIT_MODE_INSERT); 
+            tab_pressed = 0;
+        }
+
         nk_label(nkctx, "", NK_TEXT_RIGHT);
 
         nk_layout_row_dynamic(nkctx, 30, 3);
         nk_label(nkctx, "album: ", NK_TEXT_RIGHT);
-        nk_flags album_outflags = nk_edit_string_zero_terminated(nkctx,
-                                        NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
-                                        meta->inbuf_album,
-                                        META_EDITOR_BUFSIZE - 1,
-                                        nk_filter_default);
+        album_outflags = nk_edit_string_zero_terminated(nkctx,
+                                NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
+                                meta->inbuf_album,
+                                META_EDITOR_BUFSIZE - 1,
+                                nk_filter_default);
+        if(tab_pressed && (album_outflags & NK_EDIT_ACTIVE))
+        {
+            nk_edit_focus(nkctx, NK_TEXT_EDIT_MODE_INSERT); 
+            tab_pressed = 0;
+        }
         nk_label(nkctx, "", NK_TEXT_RIGHT);
 
         nk_spacing(nkctx, 1);
 
         nk_layout_row_dynamic(nkctx, 30, 3);
         nk_label(nkctx, "", NK_TEXT_RIGHT);
-        if(nk_button_label(nkctx, "save metadata"))
+        if(nk_button_label(nkctx, "save metadata") ||
+                (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
+                pac_btn_press(SDL_SCANCODE_RETURN, &sflags->enter_wasdown, rtvars->kbd_state)))
         {
             platform_dbg_log("tryna open file %s\n", meta->editor_current);
             Tag_Ref tr;
             if(tag_open_file(meta->editor_current, &tr))
             {
-                tag_set_all(&tr, meta);
+                if(tag_set_all(&tr, meta))
+                {
+                    set_userinfo(rtvars, "updated metadata.", USERINFO_TYPE_NOTE);
+                }
+                else
+                {
+                    set_userinfo(rtvars, "[error]: failed to update metadata.", USERINFO_TYPE_ERROR);
+                }
             }
         }
         nk_label(nkctx, "", NK_TEXT_RIGHT);
@@ -958,7 +1008,7 @@ PAC_INTERNAL void mlist_btn_context_menu(Runtime_Vars *rtvars,
     File_List *mlist = &mdata->music_list;
     State_Flags *sflags = &rtvars->sflags;
     struct nk_vec2 pos = nk_vec2(sflags->mouse.pos.x, sflags->mouse.pos.y);
-    struct nk_vec2 size = nk_vec2(100, 300);
+    struct nk_vec2 size = nk_vec2(150, 300);
     struct nk_rect bounds = nk_rect(pos.x, pos.y, size.x, size.y);
     int ctx_index = mlist->context_index;
 
@@ -966,7 +1016,7 @@ PAC_INTERNAL void mlist_btn_context_menu(Runtime_Vars *rtvars,
     { sflags->mlist_ctxmenu_active = 0; }
     if(nk_contextual_begin(nkctx, 0, size, bounds))
     {
-        nk_layout_row_dynamic(nkctx, 20, 1);
+        nk_layout_row_dynamic(nkctx, 25, 1);
         if(nk_button_label(nkctx, "edit metadata"))
         {
             //printf("%s\n", mlist->filenames_string_loclist[ctx_index]);

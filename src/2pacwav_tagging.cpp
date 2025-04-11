@@ -13,11 +13,7 @@ Date: Sun 23 Mar 2025 01:28:14 PM EET
 #include "mpegfile.h"
 
 #include "2pacwav.h"
-
-typedef struct Tag_Ref
-{
-    TagLib::FileRef ref;
-} Tag_Ref;
+#include "2pacwav_tagging.h"
 
 PAC_INTERNAL char tag_open_file(char *path, Tag_Ref *ref)
 {
@@ -130,12 +126,15 @@ PAC_INTERNAL void tag_set_album(Tag_Ref *ref, char *string)
     }
 }
 
-PAC_INTERNAL void tag_set_all(Tag_Ref *ref, Metadata_Editor *meta)
+PAC_INTERNAL char tag_set_all(Tag_Ref *ref, Metadata_Editor *meta)
 {
+    char result = 0;
     if(ref && meta && !ref->ref.isNull() && ref->ref.tag())
     {
         tag_set_title(ref, meta->inbuf_title);
         tag_set_artist(ref, meta->inbuf_artist);
         tag_set_album(ref, meta->inbuf_album);
+        result = 1;
     }
+    return(result);
 }
