@@ -169,6 +169,15 @@ RO_DEF void ro_posix_sleep_sec(uint64_t seconds)
     nanosleep(&tspec, 0);
 }
 
+RO_DEF char ro_posix_path_exists(char *path)
+{
+    char result = 0;
+    struct stat stat_struct;
+    if(!stat(path, &stat_struct))
+    { result = 1; }
+    return(result);
+}
+
 RO_DEF char ro_posix_file_exists(char *file_path) 
 {
     char result = 0;
@@ -187,20 +196,21 @@ RO_DEF char ro_posix_directory_exists(char *directory_name)
     return(result);
 }
 
-RO_DEF int ro_posix_read_file(char *file_path, char *destination, uint64_t *dest_bytes) 
+RO_DEF uint64_t ro_posix_read_file(char *file_path, char *destination, uint64_t dest_size) 
 {
-    int result = 0;
     int file_descriptor = open(file_path, O_RDONLY);
+    uint64_t bytes_read = 0;
     if(file_descriptor != -1) 
     {
         struct stat stat_buf;
         fstat(file_descriptor, &stat_buf);
-        *dest_bytes = read(file_descriptor, destination, stat_buf.st_size);
-        close(file_descriptor);
-        if(*dest_bytes == (uint64_t)stat_buf.st_size) 
-        { result = 1; }
+        if(stat_buf.st_size <= (int64_t)dest_size) 
+        {
+            bytes_read = read(file_descriptor, destination, stat_buf.st_size);
+            close(file_descriptor);
+        }
     }
-    return(result);
+    return(bytes_read);
 }
 
 RO_DEF int ro_posix_write_file(char *file_path, void *in_buffer, uint64_t buffer_size) 

@@ -14,7 +14,59 @@ Date: Sun 23 Mar 2025 01:28:14 PM EET
 
 #include "2pacwav.h"
 
-char taglib_get_albumcover(bitmap_info *bmpinfo, char *path)
+typedef struct Tag_Ref
+{
+    TagLib::FileRef ref;
+} Tag_Ref;
+
+PAC_INTERNAL char tag_open_file(char *path, Tag_Ref *ref)
+{
+    char result = 0;
+    if(platform_file_exists(path))
+    {
+        TagLib::FileRef f(path);
+        ref->ref = f;
+        result = 1;
+    }
+    return(result);
+}
+
+//get
+
+PAC_INTERNAL void tag_get_title(Tag_Ref *ref, char *recv, int recv_size)
+{
+    if(ref && recv && recv_size && !ref->ref.isNull())
+    {
+        TagLib::String _title = ref->ref.tag()->title().to8Bit(1);
+        const char *title = _title.toCString();
+        if(title)
+        { strncpy(recv, title, recv_size); }
+    }
+}
+
+PAC_INTERNAL void tag_get_artist(Tag_Ref *ref, char *recv, int recv_size)
+{
+    if(ref && recv && recv_size && !ref->ref.isNull())
+    {
+        TagLib::String _artist = ref->ref.tag()->artist().to8Bit(1);
+        const char *artist = _artist.toCString();
+        if(artist)
+        { strncpy(recv, artist, recv_size); }
+    }
+}
+
+PAC_INTERNAL void tag_get_album(Tag_Ref *ref, char *recv, int recv_size)
+{
+    if(ref && recv && recv_size && !ref->ref.isNull())
+    {
+        TagLib::String _album = ref->ref.tag()->album().to8Bit(1);
+        const char *album = _album.toCString();
+        if(album)
+        { strncpy(recv, album, recv_size); }
+    }
+}
+
+PAC_INTERNAL char tag_get_albumcover(Bitmap_Info *bmpinfo, char *path)
 {
     char result = 0;
     TagLib::MPEG::File file(path);
@@ -46,3 +98,44 @@ char taglib_get_albumcover(bitmap_info *bmpinfo, char *path)
     return result;
 }
 
+//set
+
+PAC_INTERNAL void tag_set_title(Tag_Ref *ref, char *string)
+{
+    if(ref && string && !ref->ref.isNull() && ref->ref.tag())
+    {
+        ref->ref.tag()->setTitle(string);
+        ref->ref.save();
+        platform_dbg_log("title: %s\n", string);
+    }
+}
+
+PAC_INTERNAL void tag_set_artist(Tag_Ref *ref, char *string)
+{
+    if(ref && string && !ref->ref.isNull() && ref->ref.tag())
+    {
+        ref->ref.tag()->setArtist(string);
+        ref->ref.save();
+        platform_dbg_log("artist: %s\n", string);
+    }
+}
+
+PAC_INTERNAL void tag_set_album(Tag_Ref *ref, char *string)
+{
+    if(ref && string && !ref->ref.isNull() && ref->ref.tag())
+    {
+        ref->ref.tag()->setAlbum(string);
+        ref->ref.save();
+        platform_dbg_log("album: %s\n", string);
+    }
+}
+
+PAC_INTERNAL void tag_set_all(Tag_Ref *ref, Metadata_Editor *meta)
+{
+    if(ref && meta && !ref->ref.isNull() && ref->ref.tag())
+    {
+        tag_set_title(ref, meta->inbuf_title);
+        tag_set_artist(ref, meta->inbuf_artist);
+        tag_set_album(ref, meta->inbuf_album);
+    }
+}

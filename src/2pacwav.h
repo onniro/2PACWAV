@@ -14,8 +14,8 @@ extern "C"
 typedef float _Complex Complex32;
 
 #define _2PACWAV_VER_MAJOR      (0)
-#define _2PACWAV_VER_MINOR      (2)
-#define _2PACWAV_VER_PATCH      (5)
+#define _2PACWAV_VER_MINOR      (3)
+#define _2PACWAV_VER_PATCH      (0)
 
 #include "ro_heapbuf.h"
 
@@ -30,8 +30,10 @@ typedef float _Complex Complex32;
 
 #define PAC_FONT_STRING "NotoSansHK-Regular.ttf"
 #define PAC_BIG_FONT_STRING "NotoSansHK-Regular.ttf"
-#define PAC_NUKLEAR_FONTSIZE (19.0f)
-#define PAC_NUKLEAR_BIG_FONTSIZE (40.0f)
+//#define PAC_FONT_STRING "DejaVuSansMono.ttf"
+//#define PAC_BIG_FONT_STRING "DejaVuSansMono.ttf"
+#define PAC_NUKLEAR_FONTSIZE (20.0f)
+//#define PAC_NUKLEAR_BIG_FONTSIZE (20.0f)
 
 static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 
@@ -127,6 +129,7 @@ typedef struct File_List
     uint32_t current_index; //why is this here
     uint32_t match_count;
     int sel_index;
+    int context_index;
     char *dirnames_buf;                 //buffer containing the directories added, delimited by null
     char *filenames_buf;                //buffer containing file names, delimited by null
     char **filenames_string_loclist;    //array of pointers which specify the beginnings of strings in the filename array
@@ -153,6 +156,7 @@ typedef enum Center_View_State
 {
     CENTER_VIEW_STATE_MUSIC_LIST = 0,
     CENTER_VIEW_STATE_CURRENT_INFO,
+    CENTER_VIEW_STATE_METADATA_EDITOR,
     CENTER_VIEW_STATE__LAST
 } Center_View_State;
 
@@ -171,6 +175,17 @@ PAC_DEF void cycle_center_view_state(Center_View_State *value)
 #define PAC_SDL_MOUSEMIDDLE (2)
 #define PAC_SDL_MOUSERIGHT  (3)
 
+typedef struct Mouse_State
+{
+    char down;
+    char wasdown_flags[4];
+    struct //this only gets updated when there is a click event
+    {
+        int x;
+        int y;
+    } pos;
+} Mouse_State;
+
 typedef struct State_Flags
 {
     char d_wasdown;
@@ -183,9 +198,6 @@ typedef struct State_Flags
     char r_wasdown;
     char right_wasdown;
     char left_wasdown;
-    char mouse_down;
-    char mousel_wasdown;
-    char mouser_wasdown;
     char up_wasdown;
     char down_wasdown;
     char space_wasdown;
@@ -194,13 +206,10 @@ typedef struct State_Flags
     char clear_confirmation;
     char add_dup_dir_confirmation;
     char text_field_focused;
+    char mlist_ctxmenu_active;
+    Mouse_State mouse;
     Center_View_State viewstate;
     Userinfo_Type last_userinfo_type;
-    struct //NOTE: this only gets updated when there is a click event
-    {
-        int x;
-        int y;
-    } mouse_pos;
 } State_Flags;
 
 typedef struct Widget_Bounds_Info
@@ -213,6 +222,16 @@ typedef struct Widget_Bounds_Info
     float x_offset;
     struct nk_rect content_bounds;
 } Widget_Bounds_Info;
+
+#define META_EDITOR_BUFSIZE 256
+
+typedef struct Metadata_Editor
+{
+    char inbuf_title[META_EDITOR_BUFSIZE];
+    char inbuf_artist[META_EDITOR_BUFSIZE];
+    char inbuf_album[META_EDITOR_BUFSIZE];
+    char editor_current[PATH_MAX];
+} Metadata_Editor;
 
 typedef struct Audio_Metadata_Group
 {
@@ -240,10 +259,12 @@ typedef struct Audio_Stream
     int stream_size; 
     uint8_t *stream;
     //(unused (((((for now at least))))))
+#if PAC_SPECTRUM_ENABLED
     Complex32 *complex32_buffer_in;
     Complex32 *complex32_buffer_out;
     float real32_buffer_final[PAC_SPECTRUM_FREQ_BIN_COUNT];
     float real32_buffer_out[FFT_FLOAT_COUNT];
+#endif
     float real32_buffer_in[FFT_FLOAT_COUNT];
 } Audio_Stream;
 
@@ -267,6 +288,7 @@ typedef struct Music_Data
     File_List music_list;
     Mix_Music *sdlmixer_music; //IMPORTANT: ALWAYS SET TO NULL WHEN MUSIC IS UNLOADED
     Audio_Metadata_Group current_metadata;
+    Metadata_Editor metaed;
     struct nk_list_view music_list_view;
     Bitmap_Info cover;
     char music_type_buf[16];
@@ -295,7 +317,7 @@ typedef struct Runtime_Vars
     const uint8_t *kbd_state;
     struct nk_font_atlas ft_atlas;
     struct nk_font *small_font;
-    struct nk_font *big_font;
+    //struct nk_font *big_font;
     //struct nk_font *cjk_font; //this isnt needed atm since NotoSansHK includes (some) CJK glyphs
     struct nk_context *nuklear_ctx;
 } Runtime_Vars;

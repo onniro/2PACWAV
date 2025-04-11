@@ -16,6 +16,8 @@ TODO: fix spectrum
 #include <tgmath.h>
 #include <complex.h>
 
+#if PAC_SPECTRUM_ENABLED
+
 //shoutout https://rosettacode.org/wiki/Fast_Fourier_transform#C
 PAC_INTERNAL void spectrum_fft(Complex32 *inbuf, 
                             Complex32 *outbuf, 
@@ -218,6 +220,7 @@ PAC_INTERNAL void spectrum_fill_verts_point(float *verts,
         verts[vert_index + 1] = mag_pos;
     }
 }
+#endif
 
 #define TWO_TO_15TH (32768.0f)
 

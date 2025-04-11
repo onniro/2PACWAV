@@ -57,7 +57,7 @@ PAC_INTERNAL char *find_res_path(Runtime_Vars *rtvars, char *out_res_path, int b
     return(result);
 }
 
-#if 0
+#if 1
 //i had to paste these in here because for some reason 
 //#defining NK_INCLUDE_DEFAULT_ALLOCATOR wasn't working
 NK_LIB void *nk_malloc(nk_handle unused, void *old,nk_size size)
@@ -83,12 +83,12 @@ PAC_INTERNAL void export_atlas(Runtime_Vars *rtvars,
 #if _2PACWAV_DEBUG
     int bytes = imgw*imgh;
     char *atlas8 = (char *)atlasdata;
-    for(int i = bytes; i >= 0; --i)
-    { 
-        if(atlas8[bytes])
-        { break; }
-        --bytes;
-    }
+    //for(int i = bytes; i >= 0; --i) 
+    //{ 
+    //    if(atlas8[bytes])
+    //    { break; }
+    //    --bytes;
+    //}
     platform_dbg_log("atlas:\nw=%d, h=%d, bytes(?)=%d\n", imgw, imgh, bytes);
     char exp_path[PATH_MAX];
     snprintf(exp_path, PATH_MAX - 1, "%s/font.tex_atlas", rtvars->resource_directory);
@@ -104,19 +104,63 @@ PAC_INTERNAL void make_font_atlas(Runtime_Vars *rtvars,
                                 struct nk_font_config *ft_config,
                                 int *img_width, 
                                 int *img_height, 
-                                void **img)
+                                void **img, 
+                                char _export)
 {
     rtvars->small_font = nk_font_atlas_add_from_file(&rtvars->ft_atlas, 
                             small_path, 
                             PAC_NUKLEAR_FONTSIZE, 
                             ft_config);
-    rtvars->big_font = nk_font_atlas_add_from_file(&rtvars->ft_atlas, 
-                            big_path, 
-                            PAC_NUKLEAR_BIG_FONTSIZE, 
-                            ft_config);
-
+    //rtvars->big_font = nk_font_atlas_add_from_file(&rtvars->ft_atlas, 
+    //                        big_path, 
+    //                        PAC_NUKLEAR_BIG_FONTSIZE, 
+    //                        ft_config);
+#if _2PACWAV_DEBUG 
+    #define FONT_ATLAS_LOAD_TEST 0
+#else
+    #define FONT_ATLAS_LOAD_TEST 0
+#endif
+#if !FONT_ATLAS_LOAD_TEST
     *img = (void *)nk_font_atlas_bake(&rtvars->ft_atlas, img_width, img_height, NK_FONT_ATLAS_ALPHA8);
-    export_atlas(rtvars, *img_width, *img_height, *img, &rtvars->ft_atlas);
+#else
+    char cache_path[PATH_MAX], struct_path[PATH_MAX];
+    char *res_dir = rtvars->resource_directory;
+    snprintf(cache_path, PATH_MAX - 1, "%s/font.tex_atlas", res_dir);
+    snprintf(struct_path, PATH_MAX - 1, "%s/atlas.cstruct", res_dir);
+    {
+        FILE *atlasf = fopen(cache_path, "rb");
+        if(atlasf)
+        {
+            fseek(atlasf, 0, SEEK_END);
+            int64_t filesize = ftell(atlasf);
+            fseek(atlasf, 0, SEEK_SET);
+            *img = malloc(filesize);
+            fread(img, filesize, 1, atlasf);
+        }
+        fclose(atlasf);
+        FILE *structf = fopen(struct_path, "rb");
+        if(structf)
+        {
+            fseek(structf, 0, SEEK_END);
+            int64_t filesize = ftell(structf);
+            fseek(structf, 0, SEEK_SET);
+            uint8_t structdata[sizeof(nk_font_atlas)];
+            fread(structdata, filesize, 1, structf);
+            memcpy((void *)&rtvars->ft_atlas, (void *)structdata, sizeof(nk_font_atlas));
+            struct nk_font_atlas *temp_atl = (nk_font_atlas *)structdata;
+            *img_width = temp_atl->tex_width;
+            *img_height = temp_atl->tex_height;
+            int bytes = (*img_width)*(*img_height);
+            rtvars->ft_atlas.glyphs = (nk_font_glyph *)((uintptr_t *)*img + bytes - 4096);
+            //rtvars->ft_atlas.glyphs = (nk_font_glyph*)*img;
+            rtvars->ft_atlas.pixel = *img;
+        }
+        fclose(structf);
+    }
+#endif
+
+    if(_export)
+    { export_atlas(rtvars, *img_width, *img_height, *img, &rtvars->ft_atlas); }
 }
 
 PAC_INTERNAL void load_and_bake_font(Runtime_Vars *rtvars)
@@ -124,14 +168,12 @@ PAC_INTERNAL void load_and_bake_font(Runtime_Vars *rtvars)
     struct nk_context *nkctx = rtvars->nuklear_ctx;
     char *working_dir = rtvars->working_directory;
     char *res_dir = rtvars->resource_directory;
-    char small_font_path[PATH_MAX], big_font_path[PATH_MAX], cache_path[PATH_MAX];
+    char font_path[PATH_MAX];
     General_Buffer_Group *bufgroup = rtvars->bufgroup_ptr;
 
     if(find_res_path(rtvars, res_dir, PATH_MAX - 1))
     {
-        snprintf(small_font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_FONT_STRING);
-        snprintf(big_font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_BIG_FONT_STRING);
-        snprintf(cache_path, PATH_MAX - 1, "%s/font.tex_atlas", res_dir);
+        snprintf(font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_FONT_STRING);
     }
     else
     { 
@@ -140,23 +182,29 @@ PAC_INTERNAL void load_and_bake_font(Runtime_Vars *rtvars)
     }
     
     //struct nk_font_atlas atlas;
+    int img_width = 1024, img_height = 1<<15;
+    void *img = 0;
     struct nk_font_config ft_config = {};
     ft_config.oversample_v = 1;
     ft_config.oversample_h = 1;
     ft_config.range = pac_font_glyph_ranges();
+
     nk_font_atlas_init_default(&rtvars->ft_atlas);
     nk_font_atlas_begin(&rtvars->ft_atlas);
 
-    int img_width, img_height;
-    void *img;
-
     make_font_atlas(rtvars, 
-            small_font_path, 
-            big_font_path,
+            font_path, 
+            font_path,
             &ft_config,
             &img_width, 
             &img_height, 
-            &img);
+            &img, 
+#if _2PACWAV_DEBUG
+            0);
+#else
+            0);
+#endif
+    PAC_ASSERT(img);
 
     uint32_t atl_tex;
     glGenTextures(1, &atl_tex);
@@ -172,11 +220,13 @@ PAC_INTERNAL void load_and_bake_font(Runtime_Vars *rtvars)
             GL_ALPHA,
             GL_UNSIGNED_BYTE,
             img);
+
     nk_font_atlas_end(&rtvars->ft_atlas, nk_handle_id(atl_tex), 0);
+
     glBindTexture(GL_TEXTURE_2D, 0);
 
     nk_init_default(nkctx, &rtvars->small_font->handle);
-    nk_init_default(nkctx, &rtvars->big_font->handle);
+    //nk_init_default(nkctx, &rtvars->big_font->handle);
     nk_style_set_font(nkctx, &rtvars->small_font->handle);
 }
 
@@ -185,12 +235,12 @@ PAC_INTERNAL void load_font(Runtime_Vars *rtvars) //NOTE: this is kinda deprecat
     struct nk_context *nuklear_ctx = rtvars->nuklear_ctx;
     char *working_dir = rtvars->working_directory;
     char *res_dir = rtvars->resource_directory;
-    char small_font_path[PATH_MAX], big_font_path[PATH_MAX];
+    char small_font_path[PATH_MAX];
 
     if(find_res_path(rtvars, res_dir, PATH_MAX - 1))
     {
         snprintf(small_font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_FONT_STRING);
-        snprintf(big_font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_BIG_FONT_STRING);
+        //snprintf(big_font_path, PATH_MAX - 1, "%s/%s", res_dir, PAC_BIG_FONT_STRING);
     }
     else
     { 
@@ -198,22 +248,23 @@ PAC_INTERNAL void load_font(Runtime_Vars *rtvars) //NOTE: this is kinda deprecat
         PLATFORM_EXITCALL(1);
     }
 
-    struct nk_font_config ft_config = {};
+    //struct nk_font_config ft_config = {};
+    struct nk_font_config ft_config = nk_font_config(PAC_NUKLEAR_FONTSIZE);
     ft_config.oversample_h = 1;
     ft_config.oversample_v = 1;
-    ft_config.fallback_glyph = '?'; //this doesnt stop the crashing unfortunately
+    ft_config.fallback_glyph = (nk_rune)'?'; //this doesnt stop the crashing unfortunately
     ft_config.range = pac_font_glyph_ranges();
     
-    struct nk_font_atlas *ft_atlas;
+    struct nk_font_atlas *ft_atlas = &rtvars->ft_atlas;
     nk_sdl_font_stash_begin(&ft_atlas);
     rtvars->small_font = nk_font_atlas_add_from_file(ft_atlas, 
                             small_font_path,
                             PAC_NUKLEAR_FONTSIZE, 
                             &ft_config);
-    rtvars->big_font = nk_font_atlas_add_from_file(ft_atlas, 
-                            big_font_path,
-                            PAC_NUKLEAR_BIG_FONTSIZE, 
-                            &ft_config);
+    //rtvars->big_font = nk_font_atlas_add_from_file(ft_atlas, 
+    //                        big_font_path,
+    //                        PAC_NUKLEAR_BIG_FONTSIZE, 
+    //                        &ft_config);
     nk_sdl_font_stash_end();
     nk_style_set_font(nuklear_ctx, &rtvars->small_font->handle);
 }
@@ -275,7 +326,9 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
     MEM_INIT_ASSERT(heapbuf, bufgroup->inbuf_search,                    PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->working_directory,               PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->resource_directory,              PATH_MAX);
+#if PAC_SPECTRUM_ENABLED
     MEM_INIT_ASSERT(heapbuf, bufgroup->fft_complex32_buffer,            FFT_COMPLEX32_BUFFER_SIZE*2);
+#endif
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_match_flags,               MATCH_FLAGS_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_filenames_string_loclist,  FILENAMEBUF_LOCATION_LIST_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_string_loclist,   DIRNAMEBUF_LOCATION_LIST_SIZE);
@@ -304,7 +357,7 @@ PAC_INTERNAL char platform_directory_exists(char *path)
     return(ro_posix_directory_exists(path));
 }
 
-PAC_INTERNAL int platform_read_file(char *file_path, char *dest, uint64_t *dest_bytes)
+PAC_INTERNAL uint64_t platform_read_file(char *file_path, char *dest, uint64_t dest_bytes)
 {
     return(ro_posix_read_file(file_path, dest, dest_bytes));
 }
@@ -389,7 +442,7 @@ int main(int arg_count, char **args)
         load_and_bake_font(&rtvars);
 #if _2PACWAV_DEBUG
         uint64_t after = ro_posix_get_timestamp();
-        platform_dbg_log("font atlas setup: %.1fms\n", ((float)after - (float)before)/1000.0f);
+        platform_dbg_log("font setup: %.1fms\n", ((float)after - (float)before)/1000.0f);
 #endif
     }
 
@@ -406,8 +459,10 @@ int main(int arg_count, char **args)
     mdata.music_list.match_flags = (char *)bufgroup.flist_match_flags;
     mdata.volume = 30;
 
+#if PAC_SPECTRUM_ENABLED
     mdata.astream.complex32_buffer_in = (Complex32 *)bufgroup.fft_complex32_buffer;
     mdata.astream.complex32_buffer_out = mdata.astream.complex32_buffer_in + (FFT_COMPLEX32_BUFFER_SIZE/2);
+#endif
 
     rtvars.keep_running = 1;
 

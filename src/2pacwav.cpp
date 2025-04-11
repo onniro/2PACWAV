@@ -34,6 +34,7 @@ Date: Sat 22 Feb 2025 06:29:25 PM EET
 #endif
 
 #include "2pacwav_visualizer.cpp"
+#include "2pacwav_tagging.cpp"
 
 void pac_nop(void) 
 {
@@ -117,6 +118,22 @@ void pac_nuklearapi_paste_callback(nk_handle handle, struct nk_text_edit *txtedi
     }
 }
 
+PAC_INTERNAL char pac_mousebtn_press(Mouse_State *mouse)
+{
+    char result = 0;
+    if(mouse->down)
+    {
+        if(!mouse->wasdown_flags[mouse->down - 1])
+        { 
+            mouse->wasdown_flags[mouse->down - 1] = 1;
+            result = 1; 
+        }
+    }
+    else
+    { *(int32_t *)mouse->wasdown_flags = 0; }
+    return(result);
+}
+
 PAC_INTERNAL char pac_btn_press(SDL_Scancode scan, char *wasdown, const uint8_t *kbd_state) 
 {
     char state = 0;
@@ -136,31 +153,35 @@ PAC_INTERNAL void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdlda
     nk_input_begin(rtvars->nuklear_ctx);
     rtvars->kbd_state = SDL_GetKeyboardState(0);
     char char_was_pressed = 0;
+    Mouse_State *mouse = &rtvars->sflags.mouse;
 
     while(SDL_PollEvent(&event)) 
     {
         switch(event.type) 
         {
-        case SDL_QUIT: 
+        case(SDL_QUIT): 
         { rtvars->keep_running = 0; } break;
 
-        case SDL_DROPFILE:
+        case(SDL_DROPFILE):
         {
             strncpy((char *)rtvars->bufgroup_ptr->inbuf_filename, 
                     event.drop.file, 
                     PATH_MAX);
         } break;
 
-        case SDL_MOUSEBUTTONDOWN:
+        case(SDL_MOUSEBUTTONDOWN):
         {
-            rtvars->sflags.mouse_down = event.button.button; //i wish these were bit flags but they're not
-            rtvars->sflags.mouse_pos.x = event.button.x;
-            rtvars->sflags.mouse_pos.y = event.button.y;
+            mouse->down = event.button.button; //i wish these were bit flags but they're not
+            mouse->pos.x = event.button.x;
+            mouse->pos.y = event.button.y;
         } break;
 
-        case SDL_KEYDOWN: break;
+        case(SDL_KEYDOWN): break;
 
-        default: break;
+        default: 
+        {
+            mouse->down = 0;
+        } break;
         }
         nk_sdl_handle_event(&event);
     }
@@ -656,7 +677,7 @@ PAC_INTERNAL void pac_nk_draw_bitmap(Runtime_Vars *rtvars, Bitmap_Info *bmpinfo)
     nk_image(rtvars->nuklear_ctx, bmpinfo->nuk_image);
 }
 
-PAC_INTERNAL void format_taginfo(Music_Data *mdata, char *begin)
+PAC_INTERNAL void format_taginfo(Music_Data *mdata, char *begin, char separate)
 {
     char **title_ptr = &mdata->current_metadata.title_begin_in_buf;
     char **artist_ptr = &mdata->current_metadata.artist_begin_in_buf;
@@ -666,24 +687,40 @@ PAC_INTERNAL void format_taginfo(Music_Data *mdata, char *begin)
     **title_ptr = 0; ++*title_ptr;
     Audio_Metadata_Group *meta = &mdata->current_metadata;
     File_List *mlist = &mdata->music_list;
-    if(strlen(mdata->current_metadata.tag_title)) 
+    if(separate)
     {
-        snprintf(*title_ptr, 1023, "%s\n%s\n%s\000",
-                meta->tag_title,
-                meta->tag_artist,
-                meta->tag_album);
+        if(strlen(mdata->current_metadata.tag_title)) 
+        {
+            snprintf(*title_ptr, 1023, "%s\n%s\n%s\000",
+                    meta->tag_title,
+                    meta->tag_artist,
+                    meta->tag_album);
+        }
+        else
+        {
+            snprintf(*title_ptr, 1023, "%s\000",
+                    mlist->filenames_string_loclist[mlist->current_index]);
+        }
+        *artist_ptr = strchr(*title_ptr, '\n');
+        **artist_ptr = 0; ++*artist_ptr;
+        *album_ptr = strchr(*artist_ptr, '\n');
+        **album_ptr = 0; ++*album_ptr;
     }
     else
     {
-        snprintf(*title_ptr, 1023, "%s\n%s\n%s\000",
-                mlist->filenames_string_loclist[mlist->current_index],
-                meta->tag_artist,
-                meta->tag_album);
+        if(strlen(mdata->current_metadata.tag_title)) 
+        {
+            snprintf(*title_ptr, 1023, "%s  -  %s  -  %s\000",
+                    meta->tag_title,
+                    meta->tag_artist,
+                    meta->tag_album);
+        }
+        else
+        {
+            snprintf(*title_ptr, 1023, "%s\000",
+                    mlist->filenames_string_loclist[mlist->current_index]);
+        }
     }
-    *artist_ptr = strchr(*title_ptr, '\n');
-    **artist_ptr = 0; ++*artist_ptr;
-    *album_ptr = strchr(*artist_ptr, '\n');
-    **album_ptr = 0; ++*album_ptr;
 }
 
 PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars, 
@@ -692,7 +729,6 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
                                         Widget_Bounds_Info *bound_info)
 {
     update_info_buffer(mdata, bufgroup);
-
     struct nk_context *nkctx = rtvars->nuklear_ctx;
     char *infobuf = (char *)bufgroup->music_info_buffer;
     char *path_begin = strchr(infobuf, '\n');
@@ -704,7 +740,7 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
     if(sdlmixer_get_taginfo(mdata))
     { 
         char *meta_begin = path_begin + strlen(path_begin);
-        format_taginfo(mdata, meta_begin); 
+        format_taginfo(mdata, meta_begin, 0); 
     }
 
     int text_width = bound_info->width - (bound_info->height + bound_info->pad) - 30;
@@ -716,39 +752,114 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
     nk_layout_row_static(nkctx, 20, text_width, 1);
     nk_label(nkctx, path_begin, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
 
-    float middle = bound_info->content_bounds.h/4;
+    //float middle = bound_info->content_bounds.h/4;
+    float bottom = bound_info->content_bounds.h - 250.0f;
 
-    nk_style_set_font(nkctx, &rtvars->big_font->handle);
-    nk_layout_row_static(nkctx, middle, text_width, 1);
+    //nk_style_set_font(nkctx, &rtvars->big_font->handle);
+#if 0
+    nk_layout_row_static(nkctx, bottom, text_width, 1);
     if(*title_ptr) 
-    { nk_label(nkctx, *title_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM); }
-    nk_layout_row_static(nkctx, 25, text_width, 1);
-    if(*artist_ptr) 
-    { nk_label(nkctx, *artist_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM); }
+    { nk_label(nkctx, *title_ptr, NK_TEXT_ALIGN_CENTERED|NK_TEXT_ALIGN_BOTTOM); }
     nk_layout_row_static(nkctx, 20, text_width, 1);
-    nk_style_set_font(nkctx, &rtvars->small_font->handle);
+    if(*artist_ptr) 
+    { nk_label(nkctx, *artist_ptr, NK_TEXT_ALIGN_CENTERED|NK_TEXT_ALIGN_BOTTOM); }
+    nk_layout_row_static(nkctx, 20, text_width, 1);
+    //nk_style_set_font(nkctx, &rtvars->small_font->handle);
     if(*album_ptr)
-    { nk_label(nkctx, *album_ptr, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM); }
+    { nk_label(nkctx, *album_ptr, NK_TEXT_ALIGN_CENTERED|NK_TEXT_ALIGN_BOTTOM); }
+#else
+    nk_layout_row_static(nkctx, bottom, text_width, 1);
+    if(*title_ptr)
+    { nk_label(nkctx, *title_ptr, NK_TEXT_ALIGN_CENTERED|NK_TEXT_ALIGN_BOTTOM); }
+#endif
 
     //pac_nk_draw_bitmap(rtvars, &mdata->cover);
 
     nk_group_end(nkctx);
 }
 
+PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars, 
+                                        Music_Data *mdata, 
+                                        General_Buffer_Group *bufgroup, 
+                                        Widget_Bounds_Info *bound_info)
+{
+    struct nk_context *nkctx = rtvars->nuklear_ctx;
+    int text_width = bound_info->width - (bound_info->height + bound_info->pad) - 30;
+    Metadata_Editor *meta = &mdata->metaed;
+    File_List *mlist = &mdata->music_list;
+    int index = mlist->context_index;
+    char *filename = meta->editor_current;
+
+    nk_group_begin(nkctx, "metadata_editor", NK_WINDOW_BORDER);
+    if(meta->editor_current[0])
+    {
+        nk_layout_row_dynamic(nkctx, 30, 1);
+        nk_label(nkctx, filename, NK_TEXT_CENTERED);
+        nk_layout_row_dynamic(nkctx, 30, 3);
+        nk_label(nkctx, "title: ", NK_TEXT_RIGHT);
+        nk_flags title_outflags = nk_edit_string_zero_terminated(nkctx,
+                                        NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
+                                        meta->inbuf_title,
+                                        META_EDITOR_BUFSIZE - 1,
+                                        nk_filter_default);
+        nk_label(nkctx, "", NK_TEXT_RIGHT);
+
+        nk_layout_row_dynamic(nkctx, 30, 3);
+        nk_label(nkctx, "artist: ", NK_TEXT_RIGHT);
+        nk_flags artist_outflags = nk_edit_string_zero_terminated(nkctx,
+                                        NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
+                                        meta->inbuf_artist,
+                                        META_EDITOR_BUFSIZE - 1,
+                                        nk_filter_default);
+        nk_label(nkctx, "", NK_TEXT_RIGHT);
+
+        nk_layout_row_dynamic(nkctx, 30, 3);
+        nk_label(nkctx, "album: ", NK_TEXT_RIGHT);
+        nk_flags album_outflags = nk_edit_string_zero_terminated(nkctx,
+                                        NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
+                                        meta->inbuf_album,
+                                        META_EDITOR_BUFSIZE - 1,
+                                        nk_filter_default);
+        nk_label(nkctx, "", NK_TEXT_RIGHT);
+
+        nk_spacing(nkctx, 1);
+
+        nk_layout_row_dynamic(nkctx, 30, 3);
+        nk_label(nkctx, "", NK_TEXT_RIGHT);
+        if(nk_button_label(nkctx, "save metadata"))
+        {
+            platform_dbg_log("tryna open file %s\n", meta->editor_current);
+            Tag_Ref tr;
+            if(tag_open_file(meta->editor_current, &tr))
+            {
+                tag_set_all(&tr, meta);
+            }
+        }
+        nk_label(nkctx, "", NK_TEXT_RIGHT);
+    }
+    else
+    {
+        nk_layout_row_dynamic(nkctx, 30, 1);
+        nk_label(nkctx, "invalid file selected", NK_TEXT_CENTERED);
+    }
+    nk_group_end(nkctx);
+}
+
 #define PAC_NK_NORMAL_BTNCOLOR(...) nk_rgba(0x1A, 0x1A, 0x1A, 0xFF)
+#define PAC_NK_HOVER_BTNCOLOR(...) nk_rgba(0x22, 0x44, 0x55, 0xFF)
 
 PAC_INTERNAL void pac_nk_set_button_active(struct nk_context *nkctx)
 {
     nkctx->style.button.normal = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
-    nkctx->style.button.hover = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
     nkctx->style.button.active = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
+    nkctx->style.button.hover = nk_style_item_color(PAC_NK_HOVER_BTNCOLOR());
 }
 
 PAC_INTERNAL void pac_nk_set_button_normal(struct nk_context *nkctx)
 {
     nkctx->style.button.normal = nk_style_item_color(PAC_NK_NORMAL_BTNCOLOR());
-    nkctx->style.button.hover = nk_style_item_color(nk_rgba(0x22, 0x44, 0x55, 0xFF));
     nkctx->style.button.active = nk_style_item_color(PAC_NK_NORMAL_BTNCOLOR());
+    nkctx->style.button.hover = nk_style_item_color(PAC_NK_HOVER_BTNCOLOR());
 }
 
 PAC_INTERNAL void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *mdata)
@@ -793,6 +904,81 @@ PAC_INTERNAL void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *md
     }
 }
 
+PAC_INTERNAL void mlist_correct_scroll(Runtime_Vars *rtvars, Music_Data *mdata)
+{
+    File_List *mlist = &mdata->music_list;
+    if(rtvars->kbd_state[SDL_SCANCODE_DOWN])
+    { 
+        if((mlist->sel_index > (mdata->music_list_view.end - 2)) && 
+                (mlist->sel_index < (int)mlist->entry_count))
+        { ++mdata->music_list_view.scroll_value; }
+    }
+    else if(rtvars->kbd_state[SDL_SCANCODE_UP])
+    {
+        if((mlist->sel_index < (mdata->music_list_view.begin)) &&
+                (mlist->sel_index >= 0))
+        { --mdata->music_list_view.scroll_value; }
+    }
+}
+
+PAC_INTERNAL void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
+{
+    File_List *mlist = &mdata->music_list;
+    Metadata_Editor *meta = &mdata->metaed;
+    char *filename = mlist->filenames_string_loclist[mlist->context_index];
+    char *cont = find_top_level_path4file(filename, mlist);
+    if(cont)
+    {
+        snprintf(meta->editor_current, PATH_MAX - 1, 
+#if _2PACWAV_LINUX
+                "%s/%s", 
+#elif _2PACWAV_WIN32
+                "%s\\%s", 
+#endif
+                cont, filename);
+        Tag_Ref tr;
+        if(tag_open_file(meta->editor_current, &tr))
+        {
+            tag_get_title(&tr, meta->inbuf_title, META_EDITOR_BUFSIZE - 1);
+            tag_get_artist(&tr, meta->inbuf_artist, META_EDITOR_BUFSIZE - 1);
+            tag_get_album(&tr, meta->inbuf_album, META_EDITOR_BUFSIZE - 1);
+        }
+    }
+    else
+    {
+        *meta->editor_current = 0;
+    }
+}
+
+PAC_INTERNAL void mlist_btn_context_menu(Runtime_Vars *rtvars, 
+                                    Music_Data *mdata,
+                                    Widget_Bounds_Info *bound_info)
+{
+    struct nk_context *nkctx = rtvars->nuklear_ctx;
+    File_List *mlist = &mdata->music_list;
+    State_Flags *sflags = &rtvars->sflags;
+    struct nk_vec2 pos = nk_vec2(sflags->mouse.pos.x, sflags->mouse.pos.y);
+    struct nk_vec2 size = nk_vec2(100, 300);
+    struct nk_rect bounds = nk_rect(pos.x, pos.y, size.x, size.y);
+    int ctx_index = mlist->context_index;
+
+    if(nk_input_has_mouse_click_in_rect(&nkctx->input, NK_BUTTON_LEFT, bounds))
+    { sflags->mlist_ctxmenu_active = 0; }
+    if(nk_contextual_begin(nkctx, 0, size, bounds))
+    {
+        nk_layout_row_dynamic(nkctx, 20, 1);
+        if(nk_button_label(nkctx, "edit metadata"))
+        {
+            //printf("%s\n", mlist->filenames_string_loclist[ctx_index]);
+            sflags->mlist_ctxmenu_active = 0;
+            nk_contextual_close(nkctx);
+            sflags->viewstate = CENTER_VIEW_STATE_METADATA_EDITOR;
+            init_metadata_editor(rtvars, mdata);
+        }
+        nk_contextual_end(nkctx);
+    }
+}
+
 PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, 
                                     Music_Data *mdata, 
                                     Widget_Bounds_Info *bound_info)
@@ -822,23 +1008,15 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars,
         { --loop_index; continue; }
 
         char *btntext = mlist->filenames_string_loclist[render_index];
+        mlist_correct_scroll(rtvars, mdata);
 
-        if(rtvars->kbd_state[SDL_SCANCODE_DOWN])
+        if(nk_widget_is_mouse_clicked(nkctx, NK_BUTTON_RIGHT))
         { 
-            if((mlist->sel_index > (mdata->music_list_view.end - 2)) && 
-                    (mlist->sel_index < (int)mlist->entry_count))
-            {
-                ++mdata->music_list_view.scroll_value;
-            }
+            sflags->mlist_ctxmenu_active = 1;
+            mlist->context_index = render_index;
         }
-        else if(rtvars->kbd_state[SDL_SCANCODE_UP])
-        {
-            if((mlist->sel_index < (mdata->music_list_view.begin)) &&
-                    (mlist->sel_index >= 0))
-            {
-                --mdata->music_list_view.scroll_value; 
-            }
-        }
+        if(sflags->mlist_ctxmenu_active)
+        { mlist_btn_context_menu(rtvars, mdata, bound_info); }
 
         if(mlist->sel_index == (int)render_index) 
         { 
@@ -846,9 +1024,7 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars,
             if(nk_button_label(nkctx, btntext) || 
                     (!rtvars->sflags.text_field_focused &&
                     pac_btn_press(SDL_SCANCODE_RETURN, &rtvars->sflags.enter_wasdown, rtvars->kbd_state)))
-            { 
-                file_list_play_file(btntext, mlist->sel_index, mdata); 
-            }
+            { file_list_play_file(btntext, mlist->sel_index, mdata); }
             pac_nk_set_button_normal(nkctx); 
         } 
         else 
@@ -1046,7 +1222,11 @@ PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars,
             (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
             pac_btn_press(SDL_SCANCODE_L, &sflags->l_wasdown, rtvars->kbd_state)))
     { 
-        cycle_center_view_state(&sflags->viewstate); 
+        do
+        {
+            cycle_center_view_state(&sflags->viewstate); 
+        } while((sflags->viewstate != CENTER_VIEW_STATE_MUSIC_LIST) &&
+            (sflags->viewstate != CENTER_VIEW_STATE_CURRENT_INFO));
     }
 
     if(sflags->clear_confirmation)
@@ -1170,7 +1350,10 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
         { nk_edit_focus(nkctx, NK_TEXT_EDIT_MODE_INSERT); }
     }
     if(rtvars->kbd_state[SDL_SCANCODE_ESCAPE])
-    { nk_edit_unfocus(nkctx); }
+    { 
+        rtvars->sflags.mlist_ctxmenu_active = 0;
+        nk_edit_unfocus(nkctx); 
+    }
 
     nk_flags file_field_outflags = nk_edit_string_zero_terminated(nkctx, 
                                         NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE, 
@@ -1210,10 +1393,25 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
                             bound_info.y_offset - 
                             bound_info.height - 
                             bound_info.pad)));
-        if(rtvars->sflags.viewstate == CENTER_VIEW_STATE_MUSIC_LIST)
-        { menu_do_music_list(rtvars, mdata, &bound_info); }
-        else if(rtvars->sflags.viewstate == CENTER_VIEW_STATE_CURRENT_INFO)
-        { menu_do_current_file_info(rtvars, mdata, bufgroup, &bound_info); }
+        switch(rtvars->sflags.viewstate)
+        {
+        case(CENTER_VIEW_STATE_MUSIC_LIST):
+        {
+            menu_do_music_list(rtvars, mdata, &bound_info);
+        } break;
+
+        case(CENTER_VIEW_STATE_CURRENT_INFO):
+        {
+            menu_do_current_file_info(rtvars, mdata, bufgroup, &bound_info);
+        } break;
+
+        case(CENTER_VIEW_STATE_METADATA_EDITOR):
+        {
+            menu_do_metadata_editor(rtvars, mdata, bufgroup, &bound_info);
+        } break;
+
+        default: break;
+        }
     }
 
     nk_layout_space_push(nkctx, 
@@ -1459,7 +1657,7 @@ PAC_INTERNAL void nuklearapi_set_style(struct nk_context *ctx)
     color_tbl[NK_COLOR_BORDER] =                    nk_rgba(0x88, 0x88, 0x88, 0xFF);
     color_tbl[NK_COLOR_BUTTON] =                    PAC_NK_NORMAL_BTNCOLOR();
     color_tbl[NK_COLOR_BUTTON_ACTIVE] =             PAC_NK_NORMAL_BTNCOLOR();
-    color_tbl[NK_COLOR_BUTTON_HOVER] =              nk_rgba(0x22, 0x44, 0x55, 0xFF);
+    color_tbl[NK_COLOR_BUTTON_HOVER] =              PAC_NK_HOVER_BTNCOLOR();
     color_tbl[NK_COLOR_TOGGLE] =                    nk_rgba(50, 58, 61, 0xFF);
     color_tbl[NK_COLOR_TOGGLE_HOVER] =              nk_rgba(45, 53, 56, 0xFF);
     color_tbl[NK_COLOR_TOGGLE_CURSOR] =             nk_rgba(48, 83, 111, 0xFF);
