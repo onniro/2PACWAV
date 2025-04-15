@@ -420,13 +420,18 @@ PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars 
     else if(platform_directory_exists(path))
     { 
         int pathlen = strlen(path);
-        if(path[pathlen] == '/')
+        while(path[--pathlen] == 
+#if _2PACWAV_LINUX
+                '/')
+#elif _2PACWAV_WIN32
+                '\\')
+#endif
         { path[pathlen] = 0; }
         platform_get_directory_listing(path, &mdata->music_list); 
     }
     else 
     { 
-        platform_log("%s: no such file or directory\n", path); 
+        platform_dbg_log("%s: no such file or directory\n", path); 
         set_userinfo(rtvars, "[error]: no such file or directory.", USERINFO_TYPE_ERROR);
         return;
     }
@@ -867,7 +872,7 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
 
         nk_layout_row_dynamic(nkctx, 30, 3);
         nk_label(nkctx, "", NK_TEXT_RIGHT);
-        if(nk_button_label(nkctx, "save metadata") ||
+        if(nk_button_label(nkctx, "save metadata (ctrl + enter)") ||
                 (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
                 pac_btn_press(SDL_SCANCODE_RETURN, &sflags->enter_wasdown, rtvars->kbd_state)))
         {
@@ -941,7 +946,18 @@ PAC_INTERNAL void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *md
                         ((increment == 1) && 
                         (mlist->sel_index < ((int)mlist->entry_count - 1))))
                 { 
-                    mlist->sel_index += increment; 
+                    if(mlist->sel_index < mdata->music_list_view.begin) 
+                    {
+                        mlist->sel_index = mdata->music_list_view.begin;
+                    } 
+                    else if(mlist->sel_index > mdata->music_list_view.end) 
+                    {
+                        mlist->sel_index = mdata->music_list_view.end - 2;
+                    } 
+                    else 
+                    {
+                        mlist->sel_index += increment; 
+                    }
                 }
                 ++counter;
             } while(mlist->match_flags[mlist->sel_index] && 
@@ -960,13 +976,17 @@ PAC_INTERNAL void mlist_correct_scroll(Runtime_Vars *rtvars, Music_Data *mdata)
     { 
         if((mlist->sel_index > (mdata->music_list_view.end - 2)) && 
                 (mlist->sel_index < (int)mlist->entry_count))
-        { ++mdata->music_list_view.scroll_value; }
+        { 
+            ++mdata->music_list_view.scroll_value; 
+        }
     }
     else if(rtvars->kbd_state[SDL_SCANCODE_UP])
     {
         if((mlist->sel_index < (mdata->music_list_view.begin)) &&
                 (mlist->sel_index >= 0))
-        { --mdata->music_list_view.scroll_value; }
+        { 
+            --mdata->music_list_view.scroll_value; 
+        }
     }
 }
 
@@ -1417,7 +1437,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
                         bound_info.y_offset, 
                         add_width, 
                         bound_info.height - bound_info.y_alignment));
-    bound_info.y_offset += bound_info.height - 3.0f; //i just made this up
+    bound_info.y_offset += bound_info.height - 3.0f;
 
     if(nk_button_label(nkctx, "add") ||
             ((file_field_outflags & NK_EDIT_ACTIVE) &&
@@ -1464,10 +1484,10 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     }
 
     nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info.x_offset, 
-                        bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*5, 
-                        bound_info.height, 
-                        bound_info.height));
+            nk_rect(bound_info.x_offset, 
+            bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*5, 
+            bound_info.height, 
+            bound_info.height));
 
     //TODO: change this to be something else
     if(mdata->shuffle_enabled)
