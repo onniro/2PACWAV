@@ -939,6 +939,19 @@ PAC_INTERNAL void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *md
                 (frame_counter > PAC_HOLD_WAIT_FRAMES &&
                 (frame_counter % PAC_HOLD_INCREMENT_MODULO == 0)))
         {
+            //platform_dbg_log("b=%d e=%d s=%d\n", 
+            //        mdata->music_list_view.begin,
+            //        mdata->music_list_view.end,
+            //        mlist->sel_index);
+            //if(mlist->sel_index < mdata->music_list_view.begin) 
+            //{
+            //    mlist->sel_index = mdata->music_list_view.begin;
+            //} 
+            //else if(mlist->sel_index > mdata->music_list_view.end) 
+            //{
+            //    mlist->sel_index = mdata->music_list_view.end - 1;
+            //} 
+
             do 
             { 
                 if(((increment == -1) && 
@@ -946,18 +959,7 @@ PAC_INTERNAL void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *md
                         ((increment == 1) && 
                         (mlist->sel_index < ((int)mlist->entry_count - 1))))
                 { 
-                    if(mlist->sel_index < mdata->music_list_view.begin) 
-                    {
-                        mlist->sel_index = mdata->music_list_view.begin;
-                    } 
-                    else if(mlist->sel_index > mdata->music_list_view.end) 
-                    {
-                        mlist->sel_index = mdata->music_list_view.end - 2;
-                    } 
-                    else 
-                    {
-                        mlist->sel_index += increment; 
-                    }
+                    mlist->sel_index += increment; 
                 }
                 ++counter;
             } while(mlist->match_flags[mlist->sel_index] && 
@@ -1207,6 +1209,7 @@ PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars,
 
     if(got_input)
     { 
+        rtvars->sflags.search_changed = 1;
         set_match_flags(searchbuf, mdata); 
         char info_buf[USERINFO_BUFFER_SIZE];
         snprintf(info_buf, 
@@ -1564,6 +1567,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     nk_layout_space_end(nkctx);
     pac_end_frame(rtvars, sdldata);
     rtvars->sflags.text_field_focused = 0;
+    rtvars->sflags.search_changed = 0;
 }
 
 PAC_INTERNAL char sdlmixer_get_taginfo(Music_Data *mdata)
