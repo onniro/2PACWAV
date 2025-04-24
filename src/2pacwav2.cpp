@@ -204,9 +204,9 @@ PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
 
-    //ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(0, 70, 0, 0xFF));
-    //ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 70, 0, 0xFF));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(0, 0, 0, 0xFF));
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(011, 0x33, 0x3A, 0xFF));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0x11, 0x33, 0x3A, 0xFF));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(0x0, 0x0, 0x0, 0xFF));
 
     ImGui::Begin("2PACWAV", 0, ImGuiWindowFlags_NoTitleBar
                  |ImGuiWindowFlags_NoResize
@@ -221,8 +221,8 @@ PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
 PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
 {
     ImGui::PopStyleColor();
-    //ImGui::PopStyleColor();
-    //ImGui::PopStyleColor();
+    ImGui::PopStyleColor();
+    ImGui::PopStyleColor();
 
     ImGui::End();
     ImGui::Render();
@@ -703,6 +703,7 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
         format_taginfo(mdata, meta_begin, 0); 
     }
 
+    ImGui::SetCursorPosX(50);
     ImGui::Text("%s\n%s", (char *)bufgroup->music_info_buffer, path_begin);
     
     if(*title_ptr)
@@ -716,9 +717,55 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
 
 PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars, 
                                         Music_Data *mdata, 
-                                        General_Buffer_Group *bufgroup, 
-                                        Widget_Bounds_Info *bound_info)
+                                        General_Buffer_Group *bufgroup)
 {
+    Metadata_Editor *meta = &mdata->metaed;
+    State_Flags *sflags = &rtvars->sflags;
+    File_List *mlist = &mdata->music_list;
+    char *filename = meta->editor_current;
+
+    if(filename[0])
+    {
+        ImGui::Separator();
+
+        ImGui::SetCursorPosX(50);
+        ImGui::Text("title:  ");
+        ImGui::SameLine();
+        ImGui::InputText("##meta_title", meta->inbuf_title, META_EDITOR_BUFSIZE - 1);
+
+        ImGui::SetCursorPosX(50);
+        ImGui::Text("artist: ");
+        ImGui::SameLine();
+        ImGui::InputText("##meta_artist", meta->inbuf_artist, META_EDITOR_BUFSIZE - 1);
+
+        ImGui::SetCursorPosX(50);
+        ImGui::Text("album:  ");
+        ImGui::SameLine();
+        ImGui::InputText("##meta_album", meta->inbuf_album, META_EDITOR_BUFSIZE - 1);
+
+        
+        ImGui::SetCursorPosX(50);
+        if(ImGui::Button("save metadata"))
+        {
+            Tag_Ref tr;
+            if(tag_open_file(meta->editor_current, &tr))
+            {
+                if(tag_set_all(&tr, meta))
+                {
+                    set_userinfo(rtvars, "updated metadata.", USERINFO_TYPE_NOTE);
+                }
+                else
+                {
+                    set_userinfo(rtvars, "[error]: failed to update metadata.", USERINFO_TYPE_ERROR);
+                }
+                
+            }
+        }
+    }
+    else
+    {
+        ImGui::Text("invalid file selected for metadata editor");
+    }
 }
 
 PAC_INTERNAL void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *mdata)
@@ -780,7 +827,7 @@ PAC_INTERNAL void mlist_correct_scroll(Runtime_Vars *rtvars, Music_Data *mdata)
 {
 }
 
-#if 0
+#if 1
 PAC_INTERNAL void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
 {
     File_List *mlist = &mdata->music_list;
@@ -829,15 +876,29 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
             ImGuiChildFlags_Borders);
     uint32_t render_index = 0, file_index = 0;
     ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.0, 0.5f));
+    char btntext[NAME_MAX];
+    char *filename;
     for(int loop_index = 0;
             loop_index < (int)mlist->entry_count;
             ++loop_index)
     {
         if(!mlist->match_flags[loop_index])
         {
-            char *btntext = mlist->filenames_string_loclist[loop_index];
+            filename = mlist->filenames_string_loclist[loop_index];
+            snprintf(btntext, NAME_MAX - 1, "%s##%d", 
+                    filename, loop_index);
             if(ImGui::Button(btntext, ImVec2(ImGui::GetColumnWidth(-1), 0)))
-            { file_list_play_file(btntext, loop_index, mdata); }
+            { file_list_play_file(filename, loop_index, mdata); }
+            if(ImGui::BeginPopupContextItem(btntext))
+            {
+                mlist->context_index = loop_index;
+                if(ImGui::Button("edit metadata"))
+                {
+                    sflags->viewstate = CENTER_VIEW_STATE_METADATA_EDITOR;
+                    init_metadata_editor(rtvars, mdata);
+                }
+                ImGui::EndPopup();
+            }
         }
     }
     ImGui::PopStyleVar();
@@ -1132,7 +1193,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
 
         case(CENTER_VIEW_STATE_METADATA_EDITOR):
         {
-            //menu_do_metadata_editor(rtvars, mdata, bufgroup, &bound_info);
+            menu_do_metadata_editor(rtvars, mdata, bufgroup);
         } break;
 
         default: break;

@@ -242,9 +242,11 @@ PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
     }
 
     int elements_per_primitive = 2;
-    float xpos = -1.0f + (95.0f/(float)sdldata->win_width);
+    //float xpos = -1.0f + (95.0f/(float)sdldata->win_width);
+    float xpos = -1.0f;
     float sample_pos;
     float y_scale = (float)(MIX_MAX_VOLUME - mdata->volume)/100.0f;
+    float yoff = 0.1f;
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
     for(int vert_index = 0, sample_index = 0; 
             vert_index < num_elements; 
@@ -252,7 +254,7 @@ PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
     {
         xpos += x_advance;
         verts[vert_index] = xpos;
-        verts[vert_index + 1] = y_scale*((astream->real32_buffer_in[sample_index])/TWO_TO_15TH) - 0.3f;
+        verts[vert_index + 1] = y_scale*((astream->real32_buffer_in[sample_index])/TWO_TO_15TH) - yoff;
     }
 }
 
