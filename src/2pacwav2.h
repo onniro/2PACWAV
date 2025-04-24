@@ -1,7 +1,7 @@
 
 /*
-File: 2pacwav.h
-Date: Tue 18 Feb 2025 12:56:32 PM EET
+File: 2pacwav2.h
+Date: Thu 24 Apr 2025 04:34:59 PM EEST
 */
 
 #ifndef _2PACWAV_DOT_H
@@ -14,8 +14,8 @@ extern "C"
 typedef float _Complex Complex32;
 
 #define _2PACWAV_VER_MAJOR      (0)
-#define _2PACWAV_VER_MINOR      (3)
-#define _2PACWAV_VER_PATCH      (2)
+#define _2PACWAV_VER_MINOR      (4)
+#define _2PACWAV_VER_PATCH      (0)
 
 #include "ro_heapbuf.h"
 
@@ -30,10 +30,9 @@ typedef float _Complex Complex32;
 
 #define PAC_FONT_STRING "NotoSansHK-Regular.ttf"
 #define PAC_BIG_FONT_STRING "NotoSansHK-Regular.ttf"
-#define PAC_NUKLEAR_FONTSIZE (20.0f)
-//#define PAC_NUKLEAR_BIG_FONTSIZE (20.0f)
+#define PAC_FONTSIZE (20.0f)
 
-static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
+//static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 
 #define PAC_NOP_MACRO(...)
 #if _2PACWAV_LINUX
@@ -203,7 +202,8 @@ typedef struct State_Flags
     char tab_wasdown;
     char escape_wasdown;
     char clear_confirmation;
-    char add_dup_dir_confirmation;
+    char search_changed;
+    //char add_dup_dir_confirmation; //TODO
     char text_field_focused;
     char mlist_ctxmenu_active;
     Mouse_State mouse;
@@ -219,7 +219,6 @@ typedef struct Widget_Bounds_Info
     float y_alignment;
     float y_offset;
     float x_offset;
-    struct nk_rect content_bounds;
 } Widget_Bounds_Info;
 
 #define META_EDITOR_BUFSIZE 256
@@ -244,7 +243,6 @@ typedef struct Audio_Metadata_Group
 
 typedef struct Bitmap_Info
 {
-    struct nk_image nuk_image;
     uint8_t *img_data;
     int img_data_bytes;
     int width;
@@ -277,8 +275,8 @@ typedef struct Music_Data
     int chunk_size;
     int seek_increment;
     int previous_index;
-    uint64_t volume;
-    uint64_t seek_value;
+    int volume;
+    int seek_value;
     double current_position;
     double current_duration;
     char *current_filename;
@@ -288,7 +286,6 @@ typedef struct Music_Data
     Mix_Music *sdlmixer_music; //IMPORTANT: ALWAYS SET TO NULL WHEN MUSIC IS UNLOADED
     Audio_Metadata_Group current_metadata;
     Metadata_Editor metaed;
-    struct nk_list_view music_list_view;
     Bitmap_Info cover;
     char music_type_buf[16];
 } Music_Data;
@@ -313,12 +310,8 @@ typedef struct Runtime_Vars
     Ro_Heap_Buffer main_storage;
     Sdl_Apidata *sdldata_ptr;
     Music_Data *mdata_ptr;
+    ImFont *main_font;
     const uint8_t *kbd_state;
-    struct nk_font_atlas ft_atlas;
-    struct nk_font *small_font;
-    //struct nk_font *big_font;
-    //struct nk_font *cjk_font; //this isnt needed atm since NotoSansHK includes (some) CJK glyphs
-    struct nk_context *nuklear_ctx;
 } Runtime_Vars;
 
 //(forward declarations)
@@ -326,8 +319,6 @@ PAC_INTERNAL void pac_nop(void);
 PAC_INTERNAL void get_version_string(char *buffer);
 PAC_INTERNAL void show_version(void);
 PAC_INTERNAL void pac_do_command_args(int arg_count, char **args);
-nk_rune *pac_font_glyph_ranges(void);
-void pac_nuklearapi_paste_callback(nk_handle handle, struct nk_text_edit *txtedit);
 PAC_INTERNAL void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
 PAC_INTERNAL void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata);
 PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars);
@@ -347,7 +338,6 @@ PAC_INTERNAL void sdlmixer_stop_music(Music_Data *mdata);
 void pac_sdlmixer_postmix_callback(void *udata, uint8_t *stream, int len);
 PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata);
 PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata);
-PAC_INTERNAL void nuklearapi_set_style(struct nk_context *ctx);
 
 #ifdef __cplusplus
 }

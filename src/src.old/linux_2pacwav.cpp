@@ -54,7 +54,7 @@ PAC_INTERNAL char *find_res_path(Runtime_Vars *rtvars, char *out_res_path, int b
         last_ptr = strstr(end_ptr, "/res/");
         *last_ptr = 0;
     }
-    return(result);
+    return result;
 }
 
 #if 1
@@ -303,7 +303,7 @@ PAC_INTERNAL int platform_get_directory_listing(char *path, File_List *out_flist
     else
     { platform_log("directory listing failed. reason: failed to initialize directory struct\n"); }
 
-    return(result);
+    return result;
 }
 
 PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf, 
@@ -349,22 +349,22 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
 
 PAC_INTERNAL char platform_file_exists(char *path)
 {
-    return(ro_posix_file_exists(path));
+    return ro_posix_file_exists(path);
 }
 
 PAC_INTERNAL char platform_directory_exists(char *path)
 {
-    return(ro_posix_directory_exists(path));
+    return ro_posix_directory_exists(path);
 }
 
 PAC_INTERNAL uint64_t platform_read_file(char *file_path, char *dest, uint64_t dest_bytes)
 {
-    return(ro_posix_read_file(file_path, dest, dest_bytes));
+    return ro_posix_read_file(file_path, dest, dest_bytes);
 }
 
 PAC_INTERNAL int platform_write_file(char *file_path, void *in_buffer, uint64_t buffer_size)
 {
-    return(ro_posix_write_file(file_path, in_buffer, buffer_size));
+    return ro_posix_write_file(file_path, in_buffer, buffer_size);
 }
 
 void platform_log(char *fmt_string, ...)
@@ -414,16 +414,16 @@ int main(int arg_count, char **args)
     sdldata.mdata_ptr = &mdata;
 
     if(!pac_init_sdl(&sdldata)) 
-    { return(-1); }
+    { return -1; }
     if(!pac_init_sdlmixer(&mdata)) 
-    { return( -1); }
+    { return -1; }
         
     if(ro_posix_make_heap_buffer(&rtvars.main_storage, PAC_MAIN_STORAGE_SIZE)) 
     { startup_alloc_buffers(&rtvars.main_storage, &bufgroup); }
     else
     { 
         fprintf(stderr, "failed to get memory\n"); 
-        return(-1); 
+        return -1; 
     }
     mdata.current_filename = (char *)bufgroup.music_current_filename;
     mdata.rtvars_ptr = &rtvars;
@@ -449,6 +449,7 @@ int main(int arg_count, char **args)
     nuklearapi_set_style(rtvars.nuklear_ctx);
     //rtvars.nuklear_ctx->style.button.rounding = 0;
     rtvars.nuklear_ctx->clip.paste = pac_nuklearapi_paste_callback;
+    rtvars.nuklear_ctx->clip.copy = pac_nuklearapi_copy_callback;
 
     mdata.music_list.filenames_buf = (char *)bufgroup.flist_filenames_buf;
     mdata.music_list.filenames_string_loclist = (char **)bufgroup.flist_filenames_string_loclist;
@@ -515,5 +516,5 @@ int main(int arg_count, char **args)
     SDL_DestroyWindow(sdldata.window_ptr);
     SDL_Quit();
 
-    return(0);
+    return EXIT_SUCCESS;
 }

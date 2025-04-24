@@ -1,7 +1,7 @@
 
 /*
-File: 2pacwav_visualizer.cpp
-Date: Fri 28 Mar 2025 02:09:17 PM EET
+File: 2pacwav2_visualizer.cpp
+Date: Thu 24 Apr 2025 04:31:17 PM EEST
 
 TODO: fix spectrum
 */
@@ -264,7 +264,6 @@ R"(
 attribute vec3 position;
 void main()
 {
-    //gl_Position = projection*model*vec4(position, 1.0);
     gl_Position = vec4(position, 1.0);
 }
 )";
@@ -274,7 +273,7 @@ R"(
 #version 120
 void main()
 {
-    gl_FragColor = vec4(0.8, 0.2, 0.2, 0.5f);
+    gl_FragColor = vec4(0.2, 0.7, 0.0, 0.6f);
 }
 )";
 
@@ -283,25 +282,11 @@ void main()
     PAC_LOCAL_STATIC float verts[2*PAC_OSCILLOSCOPE_POINT_COUNT];
     if(!rtvars->mdata_ptr->paused) 
     {
-#if 0
-        spectrum_fill_verts_lineseg(verts, 
-                sizeof(verts)/sizeof(*verts),
-                PAC_SPECTRUM_FREQ_BIN_COUNT,
-                rtvars,
-                sdldata);
-#elif 0
-        spectrum_fill_verts_point(verts, 
-                sizeof(verts)/sizeof(*verts),
-                PAC_SPECTRUM_FREQ_BIN_COUNT,
-                rtvars,
-                sdldata);
-#else
         oscilloscope_fill_verts_line(verts,
                 sizeof(verts)/sizeof(*verts),
                 PAC_OSCILLOSCOPE_POINT_COUNT,
                 rtvars,
                 sdldata);
-#endif
     }
 
     const char *shdr_vert_src = _shdr_vert_src;

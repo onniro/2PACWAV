@@ -1,7 +1,7 @@
 
 /*
-File: 2pacwav_tagging.cpp
-Date: Sun 23 Mar 2025 01:28:14 PM EET
+File: 2pacwav2_tagging.cpp
+Date: Thu 24 Apr 2025 04:31:06 PM EEST
 */
 
 #include "tag.h"
@@ -12,8 +12,8 @@ Date: Sun 23 Mar 2025 01:28:14 PM EET
 #include "id3v2tag.h"
 #include "mpegfile.h"
 
-#include "2pacwav.h"
-#include "2pacwav_tagging.h"
+#include "2pacwav2.h"
+#include "2pacwav2_tagging.h"
 
 PAC_INTERNAL char tag_open_file(char *path, Tag_Ref *ref)
 {
@@ -34,7 +34,7 @@ PAC_INTERNAL void tag_get_title(Tag_Ref *ref, char *recv, int recv_size)
     if(ref && recv && recv_size && !ref->ref.isNull())
     {
         TagLib::String _title = ref->ref.tag()->title().to8Bit(1);
-        //NOTE: passing false for utf8 below here since we called this to8Bit thing
+        //NOTE: passing false for utf8 below here since i called this to8Bit thing
         //seemingly saying you want utf8 twice makes it break
         const char *title = _title.toCString(0);
         if(title)
@@ -44,7 +44,7 @@ PAC_INTERNAL void tag_get_title(Tag_Ref *ref, char *recv, int recv_size)
 
 PAC_INTERNAL void tag_get_artist(Tag_Ref *ref, char *recv, int recv_size)
 {
-    if(ref && recv && recv_size && !ref->ref.isNull())
+    if(ref && recv && recv_size && !ref->ref.isNull()) 
     {
         TagLib::String _artist = ref->ref.tag()->artist().to8Bit(1);
         const char *artist = _artist.toCString(0);

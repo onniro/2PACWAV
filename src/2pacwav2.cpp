@@ -1,7 +1,7 @@
 
 /*
-File: 2pacwav.cpp
-Date: Sat 22 Feb 2025 06:29:25 PM EET
+File: 2pacwav2.cpp
+Date: Thu 24 Apr 2025 04:24:08 PM EEST
 */
 
 #include <stdio.h>
@@ -15,26 +15,19 @@ Date: Sat 22 Feb 2025 06:29:25 PM EET
 #include <GL/glu.h>
 #include <GL/glext.h>
 
-#define NK_INCLUDE_FONT_BAKING 1
-#define NK_INCLUDE_DEFAULT_ALLOCATOR 1
-//#define NK_ASSERT 1
-#define NK_ASSERT(exp) PAC_NOP_MACRO()
-#include "nuklear.h"
-#include "nuklear_sdl_gl2.h"
-
 #define STB_IMAGE_IMPLEMENTATION 1
 #define STBI_FAILURE_USERMSG 1
 #include "stb/stb_image.h"
 
-#include "2pacwav.h"
+#include "2pacwav2.h"
 
 #if _2PACWAV_LINUX
-    #include "linux_2pacwav.h"
+    #include "linux_2pacwav2.h"
 #elif _2PACWAV_WIN32
 #endif
 
-#include "2pacwav_visualizer.cpp"
-#include "2pacwav_tagging.cpp"
+#include "2pacwav2_visualizer.cpp"
+#include "2pacwav2_tagging.cpp"
 
 void pac_nop(void) 
 {
@@ -79,45 +72,6 @@ PAC_INTERNAL void pac_do_command_args(int arg_count, char **args)
     }
 }
 
-nk_rune *pac_font_glyph_ranges(void) 
-{
-    //NOTE: pasted from nuklear.h
-    PAC_LOCAL_STATIC const nk_rune ranges[] = 
-    {
-#if 0
-        0x0020, 0x00FF,
-        0x0400, 0x052F,
-        0x25A0, 0x25A1,
-        0x2DE0, 0x2DFF,
-        0x3000, 0x303F,
-        0x3040, 0x309F,
-        0x30A0, 0x30FF,
-        0x3131, 0x3163,
-        0x4E00, 0x9FFF,
-        0xA640, 0xA69F,
-        0xAC00, 0xD79D,
-#else
-        0x0001, 0xFFFF,
-#endif
-        0
-    };
-    return((nk_rune *)ranges);
-}
-
-//basically the same function as in nuklear_sdl_gl2.h (default callback)
-//but this one calls nk_textedit_text instead of nk_textedit_paste which 
-//avoids crash when pasting unicode 
-//TODO: copying unicode chars doesn't quite seem to work
-void pac_nuklearapi_paste_callback(nk_handle handle, struct nk_text_edit *txtedit) 
-{
-    const char *clip_bytes = SDL_GetClipboardText();
-    if(clip_bytes) 
-    {
-        nk_textedit_text(txtedit, clip_bytes, strlen(clip_bytes));
-        SDL_free((void *)clip_bytes);
-    }
-}
-
 PAC_INTERNAL char pac_mousebtn_press(Mouse_State *mouse)
 {
     char result = 0;
@@ -131,10 +85,12 @@ PAC_INTERNAL char pac_mousebtn_press(Mouse_State *mouse)
     }
     else
     { *(int32_t *)mouse->wasdown_flags = 0; }
-    return(result);
+    return result;
 }
 
-PAC_INTERNAL char pac_btn_press(SDL_Scancode scan, char *wasdown, const uint8_t *kbd_state) 
+PAC_INTERNAL char pac_btn_press(SDL_Scancode scan, 
+                            char *wasdown, 
+                            const uint8_t *kbd_state) 
 {
     char state = 0;
     if(kbd_state[scan]) 
@@ -144,73 +100,133 @@ PAC_INTERNAL char pac_btn_press(SDL_Scancode scan, char *wasdown, const uint8_t 
     } 
     else 
     { *wasdown = 0; }
-    return(state);
+    return state;
 }
 
+PAC_INTERNAL void pac_imgui_load_font(char *font_name, float font_size, Runtime_Vars *rtvars)
+{
+    char latin_path[PATH_MAX], cjk_path[PATH_MAX];
+    snprintf(latin_path, PATH_MAX - 1, "%s/%s", 
+            rtvars->resource_directory, font_name);
+    snprintf(cjk_path, PATH_MAX - 1, "%s/%s", 
+            rtvars->resource_directory, "/NotoSansHK-Regular.ttf");
+
+    //ImFontAtlas *im_io_fonts = ImGui::GetIO().Fonts;
+    ImGuiIO &io = ImGui::GetIO();
+    ImFontConfig latin_conf;
+    latin_conf.MergeMode = false;
+
+    PAC_LOCAL_STATIC ImVector<ImWchar> latin_ranges_buffer;
+    PAC_LOCAL_STATIC ImVector<ImWchar> cjk_ranges_buffer;
+    ImFontGlyphRangesBuilder ranges_builder;
+    
+    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
+    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesGreek());
+    ranges_builder.BuildRanges(&latin_ranges_buffer);
+    io.Fonts->AddFontFromFileTTF(latin_path,
+                                font_size, 
+                                &latin_conf, 
+                                latin_ranges_buffer.Data);
+    ImFontConfig cjk_conf;
+    cjk_conf.MergeMode = true;
+    cjk_conf.PixelSnapH = true;
+
+    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesJapanese());
+    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesKorean());
+    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesThai());
+    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesVietnamese());
+    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+    ranges_builder.BuildRanges(&cjk_ranges_buffer);
+    rtvars->main_font = io.Fonts->AddFontFromFileTTF(cjk_path,
+                                                    18, 
+                                                    &cjk_conf, 
+                                                    cjk_ranges_buffer.Data);
+}
+
+#if 1
 PAC_INTERNAL void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
 {
     SDL_Event event;
-    nk_input_begin(rtvars->nuklear_ctx);
     rtvars->kbd_state = SDL_GetKeyboardState(0);
     char char_was_pressed = 0;
     Mouse_State *mouse = &rtvars->sflags.mouse;
 
     while(SDL_PollEvent(&event)) 
     {
+        ImGui_ImplSDL2_ProcessEvent(&event);
         switch(event.type) 
         {
-        case(SDL_QUIT): 
+        case SDL_QUIT: 
         { rtvars->keep_running = 0; } break;
 
-        case(SDL_DROPFILE):
+        case SDL_DROPFILE:
         {
             strncpy((char *)rtvars->bufgroup_ptr->inbuf_filename, 
                     event.drop.file, 
                     PATH_MAX);
         } break;
 
-        case(SDL_MOUSEBUTTONDOWN):
+        case SDL_MOUSEBUTTONDOWN:
         {
             mouse->down = event.button.button; //i wish these were bit flags but they're not
             mouse->pos.x = event.button.x;
             mouse->pos.y = event.button.y;
         } break;
 
-        case(SDL_KEYDOWN): break;
+        case SDL_KEYDOWN: break;
 
         default: 
         {
             mouse->down = 0;
         } break;
         }
-        nk_sdl_handle_event(&event);
     }
-
-    nk_input_end(rtvars->nuklear_ctx);
 }
+#endif
 
 PAC_INTERNAL void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata)
 {
     SDL_GetWindowSize(sdldata->window_ptr, &sdldata->win_width, &sdldata->win_height);
     glViewport(0, 0, sdldata->win_width, sdldata->win_height);
     glClear(GL_COLOR_BUFFER_BIT);
-    glClearColor(0.024f, 0.0031f, 0.031f, 1.0f);
+    glClearColor(0, 0, 0, 1.0f);
 }
 
 PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
 {
     sdlapi_correct_gl_viewport_and_clear(sdldata);
     sdlapi_process_events(rtvars, sdldata);
-    nk_begin(rtvars->nuklear_ctx, 
-            "2PACWAV", 
-            nk_rect(0, 0, sdldata->win_width, sdldata->win_height), 
-            NK_WINDOW_NO_INPUT|NK_WINDOW_NO_SCROLLBAR);
+
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplSDL2_NewFrame();
+    ImGui::NewFrame();
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
+
+    //ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(0, 70, 0, 0xFF));
+    //ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0, 70, 0, 0xFF));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(0, 0, 0, 0xFF));
+
+    ImGui::Begin("2PACWAV", 0, ImGuiWindowFlags_NoTitleBar
+                 |ImGuiWindowFlags_NoResize
+                 |ImGuiWindowFlags_NoMove
+                 |ImGuiWindowFlags_NoScrollbar
+                 |ImGuiWindowFlags_NoSavedSettings
+                 |ImGuiWindowFlags_NoDecoration);
+    ImGui::SetShortcutRouting(ImGuiMod_Ctrl|ImGuiKey_Tab, 0, ImGuiButtonFlags_NoSetKeyOwner);
+    ImGui::SetShortcutRouting(ImGuiMod_Ctrl|ImGuiMod_Shift|ImGuiKey_Tab, 0, ImGuiButtonFlags_NoSetKeyOwner);
 }
 
 PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
 {
-    nk_end(rtvars->nuklear_ctx);
-    nk_sdl_render(NK_ANTI_ALIASING_ON);
+    ImGui::PopStyleColor();
+    //ImGui::PopStyleColor();
+    //ImGui::PopStyleColor();
+
+    ImGui::End();
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     if(rtvars->sflags.viewstate == CENTER_VIEW_STATE_CURRENT_INFO) 
     { do_visualizer(rtvars, sdldata); }
     SDL_GL_SwapWindow(sdldata->window_ptr);
@@ -228,13 +244,13 @@ PAC_INTERNAL void update_music_info(Music_Data *mdata)
 PAC_INTERNAL int pac_qsort_strcmp(const void *a, const void *b)
 {
     int result = strcasecmp(*(const char **)a, *(const char **)b);
-    return(result);
+    return result;
 }
 
 PAC_INTERNAL int pac_qsort_strcmp_rev(const void *a, const void *b)
 {
     int result = strcasecmp(*(const char **)b, *(const char **)a);
-    return(result);
+    return result;
 }
 
 typedef int (*Sort_Comp_Func)(const void *a, const void *b);
@@ -252,7 +268,7 @@ PAC_INTERNAL void sort_file_list_alpha(File_List *flist, char reversed)
 PAC_INTERNAL void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bufgroup) 
 {
     snprintf((char *)bufgroup->music_info_buffer, DEBUG_BUFFER_SIZE - 1, 
-            "[srate:%dhz][pcm_bits:%d][chan:%d][vol:%ld/128][pos:%06.1f/%06.1f][type:%s]\n[path:%s]", 
+            "[srate:%dhz][pcm_bits:%d][chan:%d][vol:%d/128][pos:%06.1f/%06.1f][type:%s]\n[path:%s]", 
             mdata->sample_rate, 
             mdata->pcm_bits, 
             mdata->channels,
@@ -312,7 +328,7 @@ PAC_INTERNAL char *separate_file_and_dir_name(char *dir_in_out, char *name_out)
         --temp_in; 
         ++chars;
     }
-    return(dir_in_out);
+    return dir_in_out;
 }
 
 PAC_INTERNAL char check_dir_already_added(char *dir, File_List *flist)
@@ -326,20 +342,7 @@ PAC_INTERNAL char check_dir_already_added(char *dir, File_List *flist)
         if (!strcmp(current_dir, dir)) 
         { result = 1; break; }
     }
-    return(result);
-}
-
-PAC_INTERNAL void query_bounds_info(struct nk_context *nuklear_ctx, Widget_Bounds_Info *bound_info)
-{
-    struct nk_rect widget_bounds = nk_layout_widget_bounds(nuklear_ctx);
-    bound_info->width = widget_bounds.w;
-    bound_info->height = widget_bounds.h;
-    bound_info->content_bounds = nk_window_get_content_region(nuklear_ctx);
-    bound_info->pad = widget_bounds.y - bound_info->content_bounds.y;
-    bound_info->content_bounds.h -= bound_info->pad;
-    bound_info->y_alignment = 7.0f;
-    bound_info->x_offset = 0.0f;
-    bound_info->y_offset = 0.0f;
+    return result;
 }
 
 PAC_INTERNAL double conv_slide_value2songpos(Music_Data *mdata) 
@@ -353,7 +356,7 @@ PAC_INTERNAL double conv_slide_value2songpos(Music_Data *mdata)
                 PAC_SEEK_VALUE_MAX) *
                 mdata->current_duration; 
     }
-    return(result);
+    return result;
 }
 
 PAC_INTERNAL float conv_songpos2slide_value(Music_Data *mdata) 
@@ -367,7 +370,7 @@ PAC_INTERNAL float conv_songpos2slide_value(Music_Data *mdata)
                 mdata->current_duration)) * 
                 PAC_SEEK_VALUE_MAX; 
     }
-    return(result);
+    return result;
 }
 
 PAC_INTERNAL void file_list_push_dirname(char *dirname, File_List *flist)
@@ -457,7 +460,7 @@ PAC_INTERNAL char *find_top_level_path4file(char *filename, File_List *flist)
         if(platform_file_exists(pathbuf))
         { result = dirname; break; }
     }
-    return(result);
+    return result;
 }
 
 PAC_INTERNAL void file_list_play_file(char *selected_file, 
@@ -499,7 +502,7 @@ PAC_INTERNAL int get_random_file_index(Music_Data *mdata)
     int next_index = cur_index;
     while(next_index == cur_index)
     { next_index = ((double)(mlist->entry_count) - 1.0)*drand48(); }
-    return(next_index);
+    return next_index;
 }
 
 PAC_INTERNAL void goto_next_file(Music_Data *mdata)
@@ -577,71 +580,33 @@ void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type)
     strncpy(note_buf, notice, USERINFO_BUFFER_SIZE - 1);
 }
 
-PAC_INTERNAL void menu_show_userinfo(Runtime_Vars *rtvars, 
-                                    General_Buffer_Group *bufgroup, 
-                                    Widget_Bounds_Info *bound_info) 
+PAC_INTERNAL void menu_show_userinfo(Runtime_Vars *rtvars, General_Buffer_Group *bufgroup)
 {
-    struct nk_context *nkctx = rtvars->nuklear_ctx;
-    struct nk_color col;
-    switch(rtvars->sflags.last_userinfo_type) 
+    
+    switch(rtvars->sflags.last_userinfo_type)
     {
-    case(USERINFO_TYPE_ERROR): 
-    { col = nk_rgba(0xFF, 0x20, 0x20, 0xFF); } break;
-    case(USERINFO_TYPE_WARNING): 
-    { col = nk_rgba(0xFF, 0x90, 0, 0xFF); } break;
-    case(USERINFO_TYPE_NOTE):
-    default: 
-    { col = nk_rgba(0xFF, 0xFF, 0x00, 0xFF); } break;
+    case USERINFO_TYPE_ERROR:
+    { 
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0xFF, 0x20, 0x20, 0xFF));
+    } break;
+    case USERINFO_TYPE_WARNING:
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0xFF, 0x90, 0x00, 0xFF));
+    } break;
+    case USERINFO_TYPE_NOTE:
+    default:
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0xFF, 0xFF, 0x00, 0xFF));
+    } break;
     }
-
-    nk_layout_space_push(nkctx, 
-                        nk_rect(0, 
-                        bound_info->y_offset, 
-                        bound_info->width - bound_info->pad, 
-                        bound_info->height - bound_info->y_alignment - bound_info->pad));
-    nk_label_colored(nkctx, (char *)bufgroup->userinfo_buffer, NK_TEXT_RIGHT, col);
-    bound_info->y_offset += bound_info->height - bound_info->y_alignment - bound_info->pad;
+    ImGui::Text("%s", (char *)bufgroup->userinfo_buffer);
+    ImGui::PopStyleColor();
 }
 
 PAC_INTERNAL void menu_confirm_clear_file_list(Runtime_Vars *rtvars, 
                                             Widget_Bounds_Info *bound_info,
                                             Music_Data *mdata)
 {
-    float confirm_width = 400.0f; 
-    float confirm_height = (bound_info->height - bound_info->pad)*3;
-    Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
-    struct nk_context *nkctx = rtvars->nuklear_ctx;
-    struct nk_rect confirm_rect = nk_rect((sdldata->win_width/2.0f) - (confirm_width/2.0f),
-                                        (sdldata->win_height/2.0f) - (confirm_height/2.0f),
-                                        confirm_width,
-                                        confirm_height);
-    State_Flags *dn_flags = &rtvars->sflags;
-
-    if(nk_popup_begin(nkctx,
-            NK_POPUP_STATIC, 
-            "are you sure you want to clear the list?",
-            NK_WINDOW_CLOSABLE, 
-            confirm_rect)) 
-    {
-        nk_layout_row_dynamic(nkctx, bound_info->height - bound_info->pad*2, 2);
-        if(nk_button_label(nkctx, "yes") ||
-                pac_btn_press(SDL_SCANCODE_RETURN, &dn_flags->enter_wasdown, rtvars->kbd_state)) 
-        { 
-            dn_flags->clear_confirmation = 0;
-            nk_popup_close(nkctx);
-            clear_file_list(mdata);
-            set_userinfo(rtvars, "[info]: list cleared.", USERINFO_TYPE_NOTE);
-        }
-        if(nk_button_label(nkctx, "no") ||
-               pac_btn_press(SDL_SCANCODE_ESCAPE, &dn_flags->escape_wasdown, rtvars->kbd_state))
-        { 
-            dn_flags->clear_confirmation = 0;
-            nk_popup_close(nkctx); 
-        }
-        nk_popup_end(nkctx);
-    } 
-    else 
-    { dn_flags->clear_confirmation = 0; }
 }
 
 PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
@@ -672,14 +637,6 @@ PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
 
     glBindTexture(GL_TEXTURE_2D, 0);
     stbi_image_free(bmpinfo->img_data);
-    bmpinfo->nuk_image = nk_image_id((int)bmpinfo->ogl_tex_id);
-}
-
-PAC_INTERNAL void pac_nk_draw_bitmap(Runtime_Vars *rtvars, Bitmap_Info *bmpinfo)
-{
-    //change width and height (+ you will probably have to do resizing on the image)
-    nk_layout_row_static(rtvars->nuklear_ctx, bmpinfo->width, bmpinfo->height, 1);
-    nk_image(rtvars->nuklear_ctx, bmpinfo->nuk_image);
 }
 
 PAC_INTERNAL void format_taginfo(Music_Data *mdata, char *begin, char separate)
@@ -730,11 +687,9 @@ PAC_INTERNAL void format_taginfo(Music_Data *mdata, char *begin, char separate)
 
 PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars, 
                                         Music_Data *mdata, 
-                                        General_Buffer_Group *bufgroup,
-                                        Widget_Bounds_Info *bound_info)
+                                        General_Buffer_Group *bufgroup)
 {
     update_info_buffer(mdata, bufgroup);
-    struct nk_context *nkctx = rtvars->nuklear_ctx;
     char *infobuf = (char *)bufgroup->music_info_buffer;
     char *path_begin = strchr(infobuf, '\n');
     *path_begin = 0; ++path_begin;
@@ -748,39 +703,15 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
         format_taginfo(mdata, meta_begin, 0); 
     }
 
-    int text_width = bound_info->width - (bound_info->height + bound_info->pad) - 30;
-
-    nk_group_begin(nkctx, "music_info", NK_WINDOW_BORDER);
-
-    nk_layout_row_static(nkctx, 20, text_width, 1);
-    nk_label(nkctx, (char *)bufgroup->music_info_buffer, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
-    nk_layout_row_static(nkctx, 20, text_width, 1);
-    nk_label(nkctx, path_begin, NK_TEXT_ALIGN_LEFT|NK_TEXT_ALIGN_BOTTOM);
-
-    //float middle = bound_info->content_bounds.h/4;
-    float bottom = bound_info->content_bounds.h - 250.0f;
-
-    //nk_style_set_font(nkctx, &rtvars->big_font->handle);
-#if 0
-    nk_layout_row_static(nkctx, bottom, text_width, 1);
-    if(*title_ptr) 
-    { nk_label(nkctx, *title_ptr, NK_TEXT_ALIGN_CENTERED|NK_TEXT_ALIGN_BOTTOM); }
-    nk_layout_row_static(nkctx, 20, text_width, 1);
-    if(*artist_ptr) 
-    { nk_label(nkctx, *artist_ptr, NK_TEXT_ALIGN_CENTERED|NK_TEXT_ALIGN_BOTTOM); }
-    nk_layout_row_static(nkctx, 20, text_width, 1);
-    //nk_style_set_font(nkctx, &rtvars->small_font->handle);
-    if(*album_ptr)
-    { nk_label(nkctx, *album_ptr, NK_TEXT_ALIGN_CENTERED|NK_TEXT_ALIGN_BOTTOM); }
-#else
-    nk_layout_row_static(nkctx, bottom, text_width, 1);
+    ImGui::Text("%s\n%s", (char *)bufgroup->music_info_buffer, path_begin);
+    
     if(*title_ptr)
-    { nk_label(nkctx, *title_ptr, NK_TEXT_ALIGN_CENTERED|NK_TEXT_ALIGN_BOTTOM); }
-#endif
-
-    //pac_nk_draw_bitmap(rtvars, &mdata->cover);
-
-    nk_group_end(nkctx);
+    {
+        float twidth = ImGui::CalcTextSize(*title_ptr).x;
+        ImGui::SetCursorPos(ImVec2((rtvars->sdldata_ptr->win_width/2) - (twidth/2), 
+                rtvars->sdldata_ptr->win_height - 150));
+        ImGui::Text("%s", *title_ptr);
+    }
 }
 
 PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars, 
@@ -788,132 +719,6 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
                                         General_Buffer_Group *bufgroup, 
                                         Widget_Bounds_Info *bound_info)
 {
-    struct nk_context *nkctx = rtvars->nuklear_ctx;
-    int text_width = bound_info->width - (bound_info->height + bound_info->pad) - 30;
-    Metadata_Editor *meta = &mdata->metaed;
-    State_Flags *sflags = &rtvars->sflags;
-    File_List *mlist = &mdata->music_list;
-    int index = mlist->context_index;
-    char *filename = meta->editor_current;
-    PAC_LOCAL_STATIC nk_flags title_outflags = 0, 
-            artist_outflags = 0, 
-            album_outflags = 0;
-
-    nk_group_begin(nkctx, "metadata_editor", NK_WINDOW_BORDER);
-    if(meta->editor_current[0])
-    {
-        char tab_pressed = 0;
-        if(pac_btn_press(SDL_SCANCODE_TAB, 
-                &rtvars->sflags.tab_wasdown,
-                rtvars->kbd_state))
-        { tab_pressed = 1; }
-
-        if(!(title_outflags & NK_EDIT_ACTIVE) &&
-                !(artist_outflags & NK_EDIT_ACTIVE) &&
-                !(album_outflags & NK_EDIT_ACTIVE))
-        {
-            if(tab_pressed)
-            {
-                nk_edit_focus(nkctx, NK_TEXT_EDIT_MODE_INSERT); 
-                tab_pressed = 0;
-            }
-        }
-        else
-        { sflags->text_field_focused = 1; }
-
-        nk_layout_row_dynamic(nkctx, 30, 1);
-        nk_label(nkctx, filename, NK_TEXT_CENTERED);
-        nk_layout_row_dynamic(nkctx, 30, 3);
-        nk_label(nkctx, "title: ", NK_TEXT_RIGHT);
-
-        title_outflags = nk_edit_string_zero_terminated(nkctx,
-                                NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
-                                meta->inbuf_title,
-                                META_EDITOR_BUFSIZE - 1,
-                                nk_filter_default);
-        if(tab_pressed && (title_outflags & NK_EDIT_ACTIVE))
-        {
-            nk_edit_focus(nkctx, NK_TEXT_EDIT_MODE_INSERT); 
-            tab_pressed = 0;
-        }
-
-        nk_label(nkctx, "", NK_TEXT_RIGHT);
-
-        nk_layout_row_dynamic(nkctx, 30, 3);
-        nk_label(nkctx, "artist: ", NK_TEXT_RIGHT);
-        artist_outflags = nk_edit_string_zero_terminated(nkctx,
-                                NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
-                                meta->inbuf_artist,
-                                META_EDITOR_BUFSIZE - 1,
-                                nk_filter_default);
-        if(tab_pressed && (artist_outflags & NK_EDIT_ACTIVE))
-        {
-            nk_edit_focus(nkctx, NK_TEXT_EDIT_MODE_INSERT); 
-            tab_pressed = 0;
-        }
-
-        nk_label(nkctx, "", NK_TEXT_RIGHT);
-
-        nk_layout_row_dynamic(nkctx, 30, 3);
-        nk_label(nkctx, "album: ", NK_TEXT_RIGHT);
-        album_outflags = nk_edit_string_zero_terminated(nkctx,
-                                NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
-                                meta->inbuf_album,
-                                META_EDITOR_BUFSIZE - 1,
-                                nk_filter_default);
-        if(tab_pressed && (album_outflags & NK_EDIT_ACTIVE))
-        {
-            nk_edit_focus(nkctx, NK_TEXT_EDIT_MODE_INSERT); 
-            tab_pressed = 0;
-        }
-        nk_label(nkctx, "", NK_TEXT_RIGHT);
-
-        nk_spacing(nkctx, 1);
-
-        nk_layout_row_dynamic(nkctx, 30, 3);
-        nk_label(nkctx, "", NK_TEXT_RIGHT);
-        if(nk_button_label(nkctx, "save metadata (ctrl + enter)") ||
-                (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
-                pac_btn_press(SDL_SCANCODE_RETURN, &sflags->enter_wasdown, rtvars->kbd_state)))
-        {
-            Tag_Ref tr;
-            if(tag_open_file(meta->editor_current, &tr))
-            {
-                if(tag_set_all(&tr, meta))
-                {
-                    set_userinfo(rtvars, "updated metadata.", USERINFO_TYPE_NOTE);
-                }
-                else
-                {
-                    set_userinfo(rtvars, "[error]: failed to update metadata.", USERINFO_TYPE_ERROR);
-                }
-            }
-        }
-        nk_label(nkctx, "", NK_TEXT_RIGHT);
-    }
-    else
-    {
-        nk_layout_row_dynamic(nkctx, 30, 1);
-        nk_label(nkctx, "invalid file selected", NK_TEXT_CENTERED);
-    }
-    nk_group_end(nkctx);
-}
-
-#define PAC_NK_NORMAL_BTNCOLOR(...) nk_rgba(0x1A, 0x1A, 0x1A, 0xFF)
-#define PAC_NK_HOVER_BTNCOLOR(...) nk_rgba(0x22, 0x44, 0x55, 0xFF)
-
-PAC_INTERNAL void pac_nk_set_button_active(struct nk_context *nkctx)
-{
-    nkctx->style.button.normal = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
-    nkctx->style.button.active = nk_style_item_color(nk_rgba(30, 40, 50, 0xFF));
-    nkctx->style.button.hover = nk_style_item_color(PAC_NK_HOVER_BTNCOLOR());
-}
-
-PAC_INTERNAL void pac_nk_set_button_normal(struct nk_context *nkctx)
-{
-    nkctx->style.button.normal = nk_style_item_color(PAC_NK_NORMAL_BTNCOLOR());
-    nkctx->style.button.active = nk_style_item_color(PAC_NK_NORMAL_BTNCOLOR());
-    nkctx->style.button.hover = nk_style_item_color(PAC_NK_HOVER_BTNCOLOR());
 }
 
 PAC_INTERNAL void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *mdata)
@@ -973,25 +778,9 @@ PAC_INTERNAL void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *md
 
 PAC_INTERNAL void mlist_correct_scroll(Runtime_Vars *rtvars, Music_Data *mdata)
 {
-    File_List *mlist = &mdata->music_list;
-    if(rtvars->kbd_state[SDL_SCANCODE_DOWN])
-    { 
-        if((mlist->sel_index > (mdata->music_list_view.end - 2)) && 
-                (mlist->sel_index < (int)mlist->entry_count))
-        { 
-            ++mdata->music_list_view.scroll_value; 
-        }
-    }
-    else if(rtvars->kbd_state[SDL_SCANCODE_UP])
-    {
-        if((mlist->sel_index < (mdata->music_list_view.begin)) &&
-                (mlist->sel_index >= 0))
-        { 
-            --mdata->music_list_view.scroll_value; 
-        }
-    }
 }
 
+#if 0
 PAC_INTERNAL void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
 {
     File_List *mlist = &mdata->music_list;
@@ -1020,94 +809,39 @@ PAC_INTERNAL void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
         *meta->editor_current = 0;
     }
 }
+#endif
 
 PAC_INTERNAL void mlist_btn_context_menu(Runtime_Vars *rtvars, 
                                     Music_Data *mdata,
                                     Widget_Bounds_Info *bound_info)
 {
-    struct nk_context *nkctx = rtvars->nuklear_ctx;
-    File_List *mlist = &mdata->music_list;
-    State_Flags *sflags = &rtvars->sflags;
-    struct nk_vec2 pos = nk_vec2(sflags->mouse.pos.x, sflags->mouse.pos.y);
-    struct nk_vec2 size = nk_vec2(150, 300);
-    struct nk_rect bounds = nk_rect(pos.x, pos.y, size.x, size.y);
-    int ctx_index = mlist->context_index;
-
-    if(nk_input_has_mouse_click_in_rect(&nkctx->input, NK_BUTTON_LEFT, bounds))
-    { sflags->mlist_ctxmenu_active = 0; }
-    if(nk_contextual_begin(nkctx, 0, size, bounds))
-    {
-        nk_layout_row_dynamic(nkctx, 25, 1);
-        if(nk_button_label(nkctx, "edit metadata"))
-        {
-            //printf("%s\n", mlist->filenames_string_loclist[ctx_index]);
-            sflags->mlist_ctxmenu_active = 0;
-            nk_contextual_close(nkctx);
-            sflags->viewstate = CENTER_VIEW_STATE_METADATA_EDITOR;
-            init_metadata_editor(rtvars, mdata);
-        }
-        nk_contextual_end(nkctx);
-    }
 }
 
-PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, 
-                                    Music_Data *mdata, 
-                                    Widget_Bounds_Info *bound_info)
+PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
 {
-    struct nk_context *nkctx = rtvars->nuklear_ctx;
     File_List *mlist = &mdata->music_list;
     State_Flags *sflags = &rtvars->sflags;
 
-    nk_list_view_begin(nkctx, 
-                    &mdata->music_list_view, 
-                    "music_list", 
-                    NK_WINDOW_BORDER, 
-                    bound_info->height - bound_info->y_alignment, 
-                    mdata->music_list.match_count);
-    nkctx->style.button.text_alignment = NK_TEXT_LEFT;
-    nk_layout_row_dynamic(nkctx, bound_info->height - bound_info->y_alignment, 1);
-
-    mlist_handle_keyboard_nav(rtvars, mdata);
-
+    ImGui::SetCursorPosX(50);
+    ImGui::BeginChild("file_list", 
+            ImVec2(ImGui::GetColumnWidth(-1), 
+            rtvars->sdldata_ptr->win_height - ImGui::GetTextLineHeight() - 110),
+            ImGuiChildFlags_Borders);
     uint32_t render_index = 0, file_index = 0;
+    ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.0, 0.5f));
     for(int loop_index = 0;
-            loop_index < mdata->music_list_view.count;
+            loop_index < (int)mlist->entry_count;
             ++loop_index)
     {
-        render_index = file_index++ + mdata->music_list_view.begin;
-        if(mlist->match_flags[render_index])
-        { --loop_index; continue; }
-
-        char *btntext = mlist->filenames_string_loclist[render_index];
-        mlist_correct_scroll(rtvars, mdata);
-
-        if(nk_widget_is_mouse_clicked(nkctx, NK_BUTTON_RIGHT))
-        { 
-            sflags->mlist_ctxmenu_active = 1;
-            mlist->context_index = render_index;
-        }
-        if(sflags->mlist_ctxmenu_active)
-        { mlist_btn_context_menu(rtvars, mdata, bound_info); }
-
-        if(mlist->sel_index == (int)render_index) 
-        { 
-            pac_nk_set_button_active(nkctx); 
-            if(nk_button_label(nkctx, btntext) || 
-                    (!rtvars->sflags.text_field_focused &&
-                    pac_btn_press(SDL_SCANCODE_RETURN, &rtvars->sflags.enter_wasdown, rtvars->kbd_state)))
-            { file_list_play_file(btntext, mlist->sel_index, mdata); }
-            pac_nk_set_button_normal(nkctx); 
-        } 
-        else 
-        { 
-            pac_nk_set_button_normal(nkctx); 
-            if(nk_button_label(nkctx, btntext))
-            { file_list_play_file(btntext, render_index, mdata); }
+        if(!mlist->match_flags[loop_index])
+        {
+            char *btntext = mlist->filenames_string_loclist[loop_index];
+            if(ImGui::Button(btntext, ImVec2(ImGui::GetColumnWidth(-1), 0)))
+            { file_list_play_file(btntext, loop_index, mdata); }
         }
     }
-
-    nk_list_view_end(&mdata->music_list_view);
-    nkctx->style.button.text_alignment = NK_TEXT_CENTERED;
+    ImGui::PopStyleVar();
+    ImGui::EndChild();
 }
 
 PAC_INTERNAL void str2lowercase(char *string, int len) 
@@ -1131,7 +865,7 @@ char *pac_strcasestr(char *str, char *substr)
     str2lowercase(lower_str, strlen(lower_str));
     str2lowercase(lower_substr, strlen(lower_substr));
     char *result = strstr(lower_str, lower_substr);
-    return(result);
+    return result;
 }
 
 PAC_INTERNAL void set_match_flags(char *searchbuf, Music_Data *mdata)
@@ -1165,50 +899,29 @@ PAC_INTERNAL void set_match_flags(char *searchbuf, Music_Data *mdata)
 
 PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars, 
                             General_Buffer_Group *bufgroup,
-                            Music_Data *mdata,
-                            Widget_Bounds_Info *bound_info, 
-                            float add_width)
+                            Music_Data *mdata)
 {
-    PAC_LOCAL_STATIC int searchbuf_length = 0;
-    int new_searchbuf_length;
     char got_input = 0;
     char *searchbuf = (char *)bufgroup->inbuf_search;
+    State_Flags *sflags = &rtvars->sflags;
 
-    nk_layout_space_push(rtvars->nuklear_ctx, 
-                        nk_rect((bound_info->width - add_width*4),
-                        bound_info->y_offset, 
-                        add_width,
-                        bound_info->height - (bound_info->y_alignment + bound_info->pad)));
-    nk_label(rtvars->nuklear_ctx, "search:", NK_TEXT_CENTERED);
-    nk_layout_space_push(rtvars->nuklear_ctx, 
-                        nk_rect((bound_info->width - add_width*3),
-                        bound_info->y_offset, 
-                        add_width*3,
-                        bound_info->height - (bound_info->y_alignment + bound_info->pad)));
-
+    ImGui::SameLine(ImGui::GetColumnWidth(-1) - 400);
+    ImGui::Text("search: ");
+    ImGui::SameLine();
+    ImGui::PushItemWidth(ImGui::GetColumnWidth(-1));
     if(rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
-            pac_btn_press(SDL_SCANCODE_F, &rtvars->sflags.f_wasdown, rtvars->kbd_state))
-    { 
-        nk_edit_focus(rtvars->nuklear_ctx, NK_TEXT_EDIT_MODE_INSERT); 
-    }
-
-    nk_flags field_outflags = nk_edit_string_zero_terminated(rtvars->nuklear_ctx, 
-                                    NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE,
-                                    (char *)bufgroup->inbuf_search, 
-                                    SEARCH_BUFFER_SIZE - 1,
-                                    nk_filter_default);
-    bound_info->y_offset += bound_info->height - bound_info->y_alignment;
-
-    if(field_outflags & NK_EDIT_ACTIVE)
+            pac_btn_press(SDL_SCANCODE_F, &sflags->f_wasdown, rtvars->kbd_state))
     {
-        rtvars->sflags.text_field_focused = 1;
-        new_searchbuf_length = strlen(searchbuf);
-        got_input = (searchbuf_length != new_searchbuf_length);
-        searchbuf_length = new_searchbuf_length;
+        ImGui::SetKeyboardFocusHere(0);
     }
+    if(ImGui::InputText("##search_query", 
+            (char *)bufgroup->inbuf_search,
+            SEARCH_BUFFER_SIZE - 1))
+    { got_input = 1; }
+    ImGui::PopItemWidth();
 
     if(got_input)
-    { 
+    {
         rtvars->sflags.search_changed = 1;
         set_match_flags(searchbuf, mdata); 
         char info_buf[USERINFO_BUFFER_SIZE];
@@ -1220,32 +933,20 @@ PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars,
     }
 }
 
-PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars,
-                                    Music_Data *mdata,
-                                    Widget_Bounds_Info *bound_info,
-                                    float add_width)
+PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars, Music_Data *mdata)
 {
     PAC_LOCAL_STATIC char sort_text[16] = "sort (a-z)";
     PAC_LOCAL_STATIC char sort_reversed = 0;
-    struct nk_context *nkctx = rtvars->nuklear_ctx;
     State_Flags *sflags = &rtvars->sflags;
-    int btn_count = 0;
 
-    //CLEANUP: this code related to the spacing is real jank
-    nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info->height + (bound_info->pad*(btn_count + 1)) + (add_width*btn_count),
-                        bound_info->y_offset, 
-                        add_width, 
-                        bound_info->height - (bound_info->y_alignment + bound_info->pad)));
-    ++btn_count;
-
-    if(nk_button_label(nkctx, sort_text) ||
+    ImGui::SetCursorPosX(50);
+    if(ImGui::Button(sort_text) ||
             ((rtvars->kbd_state[SDL_SCANCODE_LSHIFT] &&
             rtvars->kbd_state[SDL_SCANCODE_LCTRL]) &&
             pac_btn_press(SDL_SCANCODE_S, &sflags->s_wasdown, rtvars->kbd_state)))
     {
         if(mdata->music_list.entry_count)
-        { 
+        {
             if(!sort_reversed)
             {
                 sort_file_list_alpha(&mdata->music_list, 0); 
@@ -1261,20 +962,10 @@ PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars,
         }
     }
 
-    nk_layout_space_push(nkctx, 
-            nk_rect(bound_info->height + (bound_info->pad*(btn_count + 1)) + (add_width*btn_count),
-            bound_info->y_offset, 
-            add_width, 
-            bound_info->height - (bound_info->y_alignment + bound_info->pad)));
-    ++btn_count;
-
-    if(nk_button_label(nkctx, "clear list") ||
-            ((rtvars->kbd_state[SDL_SCANCODE_LSHIFT] && 
-            rtvars->kbd_state[SDL_SCANCODE_LCTRL]) &&
-            pac_btn_press(SDL_SCANCODE_X, &sflags->x_wasdown, rtvars->kbd_state))) 
+    ImGui::SameLine();
+    if(ImGui::Button("clear list"))
     {
-        nk_edit_unfocus(nkctx);
-        sflags->clear_confirmation = !sflags->clear_confirmation; 
+        sflags->clear_confirmation = !sflags->clear_confirmation;
     }
 
     PAC_LOCAL_STATIC char toggle_btn[16];
@@ -1284,16 +975,11 @@ PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars,
     else if(vs == CENTER_VIEW_STATE_CURRENT_INFO)
     { strcpy(toggle_btn, "show list"); }
 
-    nk_layout_space_push(nkctx, 
-            nk_rect(bound_info->height + (bound_info->pad*(btn_count + 1)) + (add_width*btn_count),
-            bound_info->y_offset, 
-            add_width, 
-            bound_info->height - (bound_info->y_alignment + bound_info->pad)));
-    ++btn_count;
-    if(nk_button_label(nkctx, toggle_btn) ||
+    ImGui::SameLine();
+    if(ImGui::Button(toggle_btn) ||
             (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
             pac_btn_press(SDL_SCANCODE_L, &sflags->l_wasdown, rtvars->kbd_state)))
-    { 
+    {
         do
         {
             cycle_center_view_state(&sflags->viewstate); 
@@ -1302,31 +988,22 @@ PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars,
     }
 
     if(sflags->clear_confirmation)
-    { menu_confirm_clear_file_list(rtvars, bound_info, mdata); }
+    {
+        //TODO
+        //menu_confirm_clear_file_list(rtvars, mdata);
+        clear_file_list(mdata);
+        sflags->clear_confirmation = 0;
+    }
 }
 
 PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
                                     Music_Data *mdata,
-                                    Widget_Bounds_Info *bound_info,
                                     float vol_width)
 {
-    struct nk_context *nkctx = rtvars->nuklear_ctx; 
     State_Flags *sflags = &rtvars->sflags;
-    nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info->x_offset + bound_info->pad, 
-                        bound_info->content_bounds.h - bound_info->height + bound_info->pad, 
-                        vol_width, 
-                        bound_info->height - bound_info->pad*3));
-    bound_info->x_offset += (bound_info->height + (vol_width - bound_info->y_alignment));
-
-    if(nk_progress(nkctx, &mdata->volume, MIX_MAX_VOLUME, NK_MODIFIABLE))
-    { 
-        Mix_VolumeMusic(mdata->volume); 
-    }
-
     if(rtvars->kbd_state[SDL_SCANCODE_LCTRL])
     {
-        if(pac_btn_press(SDL_SCANCODE_UP, &sflags->up_wasdown, rtvars->kbd_state))
+        if(pac_btn_press(SDL_SCANCODE_0, &sflags->up_wasdown, rtvars->kbd_state))
         { 
             if((mdata->volume + PAC_DEFAULT_VOLUME_INCREMENT) < MIX_MAX_VOLUME)
             { mdata->volume += PAC_DEFAULT_VOLUME_INCREMENT; }
@@ -1334,7 +1011,7 @@ PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
             { mdata->volume = MIX_MAX_VOLUME; }
             Mix_VolumeMusic(mdata->volume);
         }
-        if(pac_btn_press(SDL_SCANCODE_DOWN, &sflags->down_wasdown, rtvars->kbd_state))
+        if(pac_btn_press(SDL_SCANCODE_9, &sflags->down_wasdown, rtvars->kbd_state))
         { 
             if(((int)mdata->volume - PAC_DEFAULT_VOLUME_INCREMENT) > 0)
             { mdata->volume -= PAC_DEFAULT_VOLUME_INCREMENT; }
@@ -1343,26 +1020,25 @@ PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
             Mix_VolumeMusic(mdata->volume);
         }
     }
+
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(vol_width);
+    if(ImGui::SliderInt("##vol_slider", 
+            &mdata->volume, 
+            0, 
+            MIX_MAX_VOLUME, 
+            "vol: %d",
+            ImGuiSliderFlags_NoInput))
+    {
+        Mix_VolumeMusic(mdata->volume);
+    }
 }
 
-PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, 
-                                Music_Data *mdata, 
-                                Widget_Bounds_Info *bound_info)
+PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
 {
-    struct nk_context *nkctx = rtvars->nuklear_ctx; 
     State_Flags *sflags = &rtvars->sflags;
     const uint8_t *kbd = rtvars->kbd_state;
     mdata->seek_value = conv_songpos2slide_value(mdata);
-    nk_layout_space_push(nkctx, 
-            nk_rect(bound_info->x_offset, 
-            bound_info->content_bounds.h - bound_info->height + bound_info->pad, 
-            bound_info->width - bound_info->x_offset - bound_info->pad, 
-            bound_info->height - bound_info->pad*3));
-    if(nk_progress(nkctx, &mdata->seek_value, PAC_SEEK_VALUE_MAX, NK_MODIFIABLE))
-    {
-        double new_seek = conv_slide_value2songpos(mdata);
-        Mix_SetMusicPosition(new_seek);
-    }
 
     if(mdata->sdlmixer_music && kbd[SDL_SCANCODE_LCTRL])
     {
@@ -1384,6 +1060,20 @@ PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars,
             { Mix_SetMusicPosition(0.0); } 
         }
     }
+
+    float width_left = rtvars->sdldata_ptr->win_width - ImGui::GetCursorPosX();
+    ImGui::SetNextItemWidth(width_left - 250);
+    ImGui::SameLine();
+    if(ImGui::SliderInt("##vol_seeker", 
+            &mdata->seek_value, 
+            0, 
+            PAC_SEEK_VALUE_MAX, 
+            "",
+            ImGuiSliderFlags_NoInput))
+    {
+        double new_seek = conv_slide_value2songpos(mdata);
+        Mix_SetMusicPosition(new_seek);
+    }
 }
 
 PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars, 
@@ -1391,169 +1081,113 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
                             General_Buffer_Group *bufgroup,
                             Music_Data *mdata)
 {
-    static char playback_btn_text[4] = {};
-    static char shuffle_btn_text[4] = {};
+    PAC_LOCAL_STATIC char playback_btn_text[4] = {};
+    PAC_LOCAL_STATIC char shuffle_btn_text[4] = {};
 
-    State_Flags *dn_flags = &rtvars->sflags;
-    struct nk_context *nkctx = rtvars->nuklear_ctx;
+    float add_width = 100.0f;
+    float vol_width = 180.0f;
+    State_Flags *sflags = &rtvars->sflags;
 
     if(mdata->sdlmixer_music && (Mix_PlayingMusic() || Mix_PausedMusic()))
     { update_music_info(mdata); }
 
     pac_begin_frame(rtvars, sdldata);
 
-    nk_layout_space_begin(nkctx, NK_STATIC, 0, INT_MAX);
-    Widget_Bounds_Info bound_info = {};
-    query_bounds_info(nkctx, &bound_info);
-    float add_width = 100.0f;
-    float vol_width = 180.0f;
+    menu_show_userinfo(rtvars, bufgroup);
 
-    menu_show_userinfo(rtvars, bufgroup, &bound_info);
-
-    nk_layout_space_push(nkctx, 
-                        nk_rect(0, 
-                        bound_info.y_offset, 
-                        bound_info.width - add_width - bound_info.pad, 
-                        bound_info.height - bound_info.y_alignment));
-
-    if(rtvars->kbd_state[SDL_SCANCODE_LALT])
+    ImGui::PushItemWidth(ImGui::GetColumnWidth(-1) - add_width);
+    if(rtvars->kbd_state[SDL_SCANCODE_LALT] &&
+            pac_btn_press(SDL_SCANCODE_D, &sflags->d_wasdown, rtvars->kbd_state))
     {
-        if(pac_btn_press(SDL_SCANCODE_D, &dn_flags->d_wasdown, rtvars->kbd_state))
-        { nk_edit_focus(nkctx, NK_TEXT_EDIT_MODE_INSERT); }
+        ImGui::SetKeyboardFocusHere(0);
     }
-    if(rtvars->kbd_state[SDL_SCANCODE_ESCAPE])
-    { 
-        rtvars->sflags.mlist_ctxmenu_active = 0;
-        nk_edit_unfocus(nkctx); 
-    }
-
-    nk_flags file_field_outflags = nk_edit_string_zero_terminated(nkctx, 
-                                        NK_EDIT_FIELD|NK_EDIT_GOTO_END_ON_ACTIVATE, 
-                                        (char *)bufgroup->inbuf_filename, 
-                                        PATH_MAX - 1, 
-                                        nk_filter_default);
-    if(file_field_outflags & NK_EDIT_ACTIVE)
-    { rtvars->sflags.text_field_focused = 1; }
-
-    nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info.width - add_width, 
-                        bound_info.y_offset, 
-                        add_width, 
-                        bound_info.height - bound_info.y_alignment));
-    bound_info.y_offset += bound_info.height - 3.0f;
-
-    if(nk_button_label(nkctx, "add") ||
-            ((file_field_outflags & NK_EDIT_ACTIVE) &&
-            pac_btn_press(SDL_SCANCODE_RETURN, &dn_flags->enter_wasdown, rtvars->kbd_state)))
+    ImGui::Text("path:");
+    ImGui::SameLine();
+    ImGui::InputText("##path", 
+            (char *)bufgroup->inbuf_filename,
+            PATH_MAX - 1);
+    ImGui::PopItemWidth();
+            
+    ImGui::SameLine();
+    if(ImGui::Button("add", ImVec2(ImGui::GetColumnWidth(-1), 0)))
     { add_to_music_list((char *)bufgroup->inbuf_filename, mdata, rtvars); }
 
-    menu_do_list_control(rtvars, mdata, &bound_info, add_width);
+    menu_do_list_control(rtvars, mdata);
+    menu_do_search(rtvars, bufgroup, mdata);
 
-    menu_do_search(rtvars, bufgroup, mdata, &bound_info, add_width);
-
-    //i think something with the scroll bar or something in nuklear
-    //is busted since it crashes if the window is too small
-    //stops happening with this check, amazingly (might be my fault as well idk)
     if((sdldata->win_height > MLIST_MIN_WIN_WIDTH) && 
             (sdldata->win_width > MLIST_MIN_WIN_HEIGHT))
     {
-        nk_layout_space_push(nkctx, 
-                            nk_rect(bound_info.height + bound_info.pad, 
-                            bound_info.y_offset, 
-                            bound_info.width - (bound_info.height + bound_info.pad), 
-                            (bound_info.content_bounds.h - 
-                            bound_info.y_offset - 
-                            bound_info.height - 
-                            bound_info.pad)));
         switch(rtvars->sflags.viewstate)
         {
         case(CENTER_VIEW_STATE_MUSIC_LIST):
         {
-            menu_do_music_list(rtvars, mdata, &bound_info);
+            menu_do_music_list(rtvars, mdata);
         } break;
 
         case(CENTER_VIEW_STATE_CURRENT_INFO):
         {
-            menu_do_current_file_info(rtvars, mdata, bufgroup, &bound_info);
+            menu_do_current_file_info(rtvars, mdata, bufgroup);
         } break;
 
         case(CENTER_VIEW_STATE_METADATA_EDITOR):
         {
-            menu_do_metadata_editor(rtvars, mdata, bufgroup, &bound_info);
+            //menu_do_metadata_editor(rtvars, mdata, bufgroup, &bound_info);
         } break;
 
         default: break;
         }
     }
 
-    nk_layout_space_push(nkctx, 
-            nk_rect(bound_info.x_offset, 
-            bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*5, 
-            bound_info.height, 
-            bound_info.height));
-
-    //TODO: change this to be something else
     if(mdata->shuffle_enabled)
     { shuffle_btn_text[0] = '-'; }
     else 
     { shuffle_btn_text[0] = '~'; }
-    if(nk_button_label(nkctx, shuffle_btn_text) ||
+
+    int btns2draw = 5;
+    float btn_side_len = 30;
+    float btn_height = btn_side_len + (ImGui::GetStyle().CellPadding.y*2.0f);
+    ImGui::SetCursorPosY(sdldata->win_height - (btn_height*btns2draw));
+    if(ImGui::Button(shuffle_btn_text, ImVec2(btn_side_len, btn_side_len)) ||
             ((rtvars->kbd_state[SDL_SCANCODE_LCTRL] && 
             rtvars->kbd_state[SDL_SCANCODE_LSHIFT]) &&
             pac_btn_press(SDL_SCANCODE_R, &rtvars->sflags.r_wasdown, rtvars->kbd_state))) 
     { mdata->shuffle_enabled = !mdata->shuffle_enabled; }
 
-    nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info.x_offset, 
-                        bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*4, 
-                        bound_info.height, 
-                        bound_info.height));
-    if(nk_button_label(nkctx, ">>") ||
+    if(ImGui::Button(">>", ImVec2(btn_side_len, btn_side_len)) ||
             (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
             pac_btn_press(SDL_SCANCODE_N, &rtvars->sflags.n_wasdown, rtvars->kbd_state))) 
     { 
         goto_next_file(mdata); 
     }
-
-    nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info.x_offset, 
-                        bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*3, 
-                        bound_info.height, 
-                        bound_info.height));
-    if(nk_button_label(nkctx, "<<") ||
+    if(ImGui::Button("<<", ImVec2(btn_side_len, btn_side_len)) ||
             (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
-            pac_btn_press(SDL_SCANCODE_P, &rtvars->sflags.p_wasdown, rtvars->kbd_state)))
-    {
-        goto_prev_file(mdata);
+            pac_btn_press(SDL_SCANCODE_P, &rtvars->sflags.p_wasdown, rtvars->kbd_state))) 
+    { 
+        goto_prev_file(mdata); 
     }
 
-    nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info.x_offset, 
-                        bound_info.content_bounds.h - (bound_info.height + bound_info.pad)*2, 
-                        bound_info.height, 
-                        bound_info.height));
-    //NOTE: some fonts dont have a codepoint for this glyph
-    if(nk_button_label(nkctx, (char *)_stop_btn_glyph)) //stop
-    { 
+    if(ImGui::Button("[]", ImVec2(btn_side_len, btn_side_len)))
+    {
         sdlmixer_stop_music(mdata); 
         mdata->current_filename[0] = 0x0;
     }
 
-    nk_layout_space_push(nkctx, 
-                        nk_rect(bound_info.x_offset, 
-                        bound_info.content_bounds.h - (bound_info.height + bound_info.pad), 
-                        bound_info.height, 
-                        bound_info.height));
-    bound_info.x_offset += (bound_info.height + bound_info.pad);
-
     if(mdata->paused) 
-    { playback_btn_text[0] = '>'; playback_btn_text[1] = 0; } 
+    { 
+        playback_btn_text[0] = '>'; 
+        playback_btn_text[1] = 0; 
+    }
     else 
-    { playback_btn_text[0] = '|'; playback_btn_text[1] = '|'; }
+    { 
+        playback_btn_text[0] = '|'; 
+        playback_btn_text[1] = '|'; 
+        playback_btn_text[2] = 0; 
+    }
 
-    if(nk_button_label(nkctx, playback_btn_text) || 
-            (pac_btn_press(SDL_SCANCODE_SPACE, &dn_flags->space_wasdown, rtvars->kbd_state) &&
-            !rtvars->sflags.text_field_focused))
+    if(ImGui::Button(playback_btn_text, ImVec2(btn_side_len, btn_side_len)) || 
+            (pac_btn_press(SDL_SCANCODE_SPACE, &sflags->space_wasdown, rtvars->kbd_state) &&
+            !ImGui::GetIO().WantTextInput))
     {
         if(!mdata->paused && mdata->sdlmixer_music) 
         { mdata->paused = 1;  Mix_PauseMusic(); } 
@@ -1561,25 +1195,22 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
         { mdata->paused = 0;  Mix_ResumeMusic(); }
     }
 
-    menu_do_volume_bar(rtvars, mdata, &bound_info, vol_width);
-    menu_do_seek_bar(rtvars, mdata, &bound_info);
+    menu_do_volume_bar(rtvars, mdata, vol_width);
+    menu_do_seek_bar(rtvars, mdata);
 
-    nk_layout_space_end(nkctx);
     pac_end_frame(rtvars, sdldata);
-    rtvars->sflags.text_field_focused = 0;
-    rtvars->sflags.search_changed = 0;
 }
 
 PAC_INTERNAL char sdlmixer_get_taginfo(Music_Data *mdata)
 {
     if(!mdata || !mdata->sdlmixer_music)
-    { return(0); }
+    { return 0; }
 
     Audio_Metadata_Group *amg = &mdata->current_metadata;
     amg->tag_title =    Mix_GetMusicTitleTag(mdata->sdlmixer_music);
     amg->tag_artist =   Mix_GetMusicArtistTag(mdata->sdlmixer_music);
     amg->tag_album =    Mix_GetMusicAlbumTag(mdata->sdlmixer_music);
-    return(1);
+    return 1;
 }
 
 PAC_INTERNAL void sdlmixer_start_music(Music_Data *mdata, char *music_path) 
@@ -1660,13 +1291,18 @@ PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata)
     mdata->chunk_size = PAC_SDLMIXER_CHUNKSIZE;
     mdata->volume = 20;
     mdata->seek_increment = PAC_DEFAULT_SEEK_INCREMENT;
+
     if(Mix_OpenAudioDevice(mdata->sample_rate, 
             mdata->pcm_bits, 
             mdata->channels, 
             mdata->chunk_size,
             dev2open,
             flags)) 
-    { fprintf(stderr, "failed to open audio device. desc: %s\n", SDL_GetError()); } 
+    { 
+        fprintf(stderr, 
+                "failed to open audio device. desc: %s\n", 
+                SDL_GetError()); 
+    }
     else
     { 
         result = 1; 
@@ -1688,8 +1324,8 @@ PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata)
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 
         char wintitle[128];
         get_version_string(wintitle);
@@ -1719,46 +1355,4 @@ PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata)
     else 
     { fprintf(stderr, "SDL failed to init\n"); }
     return(result);
-}
-
-PAC_INTERNAL void nuklearapi_set_style(struct nk_context *ctx) 
-{
-    struct nk_color color_tbl[NK_COLOR_COUNT];
-    color_tbl[NK_COLOR_TEXT] =                      nk_rgba(0xDD, 0xDD, 0xDD, 0xFF);
-    color_tbl[NK_COLOR_WINDOW] =                    nk_rgba(0, 0, 0, 0xFF);
-    color_tbl[NK_COLOR_HEADER] =                    nk_rgba(51, 51, 56, 220);
-    color_tbl[NK_COLOR_BORDER] =                    nk_rgba(0x88, 0x88, 0x88, 0xFF);
-    color_tbl[NK_COLOR_BUTTON] =                    PAC_NK_NORMAL_BTNCOLOR();
-    color_tbl[NK_COLOR_BUTTON_ACTIVE] =             PAC_NK_NORMAL_BTNCOLOR();
-    color_tbl[NK_COLOR_BUTTON_HOVER] =              PAC_NK_HOVER_BTNCOLOR();
-    color_tbl[NK_COLOR_TOGGLE] =                    nk_rgba(50, 58, 61, 0xFF);
-    color_tbl[NK_COLOR_TOGGLE_HOVER] =              nk_rgba(45, 53, 56, 0xFF);
-    color_tbl[NK_COLOR_TOGGLE_CURSOR] =             nk_rgba(48, 83, 111, 0xFF);
-    color_tbl[NK_COLOR_SELECT] =                    nk_rgba(57, 67, 61, 0xFF);
-    color_tbl[NK_COLOR_SELECT_ACTIVE] =             nk_rgba(48, 83, 111, 0xFF);
-    color_tbl[NK_COLOR_SLIDER] =                    nk_rgba(50, 58, 61, 0xFF);
-    color_tbl[NK_COLOR_SLIDER_CURSOR] =             nk_rgba(0xAA, 0xAA, 0xAA, 245);
-    color_tbl[NK_COLOR_SLIDER_CURSOR_HOVER] =       nk_rgba(53, 88, 116, 0xFF);
-    color_tbl[NK_COLOR_SLIDER_CURSOR_ACTIVE] =      nk_rgba(58, 93, 121, 0xFF);
-    color_tbl[NK_COLOR_PROPERTY] =                  nk_rgba(50, 58, 61, 0xFF);
-    color_tbl[NK_COLOR_EDIT] =                      PAC_NK_NORMAL_BTNCOLOR();
-    color_tbl[NK_COLOR_EDIT_CURSOR] =               nk_rgba(210, 210, 210, 0xFF);
-    color_tbl[NK_COLOR_COMBO] =                     nk_rgba(50, 58, 61, 0xFF);
-    color_tbl[NK_COLOR_CHART] =                     nk_rgba(50, 58, 61, 0xFF);
-    color_tbl[NK_COLOR_CHART_COLOR] =               nk_rgba(48, 83, 111, 0xFF);
-    color_tbl[NK_COLOR_CHART_COLOR_HIGHLIGHT] =     nk_rgba(0xFF, 0, 0, 0xFF);
-    color_tbl[NK_COLOR_SCROLLBAR] =                 nk_rgba(50, 58, 61, 0xFF);
-    color_tbl[NK_COLOR_SCROLLBAR_CURSOR] =          nk_rgba(48, 83, 111, 0xFF);
-    color_tbl[NK_COLOR_SCROLLBAR_CURSOR_HOVER] =    nk_rgba(53, 88, 116, 0xFF);
-    color_tbl[NK_COLOR_SCROLLBAR_CURSOR_ACTIVE] =   nk_rgba(58, 93, 121, 0xFF);
-    color_tbl[NK_COLOR_TAB_HEADER] =                nk_rgba(48, 83, 111, 0xFF);
-    color_tbl[NK_COLOR_KNOB] = color_tbl[NK_COLOR_SLIDER];
-    color_tbl[NK_COLOR_KNOB_CURSOR] = color_tbl[NK_COLOR_SLIDER_CURSOR];
-    color_tbl[NK_COLOR_KNOB_CURSOR_HOVER] = color_tbl[NK_COLOR_SLIDER_CURSOR_HOVER];
-    color_tbl[NK_COLOR_KNOB_CURSOR_ACTIVE] = color_tbl[NK_COLOR_SLIDER_CURSOR_ACTIVE];
-    nk_style_from_table(ctx, color_tbl);
-    ctx->style.button.rounding = 0;
-    ctx->style.button.border = 1;
-    ctx->style.edit.border = 1;
-    ctx->style.progress.border = 0;
 }
