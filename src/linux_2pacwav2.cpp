@@ -56,7 +56,7 @@ PAC_INTERNAL char *platform_find_res_path(Runtime_Vars *rtvars, char *out_res_pa
     return result;
 }
 
-PAC_INTERNAL int platform_get_directory_listing(char *path, File_List *out_flist)
+PAC_INTERNAL int platform_list_files(char *path, File_List *out_flist)
 {
     int result = 0;
     dirent *dir_entry;
@@ -123,10 +123,12 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_buf,              DIRNAMES_BUFFER_SIZE);
 
 #if 1
-    //reserving "scratch space"
-    uint64_t space_left = ro_buffer_unallocated_bytes(heapbuf);
-    platform_dbg_log("scrath:%d bytes\n", space_left);
-    MEM_INIT_ASSERT(heapbuf, bufgroup->scratch_space, space_left);
+    bufgroup->scratch_bytes = ro_buffer_unallocated_bytes(heapbuf);
+    if(bufgroup->scratch_bytes)
+    {
+        MEM_INIT_ASSERT(heapbuf, bufgroup->scratch_space, bufgroup->scratch_bytes); 
+    }
+    platform_dbg_log("scrath:%d bytes\n", bufgroup->scratch_bytes);
 #else
     platform_dbg_log("unallocated bytes:%.2f/%.2f\n", 
             (float)(ro_buffer_unallocated_bytes(heapbuf)), 
@@ -142,6 +144,11 @@ PAC_INTERNAL char platform_file_exists(char *path)
 PAC_INTERNAL char platform_directory_exists(char *path)
 {
     return ro_posix_directory_exists(path);
+}
+
+PAC_INTERNAL char platform_path_exists(char *path)
+{
+    return ro_posix_path_exists(path);
 }
 
 PAC_INTERNAL uint64_t platform_read_file(char *file_path, char *dest, uint64_t dest_bytes)
@@ -186,11 +193,25 @@ PAC_INTERNAL void platform_get_working_directory(char *buf, int buf_size)
 
 int main(int arg_count, char **args) 
 {
-    pac_do_command_args(arg_count, args);
-
-    Sdl_Apidata sdldata = {};
     Runtime_Vars rtvars = {};
     General_Buffer_Group bufgroup = {};
+    if(ro_posix_make_heap_buffer(&rtvars.main_storage, PAC_MAIN_STORAGE_SIZE)) 
+    { startup_alloc_buffers(&rtvars.main_storage, &bufgroup); } 
+    else 
+    { 
+        fprintf(stderr, "failed to get memory\n"); 
+        return -1; 
+    }
+
+    Startup_Args sargs = {};
+    sargs.bufgroup_ptr = &bufgroup;
+    sargs.paths.buffer = (char *)bufgroup.scratch_space;
+    sargs.paths.buffer[0] = 0;
+    sargs.paths.ptrs[0] = sargs.paths.buffer;
+    if(pac_do_command_args(arg_count, args, &sargs, &bufgroup))
+    { return EXIT_SUCCESS; }
+
+    Sdl_Apidata sdldata = {};
     Music_Data mdata = {};
     strcpy(mdata.music_type_buf, "NONE");
 
@@ -205,13 +226,6 @@ int main(int arg_count, char **args)
     if(!pac_init_sdlmixer(&mdata)) 
     { return -1; }
         
-    if(ro_posix_make_heap_buffer(&rtvars.main_storage, PAC_MAIN_STORAGE_SIZE)) 
-    { startup_alloc_buffers(&rtvars.main_storage, &bufgroup); }
-    else
-    { 
-        fprintf(stderr, "failed to get memory\n"); 
-        return -1; 
-    }
     mdata.current_filename = (char *)bufgroup.music_current_filename;
     mdata.rtvars_ptr = &rtvars;
     rtvars.working_directory = (char *)bufgroup.working_directory;
@@ -219,20 +233,6 @@ int main(int arg_count, char **args)
 
     platform_get_working_directory(rtvars.working_directory, PATH_MAX);
     platform_find_res_path(&rtvars, rtvars.resource_directory, PATH_MAX - 1);
-
-//    {
-//#if _2PACWAV_DEBUG
-//        uint64_t before = ro_posix_get_timestamp();
-//#endif
-//        //load_font(&rtvars);
-//        load_and_bake_font(&rtvars);
-//#if _2PACWAV_DEBUG
-//        uint64_t after = ro_posix_get_timestamp();
-//        platform_dbg_log("font setup: %.1fms\n", ((float)after - (float)before)/1000.0f);
-//#endif
-//    }
-
-    //rtvars.nuklear_ctx->style.button.rounding = 0;
 
     IMGUI_CHECKVERSION();
     ImGuiContext *imgui_context = ImGui::CreateContext();
@@ -243,8 +243,13 @@ int main(int arg_count, char **args)
     ImGui_ImplSDL2_InitForOpenGL(sdldata.window_ptr, sdldata.ogl_context);
     ImGui_ImplOpenGL3_Init("#version 130");
 
-    //pac_imgui_load_font(PAC_FONT_STRING, PAC_FONTSIZE, &rtvars);
-    pac_imgui_load_font("LiberationMono-Regular.ttf", 15.5f, &rtvars);
+    if(!pac_imgui_load_font(PAC_LATIN_FONT_STRING, 
+            PAC_LATIN_FONTSIZE, 
+            &rtvars))
+    {
+        platform_log("loading fonts failed\n");
+        return -1;
+    }
 
     mdata.music_list.filenames_buf = (char *)bufgroup.flist_filenames_buf;
     mdata.music_list.filenames_string_loclist = (char **)bufgroup.flist_filenames_string_loclist;
@@ -288,6 +293,11 @@ int main(int arg_count, char **args)
                 gl_maj, gl_min);
     }
 #endif
+
+    if(sargs.paths.count) 
+    {
+        startup_add_paths(&sargs, &rtvars, &mdata);
+    }
 
     while(rtvars.keep_running) 
     {

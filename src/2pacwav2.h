@@ -15,7 +15,7 @@ typedef float _Complex Complex32;
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (4)
-#define _2PACWAV_VER_PATCH      (0)
+#define _2PACWAV_VER_PATCH      (7)
 
 #include "ro_heapbuf.h"
 
@@ -28,11 +28,13 @@ typedef float _Complex Complex32;
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)11111) //90fps
 #define PAC_SEEK_VALUE_MAX (1000)
 
-#define PAC_FONT_STRING "NotoSansHK-Regular.ttf"
-#define PAC_BIG_FONT_STRING "NotoSansHK-Regular.ttf"
-#define PAC_FONTSIZE (20.0f)
+//#define PAC_LATIN_FONT_STRING   "LiberationMono-Regular.ttf"
+#define PAC_LATIN_FONT_STRING   "DejaVuSans.ttf"
+#define PAC_CJK_FONT_STRING     "NotoSansMonoCJKhk-Regular.otf"
+#define PAC_LATIN_FONTSIZE (16.0f)
+#define PAC_CJK_FONTSIZE (18.0f)
 
-//static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
+static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 
 #define PAC_NOP_MACRO(...)
 #if _2PACWAV_LINUX
@@ -116,8 +118,22 @@ typedef struct General_Buffer_Group
     void *flist_dirnames_string_loclist;
     void *flist_match_flags;
     void *scratch_space;
+    uint64_t scratch_bytes;
     void *fft_complex32_buffer;
 } General_Buffer_Group;
+
+typedef struct Startup_Args_Paths
+{
+    int count;
+    char *ptrs[PAC_MAX_DIRS];
+    char *buffer;
+} Startup_Args_Paths;
+
+typedef struct Startup_Args
+{
+    General_Buffer_Group *bufgroup_ptr;
+    Startup_Args_Paths paths;
+} Startup_Args;
 
 typedef struct File_List
 {
@@ -197,6 +213,8 @@ typedef struct State_Flags
     char left_wasdown;
     char up_wasdown;
     char down_wasdown;
+    char zero_wasdown;
+    char nine_wasdown;
     char space_wasdown;
     char enter_wasdown;
     char tab_wasdown;
@@ -325,6 +343,7 @@ PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars);
 PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
 PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
 PAC_INTERNAL void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type);
+PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars);
 PAC_INTERNAL void file_list_push_dirname(char *dirname, File_List *flist);
 PAC_INTERNAL void goto_next_file(Music_Data *mdata);
 PAC_INTERNAL void goto_prev_file(Music_Data *mdata);

@@ -58,32 +58,88 @@ PAC_INTERNAL void show_version(void)
     platform_log("%s\n", verbuf);
 }
 
-PAC_INTERNAL void pac_do_command_args(int arg_count, char **args)
+PAC_INTERNAL void startup_push_path(Startup_Args *sargs, char *path)
 {
-    for(int arg_index = 1; arg_index < arg_count; ++arg_index)
+    Startup_Args_Paths *p = &sargs->paths;
+    if(p->count < PAC_MAX_DIRS)
     {
-        if(!strcmp("--", args[arg_index]))
-        { break; }
-        else if(!strcmp("-v", args[arg_index]))
-        {
-            show_version();
-            exit(0);
+        int index = p->count;
+        char *dest = p->ptrs[index];
+        if(index)
+        { 
+            dest = p->ptrs[index - 1];
+            dest += strlen(dest);
+            *dest++ = 0;
+            p->ptrs[index] = dest;
         }
+        int bytes_written = snprintf(dest, PATH_MAX - 1, "%s", path);
+        ++p->count;
     }
 }
 
-PAC_INTERNAL char pac_mousebtn_press(Mouse_State *mouse)
+PAC_INTERNAL char pac_do_command_args(int arg_count, 
+                                    char **args, 
+                                    Startup_Args *sargs,
+                                    General_Buffer_Group *bufgroup)
+{
+    char *arg;
+    char exit_after_ret = 0;
+    for(int arg_index = 1; arg_index < arg_count; ++arg_index) 
+    {
+        arg = args[arg_index];
+        if(!strcmp("--", arg)) 
+        { break; }
+        else if(!strcmp("-v", arg)) 
+        {
+            exit_after_ret = 1; 
+            show_version(); 
+            break; 
+        }
+        else 
+        {
+#if _2PACWAV_LINUX
+            if(strchr(arg, '/') && platform_path_exists(arg)) 
+#elif _2PACWAV_WIN32
+            if((strchr(arg, '/') || strchr(arg, '\\')) && platform_path_exists(arg)) 
+#endif
+            {
+                startup_push_path(sargs, arg);
+            }
+            else
+            {
+                platform_log("unrecognized option: %s\nexiting.\n", arg);
+                exit_after_ret = 1;
+            }
+        }
+    }
+
+    return exit_after_ret;
+}
+
+PAC_INTERNAL void startup_add_paths(Startup_Args *sargs,
+                                Runtime_Vars *rtvars, 
+                                Music_Data *mdata)
+{
+    char *this_path, *this_end;
+    for(int i = 0; i < sargs->paths.count; ++i) 
+    {
+        this_path = sargs->paths.ptrs[i];
+        add_to_music_list(this_path, mdata, rtvars); 
+    }
+}
+
+PAC_INTERNAL char pac_mousebtn_press(Mouse_State *mouse) 
 {
     char result = 0;
-    if(mouse->down)
+    if(mouse->down) 
     {
-        if(!mouse->wasdown_flags[mouse->down - 1])
-        { 
+        if(!mouse->wasdown_flags[mouse->down - 1]) 
+        {
             mouse->wasdown_flags[mouse->down - 1] = 1;
             result = 1; 
         }
-    }
-    else
+    } 
+    else 
     { *(int32_t *)mouse->wasdown_flags = 0; }
     return result;
 }
@@ -103,45 +159,52 @@ PAC_INTERNAL char pac_btn_press(SDL_Scancode scan,
     return state;
 }
 
-PAC_INTERNAL void pac_imgui_load_font(char *font_name, float font_size, Runtime_Vars *rtvars)
+PAC_INTERNAL char pac_imgui_load_font(char *font_name, float font_size, Runtime_Vars *rtvars)
 {
+    char status = 0;
     char latin_path[PATH_MAX], cjk_path[PATH_MAX];
     snprintf(latin_path, PATH_MAX - 1, "%s/%s", 
             rtvars->resource_directory, font_name);
     snprintf(cjk_path, PATH_MAX - 1, "%s/%s", 
-            rtvars->resource_directory, "/NotoSansHK-Regular.ttf");
-
-    //ImFontAtlas *im_io_fonts = ImGui::GetIO().Fonts;
-    ImGuiIO &io = ImGui::GetIO();
-    ImFontConfig latin_conf;
-    latin_conf.MergeMode = false;
-
+            rtvars->resource_directory, PAC_CJK_FONT_STRING);
     PAC_LOCAL_STATIC ImVector<ImWchar> latin_ranges_buffer;
     PAC_LOCAL_STATIC ImVector<ImWchar> cjk_ranges_buffer;
-    ImFontGlyphRangesBuilder ranges_builder;
-    
-    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
-    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
-    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesGreek());
-    ranges_builder.BuildRanges(&latin_ranges_buffer);
-    io.Fonts->AddFontFromFileTTF(latin_path,
-                                font_size, 
-                                &latin_conf, 
-                                latin_ranges_buffer.Data);
-    ImFontConfig cjk_conf;
-    cjk_conf.MergeMode = true;
-    cjk_conf.PixelSnapH = true;
 
-    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesJapanese());
-    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesKorean());
-    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesThai());
-    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesVietnamese());
-    ranges_builder.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-    ranges_builder.BuildRanges(&cjk_ranges_buffer);
-    rtvars->main_font = io.Fonts->AddFontFromFileTTF(cjk_path,
-                                                    18, 
-                                                    &cjk_conf, 
-                                                    cjk_ranges_buffer.Data);
+    if(platform_file_exists(latin_path) && platform_file_exists(cjk_path))
+    {
+        ImGuiIO &io = ImGui::GetIO();
+        ImFontConfig latin_conf;
+        latin_conf.MergeMode = false;
+        ImFontGlyphRangesBuilder ranges_builder;
+        ImWchar extra_range[] = { 0x25A0, 0x25A1, 0 }; //stop button glyph
+        ranges_builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+        ranges_builder.AddRanges(io.Fonts->GetGlyphRangesCyrillic());
+        ranges_builder.AddRanges(io.Fonts->GetGlyphRangesGreek());
+        ranges_builder.AddRanges(extra_range);
+        ranges_builder.BuildRanges(&latin_ranges_buffer);
+        io.Fonts->AddFontFromFileTTF(latin_path,
+                                    font_size, 
+                                    &latin_conf, 
+                                    latin_ranges_buffer.Data);
+
+        ImFontConfig cjk_conf;
+        cjk_conf.MergeMode = true;
+        cjk_conf.PixelSnapH = true;
+        ranges_builder.AddRanges(io.Fonts->GetGlyphRangesJapanese());
+        ranges_builder.AddRanges(io.Fonts->GetGlyphRangesKorean());
+        ranges_builder.AddRanges(io.Fonts->GetGlyphRangesThai());
+        ranges_builder.AddRanges(io.Fonts->GetGlyphRangesVietnamese());
+        ranges_builder.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+        ranges_builder.BuildRanges(&cjk_ranges_buffer);
+        rtvars->main_font = io.Fonts->AddFontFromFileTTF(cjk_path,
+                                                        PAC_CJK_FONTSIZE, 
+                                                        &cjk_conf, 
+                                                        cjk_ranges_buffer.Data);
+
+        status = 1;
+    }
+
+    return status;
 }
 
 #if 1
@@ -214,8 +277,11 @@ PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
                  |ImGuiWindowFlags_NoScrollbar
                  |ImGuiWindowFlags_NoSavedSettings
                  |ImGuiWindowFlags_NoDecoration);
+
     ImGui::SetShortcutRouting(ImGuiMod_Ctrl|ImGuiKey_Tab, 0, ImGuiButtonFlags_NoSetKeyOwner);
     ImGui::SetShortcutRouting(ImGuiMod_Ctrl|ImGuiMod_Shift|ImGuiKey_Tab, 0, ImGuiButtonFlags_NoSetKeyOwner);
+    //ImGui::SetShortcutRouting(ImGuiMod_Ctrl, ImGuiKey_RightArrow, ImGuiButtonFlags_NoSetKeyOwner);
+    //ImGui::SetShortcutRouting(ImGuiMod_Ctrl, ImGuiKey_LeftArrow, ImGuiButtonFlags_NoSetKeyOwner);
 }
 
 PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
@@ -416,12 +482,12 @@ PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars 
 {
     int old_file_count = mdata->music_list.entry_count, new_file_count, added_files;
 
-    if(platform_file_exists(path))
-    { 
+    if(platform_file_exists(path)) 
+    {
         add_single_file_to_music_list(path, mdata); 
-    }
+    } 
     else if(platform_directory_exists(path))
-    { 
+    {
         int pathlen = strlen(path);
         while(path[--pathlen] == 
 #if _2PACWAV_LINUX
@@ -430,7 +496,7 @@ PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars 
                 '\\')
 #endif
         { path[pathlen] = 0; }
-        platform_get_directory_listing(path, &mdata->music_list); 
+        platform_list_files(path, &mdata->music_list); 
     }
     else 
     { 
@@ -703,6 +769,7 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
         format_taginfo(mdata, meta_begin, 0); 
     }
 
+    ImGui::Separator();
     ImGui::SetCursorPosX(50);
     ImGui::Text("%s\n%s", (char *)bufgroup->music_info_buffer, path_begin);
     
@@ -724,41 +791,40 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
     File_List *mlist = &mdata->music_list;
     char *filename = meta->editor_current;
 
-    if(filename[0])
+    ImGui::Separator();
+    ImGui::SetCursorPosX(50);
+    if(filename[0]) 
     {
-        ImGui::Separator();
+        ImGui::Text("editing metadata for:  %s", filename);
+        ImGui::SetCursorPosX(50);
+        //ImGui::Text("title:  ");
+        //ImGui::SameLine();
+        ImGui::InputText("title##meta_title", meta->inbuf_title, META_EDITOR_BUFSIZE - 1);
 
         ImGui::SetCursorPosX(50);
-        ImGui::Text("title:  ");
-        ImGui::SameLine();
-        ImGui::InputText("##meta_title", meta->inbuf_title, META_EDITOR_BUFSIZE - 1);
+        //ImGui::Text("artist: ");
+        //ImGui::SameLine();
+        ImGui::InputText("artist##meta_artist", meta->inbuf_artist, META_EDITOR_BUFSIZE - 1);
 
         ImGui::SetCursorPosX(50);
-        ImGui::Text("artist: ");
-        ImGui::SameLine();
-        ImGui::InputText("##meta_artist", meta->inbuf_artist, META_EDITOR_BUFSIZE - 1);
-
-        ImGui::SetCursorPosX(50);
-        ImGui::Text("album:  ");
-        ImGui::SameLine();
-        ImGui::InputText("##meta_album", meta->inbuf_album, META_EDITOR_BUFSIZE - 1);
-
+        //ImGui::Text("album:  ");
+        //ImGui::SameLine();
+        ImGui::InputText("album##meta_album", meta->inbuf_album, META_EDITOR_BUFSIZE - 1);
         
         ImGui::SetCursorPosX(50);
-        if(ImGui::Button("save metadata"))
+        if(ImGui::Button("save metadata")) 
         {
             Tag_Ref tr;
-            if(tag_open_file(meta->editor_current, &tr))
+            if(tag_open_file(meta->editor_current, &tr)) 
             {
-                if(tag_set_all(&tr, meta))
+                if(tag_set_all(&tr, meta)) 
                 {
                     set_userinfo(rtvars, "updated metadata.", USERINFO_TYPE_NOTE);
-                }
-                else
+                } 
+                else 
                 {
                     set_userinfo(rtvars, "[error]: failed to update metadata.", USERINFO_TYPE_ERROR);
                 }
-                
             }
         }
     }
@@ -766,65 +832,6 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
     {
         ImGui::Text("invalid file selected for metadata editor");
     }
-}
-
-PAC_INTERNAL void mlist_handle_keyboard_nav(Runtime_Vars *rtvars, Music_Data *mdata)
-{
-    File_List *mlist = &mdata->music_list;
-    PAC_LOCAL_STATIC int frame_counter = 0;
-    if(!rtvars->kbd_state[SDL_SCANCODE_LCTRL] && 
-            !rtvars->sflags.text_field_focused)
-    {
-        uint32_t counter = 0;
-        int increment = 0;
-        if(rtvars->kbd_state[SDL_SCANCODE_DOWN])
-        { increment = 1; }
-        else if(rtvars->kbd_state[SDL_SCANCODE_UP]) 
-        { increment = -1; }
-        else
-        { 
-            frame_counter = 0; 
-            return; 
-        }
-
-        if((frame_counter == 1) ||
-                (frame_counter > PAC_HOLD_WAIT_FRAMES &&
-                (frame_counter % PAC_HOLD_INCREMENT_MODULO == 0)))
-        {
-            //platform_dbg_log("b=%d e=%d s=%d\n", 
-            //        mdata->music_list_view.begin,
-            //        mdata->music_list_view.end,
-            //        mlist->sel_index);
-            //if(mlist->sel_index < mdata->music_list_view.begin) 
-            //{
-            //    mlist->sel_index = mdata->music_list_view.begin;
-            //} 
-            //else if(mlist->sel_index > mdata->music_list_view.end) 
-            //{
-            //    mlist->sel_index = mdata->music_list_view.end - 1;
-            //} 
-
-            do 
-            { 
-                if(((increment == -1) && 
-                        mlist->sel_index) ||
-                        ((increment == 1) && 
-                        (mlist->sel_index < ((int)mlist->entry_count - 1))))
-                { 
-                    mlist->sel_index += increment; 
-                }
-                ++counter;
-            } while(mlist->match_flags[mlist->sel_index] && 
-                    (counter < mlist->entry_count));
-        }
-        if(frame_counter >= 0x7FFFFFFF)
-        { frame_counter = 0; }
-        ++frame_counter;
-    }
-}
-
-PAC_INTERNAL void mlist_correct_scroll(Runtime_Vars *rtvars, Music_Data *mdata)
-{
 }
 
 #if 1
@@ -858,12 +865,6 @@ PAC_INTERNAL void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
 }
 #endif
 
-PAC_INTERNAL void mlist_btn_context_menu(Runtime_Vars *rtvars, 
-                                    Music_Data *mdata,
-                                    Widget_Bounds_Info *bound_info)
-{
-}
-
 PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
 {
     File_List *mlist = &mdata->music_list;
@@ -880,13 +881,13 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
     char *filename;
     for(int loop_index = 0;
             loop_index < (int)mlist->entry_count;
-            ++loop_index)
+            ++loop_index) 
     {
-        if(!mlist->match_flags[loop_index])
+        if(!mlist->match_flags[loop_index]) 
         {
             filename = mlist->filenames_string_loclist[loop_index];
-            snprintf(btntext, NAME_MAX - 1, "%s##%d", 
-                    filename, loop_index);
+            //2 or more buttons with the same name wont work properly
+            snprintf(btntext, NAME_MAX - 1, "%s##%d", filename, loop_index);
             if(ImGui::Button(btntext, ImVec2(ImGui::GetColumnWidth(-1), 0)))
             { file_list_play_file(filename, loop_index, mdata); }
             if(ImGui::BeginPopupContextItem(btntext))
@@ -916,7 +917,7 @@ PAC_INTERNAL void str2lowercase(char *string, int len)
 char *pac_strcasestr(char *str, char *substr) 
 {
     if(!str || !substr)
-    { return(0); }
+    { return 0; }
 
     //if these aren't static the return value gets optimized out
     //(meaning that this function will always return null)
@@ -972,9 +973,7 @@ PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars,
     ImGui::PushItemWidth(ImGui::GetColumnWidth(-1));
     if(rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
             pac_btn_press(SDL_SCANCODE_F, &sflags->f_wasdown, rtvars->kbd_state))
-    {
-        ImGui::SetKeyboardFocusHere(0);
-    }
+    { ImGui::SetKeyboardFocusHere(0); }
     if(ImGui::InputText("##search_query", 
             (char *)bufgroup->inbuf_search,
             SEARCH_BUFFER_SIZE - 1))
@@ -1004,17 +1003,17 @@ PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars, Music_Data *mdata)
     if(ImGui::Button(sort_text) ||
             ((rtvars->kbd_state[SDL_SCANCODE_LSHIFT] &&
             rtvars->kbd_state[SDL_SCANCODE_LCTRL]) &&
-            pac_btn_press(SDL_SCANCODE_S, &sflags->s_wasdown, rtvars->kbd_state)))
+            pac_btn_press(SDL_SCANCODE_S, &sflags->s_wasdown, rtvars->kbd_state))) 
     {
-        if(mdata->music_list.entry_count)
+        if(mdata->music_list.entry_count) 
         {
-            if(!sort_reversed)
+            if(!sort_reversed) 
             {
                 sort_file_list_alpha(&mdata->music_list, 0); 
                 strcpy(sort_text, "sort (z-a)");
                 sort_reversed = 1;
-            }
-            else
+            } 
+            else 
             {
                 sort_file_list_alpha(&mdata->music_list, 1); 
                 strcpy(sort_text, "sort (a-z)");
@@ -1041,14 +1040,14 @@ PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars, Music_Data *mdata)
             (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
             pac_btn_press(SDL_SCANCODE_L, &sflags->l_wasdown, rtvars->kbd_state)))
     {
-        do
+        do 
         {
             cycle_center_view_state(&sflags->viewstate); 
         } while((sflags->viewstate != CENTER_VIEW_STATE_MUSIC_LIST) &&
             (sflags->viewstate != CENTER_VIEW_STATE_CURRENT_INFO));
     }
 
-    if(sflags->clear_confirmation)
+    if(sflags->clear_confirmation) 
     {
         //TODO
         //menu_confirm_clear_file_list(rtvars, mdata);
@@ -1062,9 +1061,10 @@ PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
                                     float vol_width)
 {
     State_Flags *sflags = &rtvars->sflags;
-    if(rtvars->kbd_state[SDL_SCANCODE_LCTRL])
+    //if(rtvars->kbd_state[SDL_SCANCODE_LCTRL])
+    if(!ImGui::GetIO().WantTextInput)
     {
-        if(pac_btn_press(SDL_SCANCODE_0, &sflags->up_wasdown, rtvars->kbd_state))
+        if(pac_btn_press(SDL_SCANCODE_0, &sflags->zero_wasdown, rtvars->kbd_state))
         { 
             if((mdata->volume + PAC_DEFAULT_VOLUME_INCREMENT) < MIX_MAX_VOLUME)
             { mdata->volume += PAC_DEFAULT_VOLUME_INCREMENT; }
@@ -1072,7 +1072,7 @@ PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
             { mdata->volume = MIX_MAX_VOLUME; }
             Mix_VolumeMusic(mdata->volume);
         }
-        if(pac_btn_press(SDL_SCANCODE_9, &sflags->down_wasdown, rtvars->kbd_state))
+        if(pac_btn_press(SDL_SCANCODE_9, &sflags->nine_wasdown, rtvars->kbd_state))
         { 
             if(((int)mdata->volume - PAC_DEFAULT_VOLUME_INCREMENT) > 0)
             { mdata->volume -= PAC_DEFAULT_VOLUME_INCREMENT; }
@@ -1164,34 +1164,37 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     }
     ImGui::Text("path:");
     ImGui::SameLine();
-    ImGui::InputText("##path", 
+    if(ImGui::InputText("##path", 
             (char *)bufgroup->inbuf_filename,
-            PATH_MAX - 1);
+            PATH_MAX - 1))
+    {
+    }
     ImGui::PopItemWidth();
             
     ImGui::SameLine();
-    if(ImGui::Button("add", ImVec2(ImGui::GetColumnWidth(-1), 0)))
-    { add_to_music_list((char *)bufgroup->inbuf_filename, mdata, rtvars); }
+    if(ImGui::Button("add", ImVec2(ImGui::GetColumnWidth(-1), 0))) 
+    { 
+        add_to_music_list((char *)bufgroup->inbuf_filename, mdata, rtvars); 
+    }
 
     menu_do_list_control(rtvars, mdata);
     menu_do_search(rtvars, bufgroup, mdata);
 
     if((sdldata->win_height > MLIST_MIN_WIN_WIDTH) && 
-            (sdldata->win_width > MLIST_MIN_WIN_HEIGHT))
+            (sdldata->win_width > MLIST_MIN_WIN_HEIGHT)) {
+        switch(rtvars->sflags.viewstate) 
     {
-        switch(rtvars->sflags.viewstate)
-        {
-        case(CENTER_VIEW_STATE_MUSIC_LIST):
+        case CENTER_VIEW_STATE_MUSIC_LIST: 
         {
             menu_do_music_list(rtvars, mdata);
         } break;
 
-        case(CENTER_VIEW_STATE_CURRENT_INFO):
+        case CENTER_VIEW_STATE_CURRENT_INFO: 
         {
             menu_do_current_file_info(rtvars, mdata, bufgroup);
         } break;
 
-        case(CENTER_VIEW_STATE_METADATA_EDITOR):
+        case CENTER_VIEW_STATE_METADATA_EDITOR: 
         {
             menu_do_metadata_editor(rtvars, mdata, bufgroup);
         } break;
@@ -1203,7 +1206,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     if(mdata->shuffle_enabled)
     { shuffle_btn_text[0] = '-'; }
     else 
-    { shuffle_btn_text[0] = '~'; }
+    { shuffle_btn_text[0] = 'R'; }
 
     int btns2draw = 5;
     float btn_side_len = 30;
@@ -1228,7 +1231,8 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
         goto_prev_file(mdata); 
     }
 
-    if(ImGui::Button("[]", ImVec2(btn_side_len, btn_side_len)))
+    //if(ImGui::Button("[]", ImVec2(btn_side_len, btn_side_len)))
+    if(ImGui::Button((char *)_stop_btn_glyph, ImVec2(btn_side_len, btn_side_len)))
     {
         sdlmixer_stop_music(mdata); 
         mdata->current_filename[0] = 0x0;
@@ -1248,7 +1252,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
 
     if(ImGui::Button(playback_btn_text, ImVec2(btn_side_len, btn_side_len)) || 
             (pac_btn_press(SDL_SCANCODE_SPACE, &sflags->space_wasdown, rtvars->kbd_state) &&
-            !ImGui::GetIO().WantTextInput))
+            !ImGui::GetIO().WantTextInput)) 
     {
         if(!mdata->paused && mdata->sdlmixer_music) 
         { mdata->paused = 1;  Mix_PauseMusic(); } 
@@ -1363,9 +1367,9 @@ PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata)
         fprintf(stderr, 
                 "failed to open audio device. desc: %s\n", 
                 SDL_GetError()); 
-    }
-    else
-    { 
+    } 
+    else 
+    {
         result = 1; 
         Mix_VolumeMusic(mdata->volume);
         Mix_SetMusicCMD(SDL_getenv("MUSIC_CMD"));
@@ -1374,7 +1378,7 @@ PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata)
         mdata->pcm_bits &= 0xFF;
         //Mix_SetPostMix(pac_sdlmixer_postmix_callback, (void *)mdata->rtvars_ptr);
     }
-    return(result);
+    return result;
 }
 
 PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata) 
@@ -1415,5 +1419,5 @@ PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata)
     } 
     else 
     { fprintf(stderr, "SDL failed to init\n"); }
-    return(result);
+    return result;
 }
