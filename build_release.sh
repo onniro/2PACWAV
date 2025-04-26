@@ -10,6 +10,9 @@ COMPILE_IMGUI=1
 for arg in "$@"; do
     if [ "$arg" = "-noobj" ]; then
         COMPILE_IMGUI=0
+    else
+        echo "unrecognized option: $arg"
+        exit 1
     fi
 done
 
