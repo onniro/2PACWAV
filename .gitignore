@@ -6,3 +6,4 @@
 /src/testing
 /res/*.tex_atlas
 /res/*.cstruct
+*.old
