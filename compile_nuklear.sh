@@ -18,7 +18,7 @@ COMP_FLAGS="-O3 -gdwarf"
 AR_FLAGS="rcs"
 OUT_LIB="libnuklear_sdl2_gl2.a"
 
-mkdir -p $PWD/lib; cd $PWD/lib
+mkdir -p $PWD/build/lib; cd $PWD/build/lib
 gcc -c $INCLUDE_DIRS $COMP_FLAGS $SOURCES -o $OBJS
 #ar $AR_FLAGS $OUT_LIB $OBJS
 cd ..

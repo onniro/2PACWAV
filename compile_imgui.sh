@@ -8,7 +8,7 @@ COMP_FLAGS="-O3 -gdwarf"
 
 CMDLINE="clang++ $INCLUDE_DIRS $COMP_FLAGS -c $SOURCES"
 
-mkdir -p $PWD/lib; cd $PWD/lib
+mkdir -p $PWD/build/lib; cd $PWD/build/lib
 echo $CMDLINE; 
 $CMDLINE
 cd ..

@@ -32,14 +32,14 @@ INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2 \
         -I$BASEDIR/3rd_party/taglib/include/mpeg/" 
 
 COMP_FLAGS="-O3 -gdwarf"
-EXE_NAME="2w2"
+EXE_NAME="2w"
 LINK_FLAGS="-o $EXE_NAME"
 
 SDL_DIR="$BASEDIR/3rd_party/SDL2"
 CODEC_DIR="$BASEDIR/3rd_party/codecs"
 
 LIB_DIRS="-L$BASEDIR/3rd_party/SDL2/lib -L$BASEDIR/3rd_party/taglib/lib"
-OBJ_FILES="$BASEDIR/lib/imgui*.o"
+OBJ_FILES="$BASEDIR/build/lib/imgui*.o"
 
 LINK_LIBS="$SDL_DIR/lib/libSDL2.a \
         -static-libstdc++ \
