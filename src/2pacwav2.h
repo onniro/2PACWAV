@@ -44,8 +44,7 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 #endif
 
 #define PAC_ASSERT(expression)\
-    if(!(expression))\
-    {\
+    if(!(expression)) {\
         platform_log("ASSERTION FAILED. file: %s @ L%d\nexpression: (%s)\n",\
                 __FILE__, __LINE__, #expression);\
         PLATFORM_EXITCALL(1337);\
@@ -96,12 +95,18 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 struct Runtime_Vars;
 struct General_Buffer_Group;
 struct File_List;
+struct Frametime_Vars;
 struct State_Flags;
 struct Widget_Bounds_Info;
 struct Audio_Metadata_Group;
 struct Bitmap_Info;
 struct Sdl_Apidata;
 struct Music_Data;
+struct Startup_Args_Paths;
+struct Startup_Args;
+struct Mouse_State;
+struct Metadata_Editor;
+struct Audio_Stream;
 
 typedef struct General_Buffer_Group 
 {
@@ -173,15 +178,15 @@ typedef enum Center_View_State
     CENTER_VIEW_STATE__LAST
 } Center_View_State;
 
-PAC_DEF void cycle_center_view_state(Center_View_State *value)
+PAC_DEF void cycle_center_view_state(Center_View_State *value) 
 {
-    if(!value) 
-    { return; }
+    if(!value) { return; }
     uint8_t new_value = 1 + (uint8_t)(*value);
-    if(new_value != CENTER_VIEW_STATE__LAST)
-    { *value = (Center_View_State)new_value; }
-    else
-    { *value = (Center_View_State)0; }
+    if(new_value != CENTER_VIEW_STATE__LAST) { 
+        *value = (Center_View_State)new_value; 
+    } else { 
+        *value = (Center_View_State)0; 
+    }
 }
 
 #define PAC_SDL_MOUSELEFT   (1)
@@ -259,7 +264,7 @@ typedef struct Audio_Metadata_Group
     char *album_begin_in_buf;
 } Audio_Metadata_Group;
 
-typedef struct Bitmap_Info
+typedef struct Bitmap_Info 
 {
     uint8_t *img_data;
     int img_data_bytes;

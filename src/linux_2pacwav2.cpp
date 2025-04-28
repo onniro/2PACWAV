@@ -41,11 +41,9 @@ PAC_INTERNAL char *platform_find_res_path(Runtime_Vars *rtvars, char *out_res_pa
     char *end_ptr = try_buf + strlen(try_buf);
     char *last_ptr;
     int max_tries = 5;
-    for(int try_index = 0; try_index < max_tries; ++try_index)
-    {
+    for(int try_index = 0; try_index < max_tries; ++try_index) {
         strcat(end_ptr, "/../res/");
-        if(platform_directory_exists(try_buf))
-        {
+        if(platform_directory_exists(try_buf)) {
             strncpy(out_res_path, try_buf, bufsize);
             result = out_res_path;
             break;
@@ -61,21 +59,16 @@ PAC_INTERNAL int platform_list_files(char *path, File_List *out_flist)
     int result = 0;
     dirent *dir_entry;
     DIR *dir_struct = opendir(path);
-
-    if(dir_struct) 
-    {
+    if(dir_struct) {
         file_list_push_dirname(path, out_flist);
 
         int filename_len;
         char *write_ptr;
-        while(1) 
-        {
+        while(1) {
             dir_entry = readdir(dir_struct);
-            if(!dir_entry)
-            { break; }
+            if(!dir_entry) { break; }
 
-            if(dir_entry->d_type == DT_REG)
-            {
+            if(dir_entry->d_type == DT_REG) {
                 write_ptr = out_flist->filenames_string_loclist[out_flist->entry_count];
                 filename_len = strlen(dir_entry->d_name);
                 strncpy(write_ptr, dir_entry->d_name, NAME_MAX - 1);
@@ -84,11 +77,10 @@ PAC_INTERNAL int platform_list_files(char *path, File_List *out_flist)
                 ++out_flist->entry_count;
             }
         }
-
         result = 1;
+    } else { 
+        platform_log("directory listing failed. reason: failed to initialize directory struct\n"); 
     }
-    else
-    { platform_log("directory listing failed. reason: failed to initialize directory struct\n"); }
 
     return result;
 }
@@ -98,11 +90,10 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
 {
 #define MEM_INIT_ASSERT(main_buffer, buf2init, size)\
     buf2init = ro_buffer_alloc_region(main_buffer, size);\
-    if(!buf2init)\
-    {\
+    if(!buf2init) {\
         platform_dbg_log("failed to init buffer %s\n(unallocated=%u)exiting.\n",\
                 #buf2init, ro_buffer_unallocated_bytes(heapbuf));\
-        _exit(1);\
+        PAC_ASSERT(0);\
     } PAC_NOP_MACRO()
 
     memset(heapbuf->memory, 0, PAC_MAIN_STORAGE_SIZE);
@@ -124,9 +115,10 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
 
 #if 1
     bufgroup->scratch_bytes = ro_buffer_unallocated_bytes(heapbuf);
-    if(bufgroup->scratch_bytes)
-    {
-        MEM_INIT_ASSERT(heapbuf, bufgroup->scratch_space, bufgroup->scratch_bytes); 
+    if(bufgroup->scratch_bytes) {
+        MEM_INIT_ASSERT(heapbuf, 
+                bufgroup->scratch_space, 
+                bufgroup->scratch_bytes); 
     }
     platform_dbg_log("scrath:%d bytes\n", bufgroup->scratch_bytes);
 #else
@@ -187,18 +179,16 @@ PAC_INTERNAL void platform_get_working_directory(char *buf, int buf_size)
 {
     ro_posix_get_working_directory(buf, buf_size);
     int len = strlen(buf);
-    if(buf[len - 1] == '/') 
-    { buf[len - 1] = 0; }
+    if(buf[len - 1] == '/') { buf[len - 1] = 0; }
 }
 
 int main(int arg_count, char **args) 
 {
     Runtime_Vars rtvars = {};
     General_Buffer_Group bufgroup = {};
-    if(ro_posix_make_heap_buffer(&rtvars.main_storage, PAC_MAIN_STORAGE_SIZE)) 
-    { startup_alloc_buffers(&rtvars.main_storage, &bufgroup); } 
-    else 
-    { 
+    if(ro_posix_make_heap_buffer(&rtvars.main_storage, PAC_MAIN_STORAGE_SIZE)) { 
+        startup_alloc_buffers(&rtvars.main_storage, &bufgroup); 
+    } else { 
         fprintf(stderr, "failed to get memory\n"); 
         return -1; 
     }
@@ -208,8 +198,9 @@ int main(int arg_count, char **args)
     sargs.paths.buffer = (char *)bufgroup.scratch_space;
     sargs.paths.buffer[0] = 0;
     sargs.paths.ptrs[0] = sargs.paths.buffer;
-    if(pac_do_command_args(arg_count, args, &sargs, &bufgroup))
-    { return EXIT_SUCCESS; }
+    if(pac_do_command_args(arg_count, args, &sargs, &bufgroup)) { 
+        return EXIT_SUCCESS; 
+    }
 
     Sdl_Apidata sdldata = {};
     Music_Data mdata = {};
@@ -221,10 +212,8 @@ int main(int arg_count, char **args)
     rtvars.bufgroup_ptr = &bufgroup;
     sdldata.mdata_ptr = &mdata;
 
-    if(!pac_init_sdl(&sdldata)) 
-    { return -1; }
-    if(!pac_init_sdlmixer(&mdata)) 
-    { return -1; }
+    if(!pac_init_sdl(&sdldata)) { return -1; }
+    if(!pac_init_sdlmixer(&mdata)) { return -1; }
         
     mdata.current_filename = (char *)bufgroup.music_current_filename;
     mdata.rtvars_ptr = &rtvars;
@@ -245,8 +234,7 @@ int main(int arg_count, char **args)
 
     if(!pac_imgui_load_font(PAC_LATIN_FONT_STRING, 
             PAC_LATIN_FONTSIZE, 
-            &rtvars))
-    {
+            &rtvars)) {
         platform_log("loading fonts failed\n");
         return -1;
     }
@@ -294,20 +282,17 @@ int main(int arg_count, char **args)
     }
 #endif
 
-    if(sargs.paths.count) 
-    {
-        startup_add_paths(&sargs, &rtvars, &mdata);
+    if(sargs.paths.count) { 
+        startup_add_paths(&sargs, &rtvars, &mdata); 
     }
 
-    while(rtvars.keep_running) 
-    {
+    while(rtvars.keep_running) {
         frametime.start = ro_posix_get_timestamp();
         pac_main_loop(&rtvars, &sdldata, &bufgroup, &mdata);
         frametime.end = ro_posix_get_timestamp();
         frametime.delta = frametime.end - frametime.start;
 
-        if((useconds_t)frametime.delta < MAX_FRAMETIME_MICROSEC) 
-        {
+        if((useconds_t)frametime.delta < MAX_FRAMETIME_MICROSEC) {
             us2sleep = (MAX_FRAMETIME_MICROSEC - (useconds_t)frametime.delta);
             ro_posix_sleep_microsec(us2sleep);
         }
@@ -316,7 +301,9 @@ int main(int arg_count, char **args)
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
-    if(mdata.sdlmixer_music) { Mix_FreeMusic(mdata.sdlmixer_music); }
+    if(mdata.sdlmixer_music) { 
+        Mix_FreeMusic(mdata.sdlmixer_music); 
+    }
     Mix_CloseAudio();
     SDL_GL_DeleteContext(sdldata.ogl_context);
     SDL_DestroyWindow(sdldata.window_ptr);

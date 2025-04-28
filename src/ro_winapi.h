@@ -52,8 +52,7 @@ RO_DEF void *ro_winapi_make_heap_buffer(ro_heap_buffer *buffer, uint64_t bytes)
 RO_DEF uint64_t ro_buffer_unallocated_bytes(ro_heap_buffer *buffer) 
 {
     uint64_t result = 0;
-    if(buffer && buffer->memory) 
-    {
+    if(buffer && buffer->memory) {
         result = ((uint64_t)buffer->memory + 
                 buffer->total_bytes) - 
                 (uint64_t)buffer->write_ptr;
@@ -65,8 +64,7 @@ RO_DEF void *ro_alloc_buffer_region(struct ro_heap_buffer *buffer, uint64_t regi
 {
     void *result = 0;
     uint64_t free_bytes = ro_buffer_unallocated_bytes(buffer);
-    if(region_bytes <= free_bytes) 
-    {
+    if(region_bytes <= free_bytes) {
         result = buffer->write_ptr;
         buffer->write_ptr = (void *)((uintptr_t)buffer->write_ptr + region_bytes);
     } 
@@ -92,13 +90,13 @@ RO_DEF char *ro_winapi_get_working_directory(char *destination, DWORD buffer_siz
 {
     char *result = 0;
     DWORD path_length = GetModuleFileNameA(0, destination, buffer_size);
-    if(path_length) 
-    {
+    if(path_length) {
         result = destination;
         for(DWORD char_index = path_length - 1;
                 destination[char_index] != '\\';
-                --char_index) 
-        { destination[char_index] = '\0'; }
+                --char_index) { 
+            destination[char_index] = '\0'; 
+        }
     }
     return result;
 }
@@ -127,15 +125,14 @@ RO_DEF int ro_winapi_read_file(char *file_path, char *destination, uint64_t *des
                             OPEN_EXISTING,
                             0, 
                             0);
-    if(file_handle != INVALID_HANDLE_VALUE) 
-    {
+    if(file_handle != INVALID_HANDLE_VALUE) {
         LARGE_INTEGER file_size;
-        if(GetFileSizeEx(file_handle, &file_size)) 
-        {
+        if(GetFileSizeEx(file_handle, &file_size)) {
             *dest_size = file_size.QuadPart;
             DWORD bytes_read;
-            if(ReadFile(file_handle, destination, *dest_size, &bytes_read, 0)) 
-            { result = true; }
+            if(ReadFile(file_handle, destination, *dest_size, &bytes_read, 0)) { 
+                result = true; 
+            }
         } 
     }
     return result;
@@ -151,11 +148,11 @@ RO_DEF int ro_winapi_write_file(char *file_path, void *in_buffer, uint64_t buffe
                             CREATE_ALWAYS, 
                             0,
                             0);
-    if(file_handle != INVALID_HANDLE_VALUE) 
-    {
+    if(file_handle != INVALID_HANDLE_VALUE) {
         DWORD bytes_written;
-        if(WriteFile(file_handle, in_buffer, buffer_size, &bytes_written, 0)) 
-        { result = true; }
+        if(WriteFile(file_handle, in_buffer, buffer_size, &bytes_written, 0)) { 
+            result = true; 
+        }
     }
     CloseHandle(file_handle);
     return result;
