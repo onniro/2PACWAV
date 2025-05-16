@@ -75,8 +75,9 @@ RO_DEF void *ro_posix_make_heap_buffer(Ro_Heap_Buffer *target, uint64_t bytes)
 
 RO_DEF void ro_posix_free_heap_buffer(Ro_Heap_Buffer *buffer) 
 {
-    if(buffer && buffer->memory && buffer->total_bytes) 
-    { munmap(buffer->memory, buffer->total_bytes); }
+    if (buffer && buffer->memory && buffer->total_bytes) { 
+        munmap(buffer->memory, buffer->total_bytes); 
+    }
 }
 
 //NOTE: neither of these next couple are POSIX-specific
@@ -84,7 +85,7 @@ RO_DEF void ro_posix_free_heap_buffer(Ro_Heap_Buffer *buffer)
 RO_DEF uint64_t ro_buffer_unallocated_bytes(Ro_Heap_Buffer *buffer) 
 {
     uint64_t result = 0;
-    if(buffer && buffer->memory) {
+    if (buffer && buffer->memory) {
         result = ((uint64_t)buffer->memory + 
                 buffer->total_bytes) - 
                 (uint64_t)buffer->write_ptr;
@@ -92,11 +93,12 @@ RO_DEF uint64_t ro_buffer_unallocated_bytes(Ro_Heap_Buffer *buffer)
     return result;
 }
 
-RO_DEF void *ro_buffer_alloc_region(struct Ro_Heap_Buffer *buffer, uint64_t region_bytes) 
+RO_DEF void *ro_buffer_alloc_region(struct Ro_Heap_Buffer *buffer, 
+                                uint64_t region_bytes) 
 {
     void *result = 0;
     uint64_t free_bytes = ro_buffer_unallocated_bytes(buffer);
-    if(region_bytes <= free_bytes) {
+    if (region_bytes <= free_bytes) {
         result = buffer->write_ptr;
         buffer->write_ptr = (void *)((uintptr_t)buffer->write_ptr + region_bytes);
     } 
@@ -107,7 +109,7 @@ RO_DEF void ro_buffer_move_writeptr(Ro_Heap_Buffer *buffer,
                                     ssize_t bytes, 
                                     char write_zeroes) 
 {
-    if(!buffer || !buffer->memory || !bytes) { return; }
+    if (!buffer || !buffer->memory || !bytes) { return; }
 
     uintptr_t buf_begin = (uintptr_t)buffer->memory;
     uintptr_t buf_end = buf_begin + buffer->total_bytes;
@@ -115,9 +117,10 @@ RO_DEF void ro_buffer_move_writeptr(Ro_Heap_Buffer *buffer,
     uintptr_t future_pos = current_pos + bytes;
     uint64_t move_bytes = ro_abs_i64(bytes);
 
-    if((future_pos >= buf_begin) && (future_pos < buf_end)) {
+    if ((future_pos >= buf_begin) && 
+            (future_pos < buf_end)) {
         buffer->write_ptr = (void *)future_pos;
-        if(write_zeroes) { 
+        if (write_zeroes) { 
             memset(buffer->write_ptr, 0, move_bytes); 
         }
     }
@@ -127,13 +130,21 @@ RO_DEF void ro_buffer_move_writeptr(Ro_Heap_Buffer *buffer,
 #define RO_HEAPBUF_DOT_H 1
 #endif
 
-RO_DEF char *ro_posix_get_working_directory(char *destination, uint64_t buffer_size) 
+RO_DEF char *ro_posix_get_working_directory(char *destination, 
+                                        uint64_t buffer_size) 
 {
-    size_t bytes_read = readlink("/proc/self/exe", destination, buffer_size);
+    size_t bytes_read = readlink("/proc/self/exe", 
+                            destination, 
+                            buffer_size);
     destination[bytes_read] = 0x0;
-    for(int char_index = (int)bytes_read; char_index >= 0; --char_index) {
-        if(destination[char_index] != '/') { destination[char_index] = 0x0; }
-        else { break; }
+    for (int char_index = (int)bytes_read; 
+            char_index >= 0; 
+            --char_index) {
+        if (destination[char_index] != '/') { 
+            destination[char_index] = 0x0; 
+        } else { 
+            break; 
+        }
     }
     return destination;
 }
@@ -167,9 +178,7 @@ RO_DEF char ro_posix_path_exists(char *path)
 {
     char result = 0;
     struct stat stat_struct;
-    if(!stat(path, &stat_struct)) { 
-        result = 1; 
-    }
+    if(!stat(path, &stat_struct)) { result = 1; }
     return result;
 }
 
@@ -177,7 +186,7 @@ RO_DEF char ro_posix_file_exists(char *file_path)
 {
     char result = 0;
     struct stat stat_struct;
-    if(!stat(file_path, &stat_struct) && 
+    if (!stat(file_path, &stat_struct) && 
             !(S_ISDIR(stat_struct.st_mode))) { 
         result = 1; 
     }
@@ -188,21 +197,23 @@ RO_DEF char ro_posix_directory_exists(char *directory_name)
 {
     char result = 0;
     struct stat stat_struct;
-    if(!stat(directory_name, &stat_struct) && 
+    if (!stat(directory_name, &stat_struct) && 
             S_ISDIR(stat_struct.st_mode)) { 
         result = 1; 
     }
     return result;
 }
 
-RO_DEF uint64_t ro_posix_read_file(char *file_path, char *destination, uint64_t dest_size) 
+RO_DEF uint64_t ro_posix_read_file(char *file_path, 
+                                char *destination, 
+                                uint64_t dest_size) 
 {
     int file_descriptor = open(file_path, O_RDONLY);
     uint64_t bytes_read = 0;
-    if(file_descriptor != -1) {
+    if (file_descriptor != -1) {
         struct stat stat_buf;
         fstat(file_descriptor, &stat_buf);
-        if(stat_buf.st_size <= (int64_t)dest_size) {
+        if (stat_buf.st_size <= (int64_t)dest_size) {
             bytes_read = read(file_descriptor, destination, stat_buf.st_size);
             close(file_descriptor);
         }
@@ -210,12 +221,18 @@ RO_DEF uint64_t ro_posix_read_file(char *file_path, char *destination, uint64_t 
     return bytes_read;
 }
 
-RO_DEF int ro_posix_write_file(char *file_path, void *in_buffer, uint64_t buffer_size) 
+RO_DEF int ro_posix_write_file(char *file_path, 
+                            void *in_buffer, 
+                            uint64_t buffer_size) 
 {
     int result = 0;
-    int file_descriptor = open(file_path, O_CREAT|O_WRONLY|O_TRUNC, S_IRUSR|S_IWUSR);
-    if(file_descriptor != -1) {
-        int64_t write_status = write(file_descriptor, in_buffer, buffer_size);  
+    int file_descriptor = open(file_path, 
+                            O_CREAT|O_WRONLY|O_TRUNC, 
+                            S_IRUSR|S_IWUSR);
+    if (file_descriptor != -1) {
+        int64_t write_status = write(file_descriptor, 
+                                in_buffer, 
+                                buffer_size);  
         close(file_descriptor);
         if(write_status == (int64_t)buffer_size) { result = 1; }
     }
@@ -229,19 +246,19 @@ RO_DEF int ro_posix_get_stdout(char *command,
 {
     int result = 0;
     int pipe_fd[2];
-    if(-1 == pipe(pipe_fd)) {
+    if (-1 == pipe(pipe_fd)) {
         perror("pipe");
         _exit(1);
     }
 
     *proc_id = fork();
-    if(-1 == *proc_id) {
+    if (-1 == *proc_id) {
         perror("fork");
         _exit(1);
-    } else if(0 == *proc_id) {
+    } else if (0 == *proc_id) {
         close(pipe_fd[STDIN_FILENO]);
         dup2(pipe_fd[STDOUT_FILENO], STDOUT_FILENO);
-        if(include_stderr) { dup2(STDOUT_FILENO, STDERR_FILENO); }
+        if (include_stderr) { dup2(STDOUT_FILENO, STDERR_FILENO); }
         close(pipe_fd[STDOUT_FILENO]);
         char _temp[1024*8];
         snprintf(_temp, (1024*8) - 1, "''%s''", command);

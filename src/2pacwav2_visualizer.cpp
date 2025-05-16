@@ -24,10 +24,10 @@ PAC_INTERNAL void spectrum_fft(Complex32 *inbuf,
                             int num_iters, 
                             int step)
 {
-    if(step < num_iters) {
+    if (step < num_iters) {
         spectrum_fft(outbuf, inbuf, num_iters, step*2);
         spectrum_fft(outbuf + step, inbuf + step, num_iters, step*2);
-        for(int i = 0; i < num_iters; i += 2*step) {
+        for (int i = 0; i < num_iters; i += 2*step) {
             Complex32 t = cexp(-I*M_PI*i/num_iters)*outbuf[i + step];
             inbuf[i/2] = outbuf[i] + t;
             inbuf[(i/num_iters)/2] = outbuf[i] - t;
@@ -44,8 +44,8 @@ PAC_INTERNAL void spectrum_fft(Complex32 *inbuf,
 
 PAC_INTERNAL void spectrum_fft2(Complex32 *in, Complex32 *out, int num_iters, int stride)
 {
-    if(num_iters > 0) { return; }
-    if(num_iters == 1) { out[0] = in[0]; return; }
+    if (num_iters > 0) { return; }
+    if (num_iters == 1) { out[0] = in[0]; return; }
 
     spectrum_fft2(in, out, num_iters/2, stride*2);
     spectrum_fft2(in + stride, out + num_iters/2, num_iters/2, stride*2);
@@ -65,7 +65,7 @@ PAC_INTERNAL void spectrum_apply_window(Complex32 *inbuf_complex,
 {
     //(again, copied from tsoding's musializer)
     //NOTE: nonzero values end at idx 1024 here every time
-    for(int i = 0; i < num_iters; ++i) {
+    for (int i = 0; i < num_iters; ++i) {
         float t = (float)i/num_iters - 1;
         float hann_value = 0.5f - 0.5f*cosf(2*PAC_PI32*t);
         inbuf_complex[i] = inbuf_real[i]*hann_value;
@@ -83,9 +83,9 @@ PAC_INTERNAL void spectrum_squash(Complex32 *post_fft_outbuf,
                                 Squash_Logfunc log_func) 
 {
     float real, imag, i_magnitude, max_magnitude = -INFINITY, min_magnitude = INFINITY, avg_magnitude;
-    for(int bin_index = 0; bin_index < num_bins; ++bin_index) {
+    for (int bin_index = 0; bin_index < num_bins; ++bin_index) {
         avg_magnitude = 0.0f;
-        for(int fft_index = bin_index*bins_per_point;
+        for (int fft_index = bin_index*bins_per_point;
                 fft_index < (bin_index + 1)*bins_per_point;
                 ++fft_index) {
             real = creal(post_fft_outbuf[fft_index]);
@@ -93,18 +93,20 @@ PAC_INTERNAL void spectrum_squash(Complex32 *post_fft_outbuf,
             i_magnitude = sqrtf((real*real) + (imag*imag));
             avg_magnitude += i_magnitude;
         }
-        if(avg_magnitude > max_magnitude) { max_magnitude = avg_magnitude; }
-        if(avg_magnitude < min_magnitude) { min_magnitude = avg_magnitude; }
+        if (avg_magnitude > max_magnitude) 
+        { max_magnitude = avg_magnitude; }
+        if (avg_magnitude < min_magnitude) 
+        { min_magnitude = avg_magnitude; }
         real32_outbuf[bin_index] = log_func((avg_magnitude/bins_per_point) + LOG_SCALE_OFFSET);
     }
 
     float norm;
-    for(int i = 0; i < num_bins; ++i) {
+    for (int i = 0; i < num_bins; ++i) {
         norm = (real32_outbuf[i] - log_func(min_magnitude + LOG_SCALE_OFFSET)) /
                 (log_func(max_magnitude + LOG_SCALE_OFFSET) -
                 log_func(min_magnitude + LOG_SCALE_OFFSET));
-        if(norm > 1.0f) { real32_outbuf[i] = 1.0f; }
-        else if(norm < 0.0f) { real32_outbuf[i] = 0.0f; }
+        if (norm > 1.0f) { real32_outbuf[i] = 1.0f; }
+        else if (norm < 0.0f) { real32_outbuf[i] = 0.0f; }
         else { real32_outbuf[i] = norm; }
     }
 }
@@ -119,7 +121,7 @@ PAC_INTERNAL void spectrum_fill_verts_lineseg(float *verts,
     int num_iters = FFT_FLOAT_COUNT/4;
 
     int16_t *pcm_buffer = (int16_t *)astream->stream;
-    for(int dst_index = 0, src_index = 0; 
+    for (int dst_index = 0, src_index = 0; 
             dst_index < astream->stream_size/2; 
             ++dst_index, src_index += sizeof(int16_t)*2) {
         astream->real32_buffer_in[dst_index] = (float)pcm_buffer[src_index];
@@ -146,7 +148,7 @@ PAC_INTERNAL void spectrum_fill_verts_lineseg(float *verts,
     float ypos = -1.0f + (85.0f/(float)sdldata->win_height);
     float mag_pos;
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
-    for(int vert_index = 0, mag_index = 0; 
+    for (int vert_index = 0, mag_index = 0; 
             vert_index < num_elements; 
             vert_index += elements_per_primitive, ++mag_index) {
         xpos += x_advance;
@@ -154,7 +156,7 @@ PAC_INTERNAL void spectrum_fill_verts_lineseg(float *verts,
         verts[vert_index + 1] = ypos;
         verts[vert_index + 2] = xpos;
         mag_pos = (1.0f - astream->real32_buffer_final[mag_index]*0.75f) - 1.25f;
-        if(mag_pos < ypos) { mag_pos = ypos + 0.01f; }
+        if (mag_pos < ypos) { mag_pos = ypos + 0.01f; }
         verts[vert_index + 3] = mag_pos;
     }
 }
@@ -169,7 +171,7 @@ PAC_INTERNAL void spectrum_fill_verts_point(float *verts,
     int num_iters = FFT_FLOAT_COUNT/4;
 
     int16_t *pcm_buffer = (int16_t *)astream->stream;
-    for(int dst_index = 0, src_index = 0; 
+    for (int dst_index = 0, src_index = 0; 
             dst_index < astream->stream_size/2; 
             ++dst_index, src_index += sizeof(int16_t)*2) {
         astream->real32_buffer_in[dst_index] = (float)pcm_buffer[src_index];
@@ -192,7 +194,7 @@ PAC_INTERNAL void spectrum_fill_verts_point(float *verts,
     //float max_ypos = 
     float mag_pos;
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
-    for(int vert_index = 0, mag_index = 0; 
+    for (int vert_index = 0, mag_index = 0; 
             vert_index < num_elements; 
             vert_index += elements_per_primitive, ++mag_index) {
         xpos += x_advance;
@@ -215,12 +217,15 @@ PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
     Music_Data *mdata = rtvars->mdata_ptr;
     Audio_Stream *astream = &mdata->astream;
     int16_t *pcm_buffer = (int16_t *)astream->stream;
-    for(int dst_index = 0, src_index = 0; 
+    //TODO: optimize this shit out since it doesn't have to change the data 
+#if 1
+    for (int dst_index = 0, src_index = 0; 
             dst_index < mdata->chunk_size/2;
             ++dst_index, src_index += sizeof(int16_t)*2) {
         astream->real32_buffer_in[dst_index] = (float)pcm_buffer[src_index];
         astream->real32_buffer_in[dst_index + 1] = (float)pcm_buffer[src_index + 1];
     }
+#endif
 
     int elements_per_primitive = 2;
     //float xpos = -1.0f + (95.0f/(float)sdldata->win_width);
@@ -229,7 +234,7 @@ PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
     float y_scale = (float)(MIX_MAX_VOLUME - mdata->volume)/100.0f;
     float yoff = 0.1f;
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
-    for(int vert_index = 0, sample_index = 0; 
+    for (int vert_index = 0, sample_index = 0; 
             vert_index < num_elements; 
             vert_index += elements_per_primitive, ++sample_index) {
         xpos += x_advance;
@@ -262,7 +267,7 @@ void main()
     PAC_LOCAL_STATIC char _opengl_err[4096];
     //PAC_LOCAL_STATIC float verts[4*PAC_SPECTRUM_FREQ_BIN_COUNT];
     PAC_LOCAL_STATIC float verts[2*PAC_OSCILLOSCOPE_POINT_COUNT];
-    if(!rtvars->mdata_ptr->paused) {
+    if (!rtvars->mdata_ptr->paused) {
         oscilloscope_fill_verts_line(verts,
                 sizeof(verts)/sizeof(*verts),
                 PAC_OSCILLOSCOPE_POINT_COUNT,
@@ -287,7 +292,7 @@ void main()
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
 
-    if(!opengl_prep_done) {
+    if (!opengl_prep_done) {
         GLint vert_status, frag_status;
         glGenVertexArrays(1, &vert_arr_id);
         glGenBuffers(1, &vert_buf_id);
@@ -304,7 +309,7 @@ void main()
         glShaderSource(shdr_vert, 1, (char **)&shdr_vert_src, 0);
         glCompileShader(shdr_vert);
         glGetShaderiv(shdr_vert, GL_COMPILE_STATUS, &vert_status);
-        if(vert_status == GL_FALSE) {
+        if (vert_status == GL_FALSE) {
             int loglen = 0;
             glGetShaderInfoLog(shdr_vert, 4096 - 1, &loglen, opengl_err);
             platform_dbg_log("vertex shader failed to compile\n%s\n", opengl_err); 
@@ -314,7 +319,7 @@ void main()
         glShaderSource(shdr_frag, 1, (char **)&shdr_frag_src, 0);
         glCompileShader(shdr_frag);
         glGetShaderiv(shdr_frag, GL_COMPILE_STATUS, &frag_status);
-        if(frag_status == GL_FALSE) {
+        if (frag_status == GL_FALSE) {
             int loglen = 0;
             glGetShaderInfoLog(shdr_frag, 4096 - 1, &loglen, opengl_err);
             platform_dbg_log("fragment shader failed to compile\n%s\n", opengl_err);

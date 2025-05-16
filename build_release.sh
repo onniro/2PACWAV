@@ -1,7 +1,5 @@
 #!/bin/sh
 
-echo "build started @ $(date)"
-
 BASEDIR="$PWD"
 SRCDIR="$BASEDIR/src"
 
@@ -16,7 +14,9 @@ for arg in "$@"; do
     fi
 done
 
-if [ $COMPILE_IMGUI = 1 ]; then
+echo "build started @ $(date)"
+
+if [ $COMPILE_IMGUI -ne 0 ]; then
     sh $PWD/compile_imgui.sh
 fi 
 
@@ -42,24 +42,41 @@ LIB_DIRS="-L$BASEDIR/3rd_party/SDL2/lib -L$BASEDIR/3rd_party/taglib/lib"
 OBJ_FILES="$BASEDIR/build/lib/imgui*.o"
 
 LINK_LIBS="$SDL_DIR/lib/libSDL2.a \
+        -lm \
         -static-libstdc++ \
         -static-libgcc \
-        -lm \
         -lGL \
         $SDL_DIR/lib/libSDL2_mixer.a \
-        -l:libtag.a \
+        $CODEC_DIR/lib/libopusfile.a \
+        $CODEC_DIR/lib/libopus.a \
+        $CODEC_DIR/lib/libvorbisfile.a \
+        $CODEC_DIR/lib/libvorbis.a \
+        $CODEC_DIR/lib/libwavpack.a \
+        $CODEC_DIR/lib/libxmp.a \
+        $CODEC_DIR/lib/libogg.a \
+        $BASEDIR/3rd_party/taglib/lib/libtag.a \
         -l:libz.a"
+#LINK_LIBS="$SDL_DIR/lib/libSDL2.a \
+#        -static-libstdc++ \
+#        -static-libgcc \
+#        -lm \
+#        -lGL \
+#        $SDL_DIR/lib/libSDL2_mixer.a \
+#        -l:libtag.a \
+#        -l:libz.a"
 
-WARNINGS="-Wall -Wpedantic -Wextra -Wno-c99-extensions \
+WARNINGS="-Wall -Wpedantic -Wextra \
         -Wno-unused-parameter -Wno-pointer-arith \
         -Wno-unused-variable -Wno-unused-function \
-        -Wno-unused-but-set-variable -Wno-write-strings -Wno-format"
+        -Wno-unused-but-set-variable -Wno-write-strings -Wno-format\
+        -Wno-stringop-truncation"
 
 DEFINES="-D_2PACWAV_RELEASE=1 -D_2PACWAV_LINUX=1 -DPAC_SAMPLE_RATE=48000"
 
 WORKDIR="$BASEDIR/build/linux_x64_release"
 
-CMDLINE="clang++ $DEFINES \
+#CMDLINE="clang++ $DEFINES \
+CMDLINE="g++ $DEFINES \
         $INCLUDE_DIRS \
         $LIB_DIRS \
         $WARNINGS \

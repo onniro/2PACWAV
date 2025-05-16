@@ -16,28 +16,37 @@ INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2 \
         -I$BASEDIR/3rd_party/taglib/include/mpeg/" 
 
 COMP_FLAGS="-O0 -gdwarf"
-EXE_NAME="2w2"
+EXE_NAME="2w"
 LINK_FLAGS="-o $EXE_NAME"
 
 SDL_DIR="$BASEDIR/3rd_party/SDL2"
 CODEC_DIR="$BASEDIR/3rd_party/codecs"
 
-LIB_DIRS="-L$BASEDIR/3rd_party/SDL2/lib -L$BASEDIR/3rd_party/taglib/lib"
+LIB_DIRS="-L$BASEDIR/3rd_party/SDL2/lib \
+        -L$BASEDIR/3rd_party/taglib/lib \
+        -L$BASEDIR/3d_party/codecs/lib"
 LINK_LIBS="$SDL_DIR/lib/libSDL2.a \
         -lm \
         -static-libstdc++ \
         -static-libgcc \
         -lGL \
         $SDL_DIR/lib/libSDL2_mixer.a \
-        -l:libtag.a \
+        $CODEC_DIR/lib/libopusfile.a \
+        $CODEC_DIR/lib/libopus.a \
+        $CODEC_DIR/lib/libvorbisfile.a \
+        $CODEC_DIR/lib/libvorbis.a \
+        $CODEC_DIR/lib/libwavpack.a \
+        $CODEC_DIR/lib/libxmp.a \
+        $CODEC_DIR/lib/libogg.a \
+        $BASEDIR/3rd_party/taglib/lib/libtag.a \
         -l:libz.a"
 
-OBJ_FILES="$BASEDIR/lib/imgui*.o"
+OBJ_FILES="$BASEDIR/build/lib/imgui*.o"
 
 WARNINGS="-Wall -Wpedantic -Wextra -Wno-unused-parameter \
         -Wno-pointer-arith -Wno-unused-variable \
         -Wno-unused-function -Wno-unused-but-set-variable \
-        -Wno-write-strings -Wno-c99-extensions -Wno-gnu-imaginary-constant"
+        -Wno-write-strings -Wno-stringop-truncation -Wno-format-truncation"
 
 DEFINES="-D_2PACWAV_DEBUG=1 \
         -D_2PACWAV_LINUX=1 \
@@ -46,7 +55,8 @@ DEFINES="-D_2PACWAV_DEBUG=1 \
 
 WORKDIR="$BASEDIR/build/linux_x64_debug"
 
-CMDLINE="clang++ $DEFINES \
+#CMDLINE="clang++ $DEFINES \
+CMDLINE="g++ $DEFINES \
         $INCLUDE_DIRS \
         $LIB_DIRS \
         $WARNINGS \

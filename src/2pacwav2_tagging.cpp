@@ -46,8 +46,8 @@ PAC_INTERNAL void tag_get_artist(Tag_Ref *ref, char *recv, int recv_size)
     if(ref && recv && recv_size && !ref->ref.isNull()) {
         TagLib::String _artist = ref->ref.tag()->artist().to8Bit(1);
         const char *artist = _artist.toCString(0);
-        if(artist) { 
-            strncpy(recv, artist, recv_size); 
+        if (artist) { 
+           strncpy(recv, artist, recv_size); 
         }
     }
 }
@@ -57,9 +57,7 @@ PAC_INTERNAL void tag_get_album(Tag_Ref *ref, char *recv, int recv_size)
     if(ref && recv && recv_size && !ref->ref.isNull()) {
         TagLib::String _album = ref->ref.tag()->album().to8Bit(1);
         const char *album = _album.toCString(0);
-        if(album) { 
-            strncpy(recv, album, recv_size); 
-        }
+        if(album) { strncpy(recv, album, recv_size); }
     }
 }
 

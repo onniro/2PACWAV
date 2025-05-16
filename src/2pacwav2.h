@@ -11,13 +11,16 @@ extern "C"
 {
 #endif
 
+#include "ro_heapbuf.h"
+
+#include <GL/gl.h>
+#include <limits.h>
+
 typedef float _Complex Complex32;
 
 #define _2PACWAV_VER_MAJOR      (0)
-#define _2PACWAV_VER_MINOR      (4)
-#define _2PACWAV_VER_PATCH      (7)
-
-#include "ro_heapbuf.h"
+#define _2PACWAV_VER_MINOR      (5)
+#define _2PACWAV_VER_PATCH      (1)
 
 #define PAC_DEF static inline
 #define PAC_INTERNAL static
@@ -29,9 +32,9 @@ typedef float _Complex Complex32;
 #define PAC_SEEK_VALUE_MAX (1000)
 
 //#define PAC_LATIN_FONT_STRING   "LiberationMono-Regular.ttf"
-#define PAC_LATIN_FONT_STRING   "DejaVuSans.ttf"
+#define PAC_LATIN_FONT_STRING   "DejaVuSansMono.ttf"
 #define PAC_CJK_FONT_STRING     "NotoSansMonoCJKhk-Regular.otf"
-#define PAC_LATIN_FONTSIZE (16.0f)
+#define PAC_LATIN_FONTSIZE (17.0f)
 #define PAC_CJK_FONTSIZE (18.0f)
 
 static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
@@ -44,7 +47,7 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 #endif
 
 #define PAC_ASSERT(expression)\
-    if(!(expression)) {\
+    if (!(expression)) {\
         platform_log("ASSERTION FAILED. file: %s @ L%d\nexpression: (%s)\n",\
                 __FILE__, __LINE__, #expression);\
         PLATFORM_EXITCALL(1337);\
@@ -71,7 +74,7 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 
 #define PAC_PI32 (3.14159265f)
 
-#define PAC_MAIN_STORAGE_SIZE               (3*(1024*1024))
+#define PAC_MAIN_STORAGE_SIZE               (5*(1024*1024))
 #define DEBUG_BUFFER_SIZE                   (8192)
 #define USERINFO_BUFFER_SIZE                (512)
 #define FILENAMES_BUFFER_SIZE               (PAC_MAX_FILES*NAME_MAX)
@@ -80,6 +83,7 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 #define DIRNAMEBUF_LOCATION_LIST_SIZE       (sizeof(char *)*64)
 #define SEARCH_BUFFER_SIZE                  (NAME_MAX)
 #define MATCH_FLAGS_BUFFER_SIZE             (PAC_MAX_FILES*sizeof(char))
+#define CONFBUFFER_SIZE                     (8192)
 
 #define FFT_FLOAT_COUNT                     (8192) //this is way too big
 #define FFT_COMPLEX32_BUFFER_SIZE           ((FFT_FLOAT_COUNT)*sizeof(Complex32))
@@ -108,33 +112,41 @@ struct Mouse_State;
 struct Metadata_Editor;
 struct Audio_Stream;
 
+#define PAC_CONFNAME_STRING "2wconf"
+
 typedef struct General_Buffer_Group 
 {
     void *inbuf_filename;
     void *inbuf_search;
     void *music_current_filename;
-    void *working_directory;
-    void *resource_directory;
     void *music_info_buffer;
+    void *conf_file_buffer;
     void *userinfo_buffer;
     void *flist_filenames_buf;
     void *flist_dirnames_buf;
     void *flist_filenames_string_loclist;
     void *flist_dirnames_string_loclist;
     void *flist_match_flags;
+    void *autocomp_string_loclist;
+    void *autocomp_buffer;
     void *scratch_space;
     uint64_t scratch_bytes;
     void *fft_complex32_buffer;
+    char sort_text[16] = "sort (a-z)";
+    char ls_toggle_text[16] = "hide list";
+    char play_toggle_text[24] = "pause";
+    char shuf_toggle_text[24] = "enable shuffle";
+    char loop_toggle_text[24] = "enable looping";
 } General_Buffer_Group;
 
-typedef struct Startup_Args_Paths
+typedef struct Startup_Args_Paths 
 {
     int count;
     char *ptrs[PAC_MAX_DIRS];
     char *buffer;
 } Startup_Args_Paths;
 
-typedef struct Startup_Args
+typedef struct Startup_Args 
 {
     General_Buffer_Group *bufgroup_ptr;
     Startup_Args_Paths paths;
@@ -142,12 +154,12 @@ typedef struct Startup_Args
 
 typedef struct File_List
 {
-    uint32_t entry_count; //(files)
+    uint32_t entry_count;
     uint32_t dirs_added;
     uint32_t current_index; //why is this here
     uint32_t match_count;
-    int sel_index;
     int context_index;
+    int sel_index;
     char *dirnames_buf;                 //buffer containing the directories added, delimited by null
     char *filenames_buf;                //buffer containing file names, delimited by null
     char **filenames_string_loclist;    //array of pointers which specify the beginnings of strings in the filename array
@@ -180,9 +192,9 @@ typedef enum Center_View_State
 
 PAC_DEF void cycle_center_view_state(Center_View_State *value) 
 {
-    if(!value) { return; }
+    if (!value) { return; }
     uint8_t new_value = 1 + (uint8_t)(*value);
-    if(new_value != CENTER_VIEW_STATE__LAST) { 
+    if (new_value != CENTER_VIEW_STATE__LAST) { 
         *value = (Center_View_State)new_value; 
     } else { 
         *value = (Center_View_State)0; 
@@ -193,7 +205,7 @@ PAC_DEF void cycle_center_view_state(Center_View_State *value)
 #define PAC_SDL_MOUSEMIDDLE (2)
 #define PAC_SDL_MOUSERIGHT  (3)
 
-typedef struct Mouse_State
+typedef struct Mouse_State 
 {
     char down;
     char wasdown_flags[4];
@@ -223,26 +235,18 @@ typedef struct State_Flags
     char space_wasdown;
     char enter_wasdown;
     char tab_wasdown;
-    char escape_wasdown;
+    char esc_wasdown;
     char clear_confirmation;
     char search_changed;
-    //char add_dup_dir_confirmation; //TODO
     char text_field_focused;
     char mlist_ctxmenu_active;
+    char visualizer_enabled;
+    char sort_reversed;
+    char searchwindow_open;
     Mouse_State mouse;
     Center_View_State viewstate;
     Userinfo_Type last_userinfo_type;
 } State_Flags;
-
-typedef struct Widget_Bounds_Info
-{
-    float width;
-    float height;
-    float pad;
-    float y_alignment;
-    float y_offset;
-    float x_offset;
-} Widget_Bounds_Info;
 
 #define META_EDITOR_BUFSIZE 256
 
@@ -292,6 +296,7 @@ typedef struct Music_Data
 {
     char paused;
     char shuffle_enabled;
+    char loop_enabled;
     uint16_t pcm_bits;
     int sample_rate;
     int channels;
@@ -325,17 +330,39 @@ typedef struct Sdl_Apidata
 typedef struct Runtime_Vars 
 {
     char keep_running;
-    char *working_directory;
-    char *resource_directory;
+    const uint8_t *kbd_state;
     State_Flags sflags;
     Frametime_Vars *frametime_info_ptr;
     General_Buffer_Group *bufgroup_ptr;
+    File_List autocomp_list;
     Ro_Heap_Buffer main_storage;
     Sdl_Apidata *sdldata_ptr;
     Music_Data *mdata_ptr;
     ImFont *main_font;
-    const uint8_t *kbd_state;
+    char working_directory[PATH_MAX];
+    char resource_directory[PATH_MAX];
+    char conf_directory[PATH_MAX];
 } Runtime_Vars;
+
+//i know this is an inefficient way to do this (look into KMP-algorithm perhap)
+PAC_DEF char *pac_strnstr(char *fullstr, char *substr, int nchars)
+{
+    char *ret = 0, *tmp_full, *tmp_sub;
+    for (int chari = 0; 
+        (chari < nchars) && fullstr[chari]; 
+        ++chari) {
+        int charj = 0;
+        while ((chari + charj < nchars) &&
+            fullstr[charj] && 
+            fullstr[chari + charj] == substr[charj])
+        { ++charj; }
+        if (!substr[charj]) { 
+            ret = (char *)((uintptr_t)fullstr + chari); 
+            break; 
+        }
+    }
+    return ret;
+}
 
 //(forward declarations)
 PAC_INTERNAL void pac_nop(void);
@@ -349,6 +376,7 @@ PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
 PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
 PAC_INTERNAL void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type);
 PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars);
+PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars, General_Buffer_Group *bufgroup, Music_Data *mdata);
 PAC_INTERNAL void file_list_push_dirname(char *dirname, File_List *flist);
 PAC_INTERNAL void goto_next_file(Music_Data *mdata);
 PAC_INTERNAL void goto_prev_file(Music_Data *mdata);
