@@ -1,0 +1,3 @@
+## why this directory is here
+
+this directory contains the source code as it were before april 24 2025; the day on which the GUI toolkit was changed from [nuklear](https://github.com/Immediate-Mode-UI/Nuklear) to [Dear ImGui](https://github.com/ocornut/imgui). any changes to these files will never be committed to this repository so honestly it is here just to waste 124515 bytes of space on githubs servers and on the hard drive of anyone who clones this thing.
