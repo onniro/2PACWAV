@@ -4,6 +4,4 @@
 /debug.sh
 /src/src.old
 /src/testing
-
-/res/*.tex_atlas
-/res/*.cstruct
+/res/testdata
