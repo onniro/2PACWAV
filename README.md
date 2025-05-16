@@ -6,7 +6,7 @@ the point of this program is to play music on the GNU/+Linux/systemd operating s
 [supported formats](#supported-formats)  
 [notable unsupported formats](#notable-unsupported-formats)  
 [installation](#installation)  
-[credits/dependencies](#credits-dependencies)
+[credits and dependencies](#credits-and-dependencies)
 
 ### supported formats:
 - raw PCM (e.g. WAV and AIFF)
@@ -30,7 +30,7 @@ note: the above things about supported/unsupported formats is subject to change 
 1. run `git clone --depth 1 https://github.com/onniro/2PACWAV.git && cd 2PACWAV && sh build_release.sh`
 2. on success, the executable (named "2w") will be in build/linux_x64_release
 
-### credits/dependencies:
+### credits and dependencies:
 - SDL2 - abstraction for window and OpenGL context creation as well as actually playing music (from loading files to audio output)
 - Dear ImGui - GUI library
 - TagLib - metadata library
