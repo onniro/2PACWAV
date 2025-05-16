@@ -106,14 +106,10 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
             show_help();
             break;
         } else {
-#if _2PACWAV_LINUX
-            if (strchr(arg, '/') && platform_path_exists(arg)) {
-#elif _2PACWAV_WIN32
-            if ((strchr(arg, '/') || strchr(arg, '\\')) && platform_path_exists(arg)) {
-#endif
+            if (platform_path_exists(arg)) {
                 startup_push_path(sargs, arg);
             } else {
-                platform_log("unrecognized option: %s\nexiting.\n", arg);
+                platform_log("unrecognized option: %s\n", arg);
                 exit_after_ret = 1;
             }
         }
@@ -474,19 +470,24 @@ PAC_INTERNAL void load_file_from_path(char *path, Music_Data *mdata)
     }
 }
 
-PAC_INTERNAL char *separate_file_and_dir_name(char *dir_in_out, char *name_out) 
+PAC_INTERNAL char *separate_file_and_dir_name(char *dir_in_out, 
+                                            char *name_out,
+                                            int dirlen)
 {
-    int length = strlen(dir_in_out);
-    char *temp_in = dir_in_out + length;
+    char *temp_in = dir_in_out + dirlen;
     int chars = 0;
-    while (temp_in != dir_in_out) {
-        if (*temp_in == '/') {
-            *temp_in = 0x0;
-            strncpy(name_out, temp_in + 1, chars);
-            break;
+    if (strchr(dir_in_out, '/')) {
+        while (temp_in != dir_in_out) {
+            if (*temp_in == '/') {
+                *temp_in = 0x0;
+                snprintf(name_out, chars, "%s", temp_in + 1);
+                break;
+            }
+            --temp_in; ++chars;
         }
-        --temp_in; 
-        ++chars;
+    } else {
+        snprintf(name_out, dirlen, "%s", dir_in_out);
+        snprintf(dir_in_out, dirlen, ".");
     }
     return dir_in_out;
 }
@@ -553,7 +554,7 @@ PAC_INTERNAL char add_single_file_to_music_list(char *path, Music_Data *mdata)
     char dir[PATH_MAX];
     char name[NAME_MAX];
     strncpy(dir, path, PATH_MAX - 1);
-    separate_file_and_dir_name(dir, name);
+    separate_file_and_dir_name(dir, name, strlen(dir));
     File_List *mlist = &mdata->music_list;
 
     char cont_dir_already_added = check_dir_already_added(path, &mdata->music_list);
