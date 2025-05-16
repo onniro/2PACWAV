@@ -1,7 +1,6 @@
 /build
-/lib
+/build/lib
 /notes.txt
-/3rd_party/codecs
 /debug.sh
 /src/testing
 /res/*.tex_atlas
