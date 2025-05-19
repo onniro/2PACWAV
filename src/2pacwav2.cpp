@@ -145,43 +145,61 @@ PAC_INTERNAL void parse_startup_paths(Runtime_Vars *rtvars,
                                     char *confbuf,
                                     int confbuf_bytes)
 {
+    const int errsz = 1024;
+    char errbuf[errsz];
     parse_ptr += strlen(CONF_STARTUP_PATH_TOKEN);
-    char *eq_sign_maybe = eat_whitespace(parse_ptr);
-    if (eq_sign_maybe[0] == '=') {
-        ++eq_sign_maybe;
-        char *dbquote_maybe = eat_whitespace(eq_sign_maybe);
-        if (dbquote_maybe[0] == '"') {
-            ++dbquote_maybe;
-            int linelen = txtline_len(dbquote_maybe);
-            char *dbquote_maybe2 = strchr(dbquote_maybe, '"');
-            if (dbquote_maybe2) {
-                int chars_in_quotes = (dbquote_maybe2 - dbquote_maybe) + 1;
-                if (linelen > chars_in_quotes) {
-                    char path[PATH_MAX];
-                    snprintf(path, chars_in_quotes, "%s", dbquote_maybe);
-                    platform_dbg_log("loading startup path %s\n", path);
-                    add_to_music_list(path, rtvars->mdata_ptr, rtvars);
-                } else {
-                    fprintf(stderr, "2wfile syntax error: unterminated double quotes "
-                            "in definition of identifier \"%s\". "
-                            "(terminating double quotes have to be on the same line)\n",
-                            CONF_STARTUP_PATH_TOKEN);
-                }
-            } else {
-                fprintf(stderr, "2wfile syntax error: unterminated double quotes "
-                        "in definition of identifier \"%s\". "
-                        "(terminating double quotes have to be on the same line)\n",
-                        CONF_STARTUP_PATH_TOKEN);
-            }
-        } else {
-            fprintf(stderr, "2wfile syntax error: expected '\"' after '=' "
-                    "in definition of identifier \"%s\"\n", 
-                    CONF_STARTUP_PATH_TOKEN);
-        }
-    } else {
-        fprintf(stderr, "2wfile syntax error: expected '=' after identifier \"%s\"\n",
+    char *eq_sign_maybe, *dbquote_maybe, *dbquote_maybe2;
+    int linelen, chars_in_quotes;
+
+    eq_sign_maybe = eat_whitespace(parse_ptr);
+    if (eq_sign_maybe[0] != '=') {
+        snprintf(errbuf, errsz, 
+                "2wfile syntax error: expected '=' after identifier \"%s\"\n",
                 CONF_STARTUP_PATH_TOKEN);
+        goto syntax_error;
     }
+
+    ++eq_sign_maybe;
+    dbquote_maybe = eat_whitespace(eq_sign_maybe);
+    if (dbquote_maybe[0] != '"') {
+        snprintf(errbuf, errsz,
+                "2wfile syntax error: expected '\"' after '=' "
+                "in definition of identifier \"%s\"\n", 
+                CONF_STARTUP_PATH_TOKEN);
+        goto syntax_error;
+    }
+
+    ++dbquote_maybe;
+    linelen = txtline_len(dbquote_maybe);
+    dbquote_maybe2 = strchr(dbquote_maybe, '"');
+    if (!dbquote_maybe2) {
+        snprintf(errbuf, errsz, 
+                "2wfile syntax error: unterminated double quotes "
+                "in definition of identifier \"%s\". "
+                "(terminating double quotes have to be on the same line)\n",
+                CONF_STARTUP_PATH_TOKEN);
+        goto syntax_error;
+    }
+
+    chars_in_quotes = (dbquote_maybe2 - dbquote_maybe) + 1;
+    if (linelen < chars_in_quotes) {
+        snprintf(errbuf, errsz, 
+                "2wfile syntax error: unterminated double quotes "
+                "in definition of identifier \"%s\". "
+                "(terminating double quotes have to be on the same line)\n",
+                CONF_STARTUP_PATH_TOKEN);
+        goto syntax_error;
+    }
+
+    char path[PATH_MAX];
+    snprintf(path, chars_in_quotes, "%s", dbquote_maybe);
+    platform_dbg_log("loading startup path %s\n", path);
+    add_to_music_list(path, rtvars->mdata_ptr, rtvars);
+
+    return; 
+
+syntax_error: 
+    fprintf(stderr, "%s", errbuf);
 }
 
 PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars, 
