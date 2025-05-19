@@ -140,72 +140,59 @@ PAC_INTERNAL void startup_load_conf(Runtime_Vars *rtvars,
     }
 }
 
-PAC_INTERNAL char *txt_get_next_line_maybe(char *ptr)
+PAC_INTERNAL void parse_startup_paths(Runtime_Vars *rtvars,
+                                    char *parse_ptr,
+                                    char *confbuf,
+                                    int confbuf_bytes)
 {
-    if (!ptr) { return 0; }
-    char *ret = 0;
-    while (*(++ptr)) {
-        if ((*ptr == '\n') && *(ptr + 1)) {
-            ret = ptr + 1;
-            break;
-        } else if (!*ptr) { 
-            break; 
-        }
-    }
-    return ret;
-}
-
-PAC_INTERNAL char *cfg_get_section_start_maybe(char *cfgbuf, 
-                                            char *sect_literal, 
-                                            Runtime_Vars *rtvars) 
-{
-    if (!cfgbuf || !sect_literal) { return 0; }
-    char *ret = strstr(cfgbuf, sect_literal);
-    if (ret) {
-        char *ret_end = ret + strlen(sect_literal);
-        if (strstr(ret_end, sect_literal)) {
-            //TODO: better error handling n shiet
-            platform_log("[config error]: duplicate instance of section %s found in %s",
-                    sect_literal, rtvars->conf_directory);
-            ret = 0; 
-        } else if ((uintptr_t)ret_end + 1) {
-            ret = (char *)((uintptr_t)ret_end + 1); 
-        }
-    }
-    return ret;
-}
-
-//the format i'm envisioning is similar to the toml
-//format where you have different sections which you declare with [section_name]
-//and then the shit inside there that is supposed to be there
-
-PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars, 
-                                        char *cfgbuf, 
-                                        int confbuf_bytes)
-{
-    //NOTE: i'm doing this the lazy/slow/dumb way for now
-#if 0
-    char *this_line = cfgbuf, *next_line;
-    int line_num = 1, this_line_len;
-    for (;;) {
-        next_line = txt_get_next_line_maybe(this_line);
-        if (next_line) {
-            this_line_len = (uintptr_t)next_line - (uintptr_t)this_line;
-            if (this_line_len) {
-
+    parse_ptr += strlen(CONF_STARTUP_PATH_TOKEN);
+    char *eq_sign_maybe = eat_whitespace(parse_ptr);
+    if (eq_sign_maybe[0] == '=') {
+        ++eq_sign_maybe;
+        char *dbquote_maybe = eat_whitespace(eq_sign_maybe);
+        if (dbquote_maybe[0] == '"') {
+            ++dbquote_maybe;
+            int linelen = txtline_len(dbquote_maybe);
+            char *dbquote_maybe2 = strchr(dbquote_maybe, '"');
+            if (dbquote_maybe2) {
+                int chars_in_quotes = (dbquote_maybe2 - dbquote_maybe) + 1;
+                if (linelen > chars_in_quotes) {
+                    char path[PATH_MAX];
+                    snprintf(path, chars_in_quotes, "%s", dbquote_maybe);
+                    platform_dbg_log("loading startup path %s\n", path);
+                    add_to_music_list(path, rtvars->mdata_ptr, rtvars);
+                } else {
+                    fprintf(stderr, "2wfile syntax error: unterminated double quotes "
+                            "in definition of identifier \"%s\". "
+                            "(terminating double quotes have to be on the same line)\n",
+                            CONF_STARTUP_PATH_TOKEN);
+                }
+            } else {
+                fprintf(stderr, "2wfile syntax error: unterminated double quotes "
+                        "in definition of identifier \"%s\". "
+                        "(terminating double quotes have to be on the same line)\n",
+                        CONF_STARTUP_PATH_TOKEN);
             }
         } else {
-            ++line_num;
-            break;
+            fprintf(stderr, "2wfile syntax error: expected '\"' after '=' "
+                    "in definition of identifier \"%s\"\n", 
+                    CONF_STARTUP_PATH_TOKEN);
         }
-        this_line = next_line;
-        ++line_num;
+    } else {
+        fprintf(stderr, "2wfile syntax error: expected '=' after identifier \"%s\"\n",
+                CONF_STARTUP_PATH_TOKEN);
     }
-#else 
-    //if (strstr(cfgbuf, CFG_SECTION_TOKEN_PATHS_STRING)) {
-    //    
-    //}
-#endif
+}
+
+PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars, 
+                                        char *confbuf, 
+                                        int confbuf_bytes)
+{
+    //this is lazy
+    char *parse_ptr = strstr(confbuf, CONF_STARTUP_PATH_TOKEN);
+    if (parse_ptr) {
+        parse_startup_paths(rtvars, parse_ptr, confbuf, confbuf_bytes);
+    }
 }
 
 PAC_INTERNAL void startup_add_paths(Startup_Args *sargs,
@@ -1523,18 +1510,18 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
 
 #if 1
     char searchkey_was_pressed = (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
-                                    pac_btn_press(SDL_SCANCODE_F, 
-                                    &sflags->f_wasdown, 
-                                    rtvars->kbd_state));
+                                pac_btn_press(SDL_SCANCODE_F, 
+                                &sflags->f_wasdown, 
+                                rtvars->kbd_state));
     char esc_was_pressed = pac_btn_press(SDL_SCANCODE_ESCAPE,
                                 &sflags->esc_wasdown,
                                 rtvars->kbd_state);
-    //char enter_was_pressed = pac_btn_press(SDL_SCANCODE_RETURN,
-    //                            &sflags->enter_wasdown,
-    //                            rtvars->kbd_state);
+    char enter_was_pressed = pac_btn_press(SDL_SCANCODE_RETURN,
+                                &sflags->enter_wasdown,
+                                rtvars->kbd_state);
     if (searchkey_was_pressed) { 
         sflags->searchwindow_open = !sflags->searchwindow_open; 
-    } else if (esc_was_pressed) {
+    } else if (esc_was_pressed || enter_was_pressed) {
         sflags->searchwindow_open = 0;
     }
 #endif
@@ -1554,10 +1541,9 @@ PAC_INTERNAL char sdlmixer_get_taginfo(Music_Data *mdata)
 PAC_INTERNAL void sdlmixer_start_music(Music_Data *mdata, char *music_path) 
 {
     if (mdata->sdlmixer_music && 
-            (Mix_PlayingMusic() || 
-            Mix_PausedMusic())) { 
-        sdlmixer_stop_music(mdata); 
-    }
+        (Mix_PlayingMusic() || 
+        Mix_PausedMusic())) 
+    { sdlmixer_stop_music(mdata); }
 
     mdata->sdlmixer_music = Mix_LoadMUS(music_path);
 
@@ -1569,7 +1555,7 @@ PAC_INTERNAL void sdlmixer_start_music(Music_Data *mdata, char *music_path)
         platform_dbg_log("failed to load music. desc: %s\n", SDL_GetError()); 
         char info[USERINFO_BUFFER_SIZE];
         snprintf(info, USERINFO_BUFFER_SIZE - 1,
-                "[error]: failed to play file %s, skipping.",
+                "[error]: failed to play file %s, skipping.", //NOTE: this will never show up since it just gets overwritten
                 mdata->music_list.filenames_string_loclist[mdata->music_list.current_index]);
         set_userinfo(mdata->rtvars_ptr, info, USERINFO_TYPE_ERROR);
         goto_next_file(mdata);

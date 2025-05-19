@@ -65,7 +65,7 @@ PAC_INTERNAL int platform_list_files_simple(char *path, File_List *out_flist, ch
             if (!dir_entry) { break; }
 
             if (!(!strcmp(".", dir_entry->d_name) || 
-                    !strcmp("..", dir_entry->d_name))) {
+                !strcmp("..", dir_entry->d_name))) {
                 write_ptr = loclist[out_flist->entry_count];
                 filename_len = strlen(dir_entry->d_name);
                 strncpy(write_ptr, dir_entry->d_name, NAME_MAX - 1);
@@ -133,8 +133,6 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
     MEM_INIT_ASSERT(heapbuf, bufgroup->music_current_filename,          PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->inbuf_filename,                  PATH_MAX);
     MEM_INIT_ASSERT(heapbuf, bufgroup->inbuf_search,                    PATH_MAX);
-    //MEM_INIT_ASSERT(heapbuf, bufgroup->working_directory,               PATH_MAX);
-    //MEM_INIT_ASSERT(heapbuf, bufgroup->resource_directory,              PATH_MAX);
 #if PAC_SPECTRUM_ENABLED
     MEM_INIT_ASSERT(heapbuf, bufgroup->fft_complex32_buffer,            FFT_COMPLEX32_BUFFER_SIZE*2);
 #endif
@@ -153,7 +151,7 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
                 bufgroup->scratch_space, 
                 bufgroup->scratch_bytes); 
     }
-    platform_dbg_log("scrath:%d bytes\n", bufgroup->scratch_bytes);
+    platform_dbg_log("scratch: %d bytes\n", bufgroup->scratch_bytes);
 #else
     platform_dbg_log("unallocated bytes:%.2f/%.2f\n", 
             (float)(ro_buffer_unallocated_bytes(heapbuf)), 
@@ -237,9 +235,8 @@ int main(int arg_count, char **args)
     sargs.paths.buffer = (char *)bufgroup.scratch_space;
     sargs.paths.buffer[0] = 0;
     sargs.paths.ptrs[0] = sargs.paths.buffer;
-    if (pac_do_command_args(arg_count, args, &sargs, &bufgroup)) { 
-        return EXIT_SUCCESS; 
-    }
+    if (pac_do_command_args(arg_count, args, &sargs, &bufgroup)) 
+    { return EXIT_SUCCESS; }
 
     Sdl_Apidata sdldata = {};
     Music_Data mdata = {};
@@ -277,7 +274,7 @@ int main(int arg_count, char **args)
     if (!pac_imgui_load_font(PAC_LATIN_FONT_STRING, 
             PAC_LATIN_FONTSIZE, 
             &rtvars)) {
-        platform_log("loading fonts failed\n");
+        platform_log("[error]: loading fonts failed\n");
         return -1;
     }
 
@@ -309,20 +306,20 @@ int main(int arg_count, char **args)
 #if _2PACWAV_DEBUG
     {
         int gl_maj, gl_min;
+        const SDL_version *sdlver = Mix_Linked_Version();
         SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &gl_maj);
         SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &gl_min);            
         platform_dbg_log("OpenGL vendor: %s\n"
                 "OpenGL version: %s\n"
                 "renderer: %s\n"
                 "GLSL version: %s\n"
-                "SDL_GL context version: %d.%d\n",
+                "SDL_GL context version: %d.%d\n"
+                "SDL2 mixer version: %u.%u.%u\n",
                 glGetString(GL_VENDOR),
                 glGetString(GL_VERSION),
                 glGetString(GL_RENDERER),
                 glGetString(GL_SHADING_LANGUAGE_VERSION),
-                gl_maj, gl_min);
-        const SDL_version *sdlver = Mix_Linked_Version();
-        platform_dbg_log("SDL2 mixer version: %u.%u.%u\n", 
+                gl_maj, gl_min,
                 sdlver->major,
                 sdlver->minor,
                 sdlver->patch);

@@ -6,11 +6,6 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #ifndef _2PACWAV_DOT_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #include "ro_heapbuf.h"
 
 #include <GL/gl.h>
@@ -113,6 +108,7 @@ struct Metadata_Editor;
 struct Audio_Stream;
 
 #define PAC_CONFNAME_STRING "2wconf"
+#define CONF_STARTUP_PATH_TOKEN "startup_path"
 
 typedef struct General_Buffer_Group 
 {
@@ -344,22 +340,71 @@ typedef struct Runtime_Vars
     char conf_directory[PATH_MAX];
 } Runtime_Vars;
 
-//i know this is an inefficient way to do this (look into KMP-algorithm perhap)
-PAC_DEF char *pac_strnstr(char *fullstr, char *substr, int nchars)
+PAC_DEF char *pac_strnstr(char *haystack, char *needle, int nchars)
 {
     char *ret = 0, *tmp_full, *tmp_sub;
     for (int chari = 0; 
-        (chari < nchars) && fullstr[chari]; 
+        (chari < nchars) && haystack[chari]; 
         ++chari) {
         int charj = 0;
         while ((chari + charj < nchars) &&
-            fullstr[charj] && 
-            fullstr[chari + charj] == substr[charj])
+            haystack[charj] && 
+            haystack[chari + charj] == needle[charj])
         { ++charj; }
-        if (!substr[charj]) { 
-            ret = (char *)((uintptr_t)fullstr + chari); 
+        if (!needle[charj]) { 
+            ret = (char *)((uintptr_t)haystack + chari); 
             break; 
         }
+    }
+    return ret;
+}
+
+PAC_DEF char *pac_strnchr(char *haystack, char needle, int nvalue)
+{
+    char *ret = 0;
+    int index = 0;
+    while (haystack[index] && nvalue) {
+        --nvalue;
+        if (haystack[index] == needle) {
+            ret = &haystack[index];
+            break;
+        }
+        ++index;
+    }
+    return ret;
+}
+
+PAC_DEF char is_whitespace(char c)
+{
+    char ret = 0;
+    if ((c == ' ') ||
+        (c == '\n') ||
+        (c == '\r') ||
+        (c == '\0'))
+    { ret = 1; }
+    return ret;
+}
+
+PAC_DEF int txtline_len(char *line)
+{
+    int count = 0;
+    while (1) {
+        if ((line[count] == '\n') ||
+            (line[count] == '\r') ||
+            (line[count] == '\0')) 
+        { ++count; break; }
+        ++count;
+    }
+    return count;
+}
+
+PAC_DEF char *eat_whitespace(char *ptr)
+{
+    char *ret = ptr;
+    while (1) {
+        if (!is_whitespace(ret[0])) 
+        { break; }
+        ++ret; 
     }
     return ret;
 }
@@ -390,10 +435,6 @@ PAC_INTERNAL void sdlmixer_stop_music(Music_Data *mdata);
 void pac_sdlmixer_postmix_callback(void *udata, uint8_t *stream, int len);
 PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata);
 PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata);
-
-#ifdef __cplusplus
-}
-#endif
 
 #define _2PACWAV_DOT_H
 #endif
