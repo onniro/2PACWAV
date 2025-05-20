@@ -26,7 +26,6 @@ typedef float _Complex Complex32;
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)11111) //90fps
 #define PAC_SEEK_VALUE_MAX (1000)
 
-//#define PAC_LATIN_FONT_STRING   "LiberationMono-Regular.ttf"
 #define PAC_LATIN_FONT_STRING   "DejaVuSansMono.ttf"
 #define PAC_CJK_FONT_STRING     "NotoSansMonoCJKhk-Regular.otf"
 #define PAC_LATIN_FONTSIZE (17.0f)
@@ -144,16 +143,17 @@ typedef struct Startup_Args_Paths
 
 typedef struct Startup_Args 
 {
+    char no_load_conf;
     General_Buffer_Group *bufgroup_ptr;
     Startup_Args_Paths paths;
 } Startup_Args;
 
 typedef struct File_List
 {
-    uint32_t entry_count;
-    uint32_t dirs_added;
-    uint32_t current_index; //why is this here
-    uint32_t match_count;
+    int entry_count;
+    int dirs_added;
+    int current_index; //why is this here
+    int match_count;
     int context_index;
     int sel_index;
     char *dirnames_buf;                 //buffer containing the directories added, delimited by null
@@ -190,10 +190,10 @@ PAC_DEF void cycle_center_view_state(Center_View_State *value)
 {
     if (!value) { return; }
     uint8_t new_value = 1 + (uint8_t)(*value);
-    if (new_value != CENTER_VIEW_STATE__LAST) { 
-        *value = (Center_View_State)new_value; 
-    } else { 
-        *value = (Center_View_State)0; 
+    if (new_value != CENTER_VIEW_STATE__LAST) {
+        *value = (Center_View_State)new_value;
+    } else {
+        *value = (Center_View_State)0;
     }
 }
 
@@ -205,7 +205,7 @@ typedef struct Mouse_State
 {
     char down;
     char wasdown_flags[4];
-    struct //this only gets updated when there is a click event
+    struct
     {
         int x;
         int y;
@@ -343,17 +343,17 @@ typedef struct Runtime_Vars
 PAC_DEF char *pac_strnstr(char *haystack, char *needle, int nchars)
 {
     char *ret = 0, *tmp_full, *tmp_sub;
-    for (int chari = 0; 
-        (chari < nchars) && haystack[chari]; 
+    for (int chari = 0;
+        (chari < nchars) && haystack[chari];
         ++chari) {
         int charj = 0;
         while ((chari + charj < nchars) &&
-            haystack[charj] && 
+            haystack[charj] &&
             haystack[chari + charj] == needle[charj])
         { ++charj; }
-        if (!needle[charj]) { 
-            ret = (char *)((uintptr_t)haystack + chari); 
-            break; 
+        if (!needle[charj]) {
+            ret = (char *)((uintptr_t)haystack + chari);
+            break;
         }
     }
     return ret;

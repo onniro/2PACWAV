@@ -62,9 +62,11 @@ PAC_INTERNAL void show_version()
 
 PAC_INTERNAL void show_help()
 {
-    platform_log("-h | --help : show this message and exit\n",
+    show_version();
+    platform_log("usage: 2w [options] [files]\n"
+                "-h | --help : show this message and exit\n"
                 "-v | --version : show version and exit\n"
-                "use ./filename to add file in current directory\n");
+                "-noconf : do not look for a configuration file\n");
 }
 
 PAC_INTERNAL void startup_push_path(Startup_Args *sargs, char *path) 
@@ -105,6 +107,8 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
             exit_after_ret = 1;
             show_help();
             break;
+        } else if (!sargs->no_load_conf && !strcmp("-noconf", arg)) {
+            sargs->no_load_conf = 1;
         } else {
             if (platform_path_exists(arg)) {
                 startup_push_path(sargs, arg);
@@ -132,7 +136,7 @@ PAC_INTERNAL void startup_load_conf(Runtime_Vars *rtvars,
 #endif
     if (platform_file_exists(confpath)) {
         snprintf(rtvars->conf_directory, PATH_MAX - 1, "%s", confpath);
-        platform_read_file(confpath, confbuf, confbuf_bytes);
+        platform_read_file(confpath, confbuf, confbuf_bytes - 1);
         const int infosize = PATH_MAX + sizeof("loaded config: ");
         char infobuf[infosize];
         snprintf(infobuf, infosize - 1, "loaded config: %s", confpath);
@@ -156,7 +160,7 @@ PAC_INTERNAL void parse_startup_paths(Runtime_Vars *rtvars,
         snprintf(errbuf, errsz, 
                 "2wfile syntax error: expected '=' after identifier \"%s\"\n",
                 CONF_STARTUP_PATH_TOKEN);
-        goto syntax_error;
+        goto report_error;
     }
 
     ++eq_sign_maybe;
@@ -166,7 +170,7 @@ PAC_INTERNAL void parse_startup_paths(Runtime_Vars *rtvars,
                 "2wfile syntax error: expected '\"' after '=' "
                 "in definition of identifier \"%s\"\n", 
                 CONF_STARTUP_PATH_TOKEN);
-        goto syntax_error;
+        goto report_error;
     }
 
     ++dbquote_maybe;
@@ -178,7 +182,7 @@ PAC_INTERNAL void parse_startup_paths(Runtime_Vars *rtvars,
                 "in definition of identifier \"%s\". "
                 "(terminating double quotes have to be on the same line)\n",
                 CONF_STARTUP_PATH_TOKEN);
-        goto syntax_error;
+        goto report_error;
     }
 
     chars_in_quotes = (dbquote_maybe2 - dbquote_maybe) + 1;
@@ -188,7 +192,7 @@ PAC_INTERNAL void parse_startup_paths(Runtime_Vars *rtvars,
                 "in definition of identifier \"%s\". "
                 "(terminating double quotes have to be on the same line)\n",
                 CONF_STARTUP_PATH_TOKEN);
-        goto syntax_error;
+        goto report_error;
     }
 
     char path[PATH_MAX];
@@ -198,7 +202,7 @@ PAC_INTERNAL void parse_startup_paths(Runtime_Vars *rtvars,
 
     return; 
 
-syntax_error: 
+report_error: 
     fprintf(stderr, "%s", errbuf);
 }
 
@@ -206,10 +210,12 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                                         char *confbuf, 
                                         int confbuf_bytes)
 {
-    //this is lazy
     char *parse_ptr = strstr(confbuf, CONF_STARTUP_PATH_TOKEN);
     if (parse_ptr) {
-        parse_startup_paths(rtvars, parse_ptr, confbuf, confbuf_bytes);
+        parse_startup_paths(rtvars,
+                parse_ptr,
+                confbuf,
+                confbuf_bytes);
     }
 }
 
@@ -371,7 +377,6 @@ PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
                             |ImGuiWindowFlags_NoSavedSettings
                             |ImGuiWindowFlags_NoDecoration
                             |ImGuiWindowFlags_MenuBar);
-        
 
     ImGui::SetShortcutRouting(ImGuiMod_Ctrl|ImGuiKey_Tab, 0, ImGuiButtonFlags_NoSetKeyOwner);
     ImGui::SetShortcutRouting(ImGuiMod_Ctrl|ImGuiMod_Shift|ImGuiKey_Tab, 0, ImGuiButtonFlags_NoSetKeyOwner);
@@ -389,7 +394,7 @@ PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
 
     ImGui::End();
 
-    if (sflags->searchwindow_open) 
+    if (sflags->searchwindow_open)
     { menu_do_search(rtvars, bufgroup, mdata); }
 
     ImGui::Render();
@@ -516,8 +521,8 @@ PAC_INTERNAL double conv_slide_value2songpos(Music_Data *mdata)
 {
     double result = 0;
     if (mdata->sdlmixer_music && 
-            mdata->current_position && 
-            mdata->current_duration) {
+        mdata->current_position && 
+        mdata->current_duration) {
         result = (((double)(mdata->seek_value)) / 
                 PAC_SEEK_VALUE_MAX) *
                 mdata->current_duration; 
@@ -529,8 +534,8 @@ PAC_INTERNAL float conv_songpos2slide_value(Music_Data *mdata)
 {
     float result = 0.0f;
     if (mdata->sdlmixer_music && 
-            mdata->current_position && 
-            mdata->current_duration) {
+        mdata->current_position && 
+        mdata->current_duration) {
         result = ((float)(mdata->current_position / 
                 mdata->current_duration)) * 
                 PAC_SEEK_VALUE_MAX; 
@@ -579,7 +584,9 @@ PAC_INTERNAL char add_single_file_to_music_list(char *path, Music_Data *mdata)
 
 PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars)
 {
-    int old_file_count = mdata->music_list.entry_count, new_file_count, added_files;
+    int old_file_count = mdata->music_list.entry_count, 
+            new_file_count, 
+            added_files;
 
     if (platform_file_exists(path)) {
         add_single_file_to_music_list(path, mdata); 
@@ -613,7 +620,7 @@ PAC_INTERNAL char *find_top_level_path4file(char *filename, File_List *flist)
 {
     char *result = 0, *dirname;
     char pathbuf[PATH_MAX];
-    for (uint32_t dir_index = 0; 
+    for (int dir_index = 0; 
         dir_index < flist->dirs_added; 
         ++dir_index) {
         dirname = flist->dirnames_string_loclist[dir_index];
@@ -679,11 +686,10 @@ PAC_INTERNAL void goto_next_file(Music_Data *mdata)
             }
         } else {
             uint32_t next_index = cur_index;
-            if (mlist->entry_count != 2) { 
-                next_index = get_random_file_index(mdata); 
-            } else { 
-                next_index = !next_index; 
-            }
+            if (mlist->entry_count != 2) 
+            { next_index = get_random_file_index(mdata); }
+            else 
+            { next_index = !next_index; }
             next_file = mlist->filenames_string_loclist[next_index];
             file_list_play_file(next_file, next_index, mdata);
         }
@@ -696,9 +702,9 @@ PAC_INTERNAL void goto_next_file(Music_Data *mdata)
 //for now this is kinda bogus if youre using shuffle
 PAC_INTERNAL void goto_prev_file(Music_Data *mdata)
 {
-    if (!mdata->sdlmixer_music || (mdata->music_list.current_index == 0)) 
+    if (!mdata->sdlmixer_music || 
+        (mdata->music_list.current_index == 0)) 
     { return; }
-    
     File_List *mlist = &mdata->music_list;
     uint32_t cur_index = mlist->current_index;
     int goto_index = cur_index - 1;
@@ -714,9 +720,9 @@ PAC_INTERNAL void clear_file_list(Music_Data *mdata)
     if (!mdata->music_list.entry_count) { return; }
     File_List *mlist = &mdata->music_list;
 
-    for (uint32_t clear_index = 1;
-            clear_index < mlist->entry_count;
-            ++clear_index) {
+    for (int clear_index = 1;
+        clear_index < mlist->entry_count;
+        ++clear_index) {
         mlist->filenames_string_loclist[clear_index] = 0;
         mlist->dirnames_string_loclist[clear_index] = 0;
     }
@@ -761,9 +767,9 @@ PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
                             &bmpinfo->height, 
                             &bmpinfo->chan, 
                             4);
-    if (bmpinfo->ogl_tex_id) {
-        glDeleteTextures(1, &bmpinfo->ogl_tex_id); 
-    }
+    if (bmpinfo->ogl_tex_id) 
+    { glDeleteTextures(1, &bmpinfo->ogl_tex_id);  }
+
     glGenTextures(1, &bmpinfo->ogl_tex_id);
     glBindTexture(GL_TEXTURE_2D, bmpinfo->ogl_tex_id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -834,7 +840,7 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
     char **artist_ptr = &mdata->current_metadata.artist_begin_in_buf;
     char **album_ptr = &mdata->current_metadata.album_begin_in_buf;
 
-    if (sdlmixer_get_taginfo(mdata)) { 
+    if (sdlmixer_get_taginfo(mdata)) {
         char *meta_begin = path_begin + strlen(path_begin);
         format_taginfo(mdata, meta_begin, 0); 
     }
@@ -867,7 +873,7 @@ PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars,
             set_match_flags((char *)bufgroup->inbuf_search, mdata); 
             char info_buf[USERINFO_BUFFER_SIZE];
             snprintf(info_buf, 
-                    USERINFO_BUFFER_SIZE - 1, 
+                    USERINFO_BUFFER_SIZE, 
                     "[search]: %d results", 
                     mdata->music_list.match_count);
             set_userinfo(rtvars, info_buf, USERINFO_TYPE_NOTE);
@@ -938,7 +944,7 @@ PAC_INTERNAL void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
     char *filename = mlist->filenames_string_loclist[mlist->context_index];
     char *cont = find_top_level_path4file(filename, mlist);
     if (cont) {
-        snprintf(meta->editor_current, PATH_MAX - 1, 
+        snprintf(meta->editor_current, PATH_MAX,
 #if _2PACWAV_LINUX
                 "%s/%s", 
 #elif _2PACWAV_WIN32
@@ -961,11 +967,11 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
 {
     File_List *mlist = &mdata->music_list;
     State_Flags *sflags = &rtvars->sflags;
-
     uint32_t render_index = 0, file_index = 0;
     ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.0, 0.5f));
     char btntext[NAME_MAX];
     char *filename;
+
     for (int loop_index = 0; loop_index < (int)mlist->entry_count; ++loop_index) {
         if (!mlist->match_flags[loop_index]) {
             filename = mlist->filenames_string_loclist[loop_index];
@@ -1013,9 +1019,9 @@ PAC_INTERNAL void set_match_flags(char *searchbuf, Music_Data *mdata)
 
     if (searchbuf[0]) {
         char *string;
-        for (uint32_t file_index = 0;
-                file_index < mlist->entry_count;
-                ++file_index) {
+        for (int file_index = 0;
+            file_index < mlist->entry_count;
+            ++file_index) {
             string = mlist->filenames_string_loclist[file_index];
             if (pac_strcasestr(string, searchbuf)) {
                 mlist->match_flags[file_index] = 0;
@@ -1100,15 +1106,15 @@ PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
         if (pac_btn_press(SDL_SCANCODE_0, &sflags->zero_wasdown, rtvars->kbd_state)) { 
             if ((mdata->volume + PAC_DEFAULT_VOLUME_INCREMENT) < MIX_MAX_VOLUME) { 
                 mdata->volume += PAC_DEFAULT_VOLUME_INCREMENT; 
-            } else { 
-                mdata->volume = MIX_MAX_VOLUME; 
+            } else {
+                mdata->volume = MIX_MAX_VOLUME;
             }
             Mix_VolumeMusic(mdata->volume);
         } if (pac_btn_press(SDL_SCANCODE_9, &sflags->nine_wasdown, rtvars->kbd_state)) { 
-            if (((int)mdata->volume - PAC_DEFAULT_VOLUME_INCREMENT) > 0) { 
+            if (((int)mdata->volume - PAC_DEFAULT_VOLUME_INCREMENT) > 0) {
                 mdata->volume -= PAC_DEFAULT_VOLUME_INCREMENT; 
             } else { 
-                mdata->volume = 0; 
+                mdata->volume = 0;
             }
             Mix_VolumeMusic(mdata->volume);
         }
@@ -1117,13 +1123,10 @@ PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
     ImGui::SameLine();
     ImGui::SetNextItemWidth(vol_width);
     if (ImGui::SliderInt("##vol_slider", 
-            &mdata->volume, 
-            0, 
-            MIX_MAX_VOLUME, 
-            "vol: %d",
-            ImGuiSliderFlags_NoInput)) {
-        Mix_VolumeMusic(mdata->volume);
-    }
+            &mdata->volume, 0, 
+            MIX_MAX_VOLUME, "vol: %d",
+            ImGuiSliderFlags_NoInput)) 
+    { Mix_VolumeMusic(mdata->volume); }
 }
 
 PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
@@ -1155,11 +1158,9 @@ PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
     float width_left = ImGui::GetContentRegionAvail().x;
     ImGui::SetNextItemWidth(width_left);
     if (ImGui::SliderInt("##vol_seeker", 
-            &mdata->seek_value, 
-            0, 
-            PAC_SEEK_VALUE_MAX, 
-            "",
-            ImGuiSliderFlags_NoInput)) {
+        &mdata->seek_value, 0, 
+        PAC_SEEK_VALUE_MAX, "",
+        ImGuiSliderFlags_NoInput)) {
         double new_seek = conv_slide_value2songpos(mdata);
         Mix_SetMusicPosition(new_seek);
     }
@@ -1167,7 +1168,7 @@ PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
 
 PAC_INTERNAL void do_path_autocomplete(char *current, Runtime_Vars *rtvars)
 {
-#if !_2PACWAV_RELEASE && 0
+#if 0x0
     File_List *alist = &rtvars->autocomp_list;
     PAC_LOCAL_STATIC int suggest_index = -1;
     char tempbuf[PATH_MAX];
@@ -1179,10 +1180,9 @@ PAC_INTERNAL void do_path_autocomplete(char *current, Runtime_Vars *rtvars)
 #if _2PACWAV_LINUX
         if (tempbuf[temp_len] == '/')
 #elif _2PACWAV_WIN32
+        if (tempbuf[temp_len] == '\\')
 #endif
-        {
-            break;
-        }
+        { break; }
     }
 
     if (platform_path_exists(tempbuf)) {
@@ -1210,23 +1210,21 @@ PAC_INTERNAL void do_path_autocomplete(char *current, Runtime_Vars *rtvars)
             }
         }
 
-        if (suggest_index >= (int)alist->entry_count) {
-            suggest_index = -1; 
-        }
+        if (suggest_index >= (int)alist->entry_count) 
+        { suggest_index = -1; }
 
         char *i_file;
         //printf("files:\n");
-        for (int i = suggest_index + 1; i < (int)alist->entry_count; ++i {
+        for (int i = suggest_index + 1; i < (int)alist->entry_count; ++i) {
             temp_len = 0;
             i_file = alist->filenames_string_loclist[i];
             //printf("%s\n", i_file);
             do {
                 if (temp_len == pattern_len - 1) {
                     suggest_index = i;
-                    i = 1 << 30;
+                    i = alist->entry_count + 1; //break out of outer loop
                     break;
-                } else if(pattern[temp_len] != i_file[temp_len]) {
-                    printf("broke when pattern=%s & i_file=%s & templ=%d\n", pattern, i_file, temp_len);
+                } else if (pattern[temp_len] != i_file[temp_len]) {
                     break; 
                 } 
             } while (++temp_len);
@@ -1379,9 +1377,8 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
 
     if (mdata->sdlmixer_music && 
         (Mix_PlayingMusic() || 
-        Mix_PausedMusic())) { 
-        update_music_info(mdata); 
-    }
+        Mix_PausedMusic())) 
+    { update_music_info(mdata); }
 
     pac_begin_frame(rtvars, sdldata);
     menu_do_menubar(rtvars, mdata);
@@ -1390,9 +1387,8 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     char d_was_pressed = pac_btn_press(SDL_SCANCODE_D, 
                             &sflags->d_wasdown, 
                             rtvars->kbd_state);
-    if (rtvars->kbd_state[SDL_SCANCODE_LALT] && d_was_pressed) {
-        ImGui::SetKeyboardFocusHere(0);
-    }
+    if (rtvars->kbd_state[SDL_SCANCODE_LALT] && d_was_pressed) 
+    { ImGui::SetKeyboardFocusHere(0); }
 
     ImGui::Text("path:");
     ImGui::SameLine();
@@ -1424,7 +1420,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
 
     //this check probably hasn't been necessary since the imgui port
     if ((sdldata->win_height > MLIST_MIN_WIN_WIDTH) && 
-            (sdldata->win_width > MLIST_MIN_WIN_HEIGHT)) {
+        (sdldata->win_width > MLIST_MIN_WIN_HEIGHT)) {
         switch (rtvars->sflags.viewstate) {
         case CENTER_VIEW_STATE_MUSIC_LIST: {
             menu_do_music_list(rtvars, mdata);

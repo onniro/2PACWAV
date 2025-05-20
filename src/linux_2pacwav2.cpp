@@ -30,7 +30,9 @@ Date: Thu 24 Apr 2025 04:22:31 PM EEST
 
 #include "2pacwav2.cpp"
 
-PAC_INTERNAL char *platform_find_res_path(Runtime_Vars *rtvars, char *out_res_path, int bufsize)
+PAC_INTERNAL char *platform_find_res_path(Runtime_Vars *rtvars, 
+                                        char *out_res_path, 
+                                        int bufsize)
 {
     char *result = 0;
     char try_buf[PATH_MAX];
@@ -51,7 +53,9 @@ PAC_INTERNAL char *platform_find_res_path(Runtime_Vars *rtvars, char *out_res_pa
     return result;
 }
 
-PAC_INTERNAL int platform_list_files_simple(char *path, File_List *out_flist, char sort)
+PAC_INTERNAL int platform_list_files_simple(char *path, 
+                                        File_List *out_flist, 
+                                        char sort)
 {
     int result = 0;
     dirent *dir_entry;
@@ -144,7 +148,6 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_buf,              DIRNAMES_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->autocomp_buffer,                 FILENAMES_BUFFER_SIZE);
 
-#if 1
     bufgroup->scratch_bytes = ro_buffer_unallocated_bytes(heapbuf);
     if (bufgroup->scratch_bytes) {
         MEM_INIT_ASSERT(heapbuf, 
@@ -152,11 +155,6 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
                 bufgroup->scratch_bytes); 
     }
     platform_dbg_log("scratch: %d bytes\n", bufgroup->scratch_bytes);
-#else
-    platform_dbg_log("unallocated bytes:%.2f/%.2f\n", 
-            (float)(ro_buffer_unallocated_bytes(heapbuf)), 
-            (float)(heapbuf->total_bytes));
-#endif
 }
 
 PAC_INTERNAL char platform_file_exists(char *path)
@@ -169,7 +167,7 @@ PAC_INTERNAL char platform_directory_exists(char *path)
     return ro_posix_directory_exists(path);
 }
 
-PAC_INTERNAL char platform_path_exists(char *path)
+PAC_INTERNAL char platform_path_exists(char *path) 
 {
     return ro_posix_path_exists(path);
 }
@@ -215,7 +213,8 @@ PAC_INTERNAL void platform_get_working_directory(char *buf, int buf_size)
 {
     ro_posix_get_working_directory(buf, buf_size);
     int len = strlen(buf);
-    if (buf[len - 1] == '/') { buf[len - 1] = 0; }
+    while (buf[len - 1] == '/') 
+    { buf[--len] = 0; }
 }
 
 int main(int arg_count, char **args) 
@@ -253,13 +252,15 @@ int main(int arg_count, char **args)
         
     mdata.current_filename = (char *)bufgroup.music_current_filename;
     mdata.rtvars_ptr = &rtvars;
-    //rtvars.working_directory = (char *)bufgroup.working_directory;
-    //rtvars.resource_directory = (char *)bufgroup.resource_directory;
 
     platform_get_working_directory(rtvars.working_directory, PATH_MAX);
     platform_find_res_path(&rtvars, rtvars.resource_directory, PATH_MAX - 1);
 #if _2PACWAV_DEBUG
-    startup_load_conf(&rtvars, (char *)bufgroup.conf_file_buffer, CONFBUFFER_SIZE - 1);
+    if (!sargs.no_load_conf) {
+        startup_load_conf(&rtvars, 
+                (char *)bufgroup.conf_file_buffer, 
+                CONFBUFFER_SIZE);
+    }
 #endif
 
     IMGUI_CHECKVERSION();
@@ -331,8 +332,7 @@ int main(int arg_count, char **args)
         memset(bufgroup.scratch_space, 0, (sargs.paths.count + 2)*PATH_MAX);
     }
     
-#if _2PACWAV_DEBUG
-    {
+    if (!sargs.no_load_conf) {
         int conf_len = strlen((char *)bufgroup.conf_file_buffer);
         if (conf_len && (conf_len < CONFBUFFER_SIZE)) {
             parse_and_apply_config(&rtvars, 
@@ -340,7 +340,6 @@ int main(int arg_count, char **args)
                     CONFBUFFER_SIZE);
         }
     }
-#endif
 
     rtvars.autocomp_list.filenames_buf = (char *)bufgroup.autocomp_buffer;
     rtvars.autocomp_list.filenames_string_loclist = (char **)bufgroup.autocomp_string_loclist;
