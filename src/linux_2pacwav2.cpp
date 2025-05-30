@@ -79,7 +79,8 @@ PAC_INTERNAL int platform_list_files_simple(char *path,
             }
         }
 
-        if (sort) { sort_file_list_alpha(out_flist, 0); }
+        if (sort) 
+        { sort_file_list_alpha(out_flist, 0); }
         result = 1;
     } else { 
         platform_dbg_log("directory listing failed. reason: failed to initialize directory struct\n"); 
@@ -255,13 +256,12 @@ int main(int arg_count, char **args)
 
     platform_get_working_directory(rtvars.working_directory, PATH_MAX);
     platform_find_res_path(&rtvars, rtvars.resource_directory, PATH_MAX - 1);
-#if _2PACWAV_DEBUG
+
     if (!sargs.no_load_conf) {
         startup_load_conf(&rtvars, 
                 (char *)bufgroup.conf_file_buffer, 
                 CONFBUFFER_SIZE);
     }
-#endif
 
     IMGUI_CHECKVERSION();
     ImGuiContext *imgui_context = ImGui::CreateContext();

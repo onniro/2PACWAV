@@ -566,7 +566,6 @@ PAC_INTERNAL char add_single_file_to_music_list(char *path, Music_Data *mdata)
     strncpy(dir, path, PATH_MAX - 1);
     separate_file_and_dir_name(dir, name, strlen(dir));
     File_List *mlist = &mdata->music_list;
-
     char cont_dir_already_added = check_dir_already_added(path, &mdata->music_list);
 
     char *file_entry = mlist->filenames_string_loclist[mlist->entry_count];
