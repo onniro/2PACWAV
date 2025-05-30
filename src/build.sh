@@ -10,7 +10,6 @@ INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2 \
         -I$BASEDIR/3rd_party/SDL2/include \
         -I$BASEDIR/3rd_party/imgui \
         -I$BASEDIR/3rd_party \
-        -I$BASEDIR/3rd_party/id3v2lib/include \
         -I$BASEDIR/3rd_party/taglib/include \
         -I$BASEDIR/3rd_party/taglib/include/mpeg/id3v2/ \
         -I$BASEDIR/3rd_party/taglib/include/mpeg/" 
