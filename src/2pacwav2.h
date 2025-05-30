@@ -106,7 +106,7 @@ struct Mouse_State;
 struct Metadata_Editor;
 struct Audio_Stream;
 
-#define PAC_CONFNAME_STRING "2wconf"
+#define PAC_CONFNAME_STRING "2wfile"
 #define CONF_STARTUP_PATH_TOKEN "startup_path"
 
 typedef struct General_Buffer_Group 
