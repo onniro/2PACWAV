@@ -14,7 +14,7 @@ This means that comments are C & C++ style and lines end on semicolons.
 #define CONF_STARTUP_PATH_TOKEN     "startup_path"
 #define CONF_FONTSIZE_TOKEN         "font_size"
 
-typedef enum
+typedef enum Token_Type
 {
     TOKEN_IDENTIFIER,
     TOKEN_OPEN_PARENTHESIS,
@@ -33,14 +33,14 @@ typedef enum
     TOKEN_STREAM_END,
 } Token_Type;
 
-typedef struct
+typedef struct Token
 {
     Token_Type type;
     int length;
     char *text;
 } Token;
 
-typedef struct
+typedef struct Tokenizer
 {
     char *at;
 } Tokenizer;
