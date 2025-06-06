@@ -11,6 +11,9 @@ This means that comments are C & C++ style and lines end on semicolons.
 
 #include "2pacwav2.h"
 
+#define CONF_STARTUP_PATH_TOKEN     "startup_path"
+#define CONF_FONTSIZE_TOKEN         "font_size"
+
 typedef enum
 {
     TOKEN_IDENTIFIER,
@@ -50,6 +53,8 @@ PAC_INLINE char token_equals(Token tok, char *match);
 PAC_INTERNAL void eat_whitespace(Tokenizer *tokenizer);
 PAC_INLINE char require_token(Tokenizer *tokenizer, Token_Type req_tok);
 PAC_INTERNAL Token get_token(Tokenizer *tokenizer);
+PAC_INTERNAL Token get_string_entry(Tokenizer *tokenizer, char *dest, int dest_size, char *identifier);
+PAC_INTERNAL float get_float_entry(Tokenizer *tokenizer, char *identifier);
 PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars, char *confbuf, int confbuf_bytes);
 
 PAC_INLINE char is_eol(char c)
@@ -174,10 +179,12 @@ PAC_INTERNAL Token get_token(Tokenizer *tokenizer)
                 tokenizer->at[0] == '_')) 
             { ++tokenizer->at; }
             tok.length = tokenizer->at - tok.text;
-        } else if (is_number(c)) { 
+        } else if (is_number(c) ||
+            ((c == '-') && (is_number(tokenizer->at[1])))) { 
             tok.type = TOKEN_NUMBER;
-            tok.text = tokenizer->at;
-            while (is_number(tokenizer->at[0]))
+            tok.text = tokenizer->at - 1;
+            while (is_number(tokenizer->at[0]) ||
+                (tokenizer->at[0] == '.'))
             { ++tokenizer->at; }
             tok.length = tokenizer->at - tok.text;
         } else {
@@ -222,15 +229,51 @@ PAC_INTERNAL Token get_string_entry(Tokenizer *tokenizer,
     return tok;
 }
 
+PAC_INTERNAL float get_float_entry(Tokenizer *tokenizer, char *identifier)
+{
+    Token tok = {};
+    float ret = 0.0f;
+    if (require_token(tokenizer, TOKEN_EQUALSIGN)) {
+        tok = get_token(tokenizer);
+        if (tok.type == TOKEN_NUMBER) {
+            char *endptr = tok.text + tok.length;
+            errno = 0;
+            ret = strtof(tok.text, &endptr);
+            if ((0.0f == ret) && (errno == ERANGE)) {
+                fprintf(stderr, "2wfile error: value used in definition of identifier \"%s\" is invalid\n",
+                        identifier);
+            } if (!require_token(tokenizer, TOKEN_SEMICOLON)) {
+                ret = 0.0f;
+                fprintf(stderr, 
+                        "2wfile syntax error: semicolon required after definition of variable \"%s\"\n",
+                        identifier);
+            }
+        } else {
+            fprintf(stderr, "2wfile syntax error: expected number after identifier \"%s\"",
+                    identifier);
+        }
+    }
+    return ret;
+}
+
+PAC_INTERNAL void report_duplicate(char *identifier)
+{
+    fprintf(stderr, 
+            "2wfile warning: variable \"%s\" set more than once. using definition in first instance\n",
+            identifier);
+}
+
 PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars, 
                                         char *confbuf, 
                                         int confbuf_bytes)
 {
     char parsing = 1;
+    Startup_Args *sargs = rtvars->sargs_ptr;
     Tokenizer tokenizer = {0};
     tokenizer.at = confbuf;
     char stringbuf[PATH_MAX];
-    char startup_path_set = 0;
+    char startup_path_set = 0,
+            fontsize_set = 0;
 
     while (parsing) {
         Token tok = get_token(&tokenizer);
@@ -258,10 +301,24 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                         ++startup_path_set;
                     }
                 } else if (1 == startup_path_set) {
-                    fprintf(stderr, "2wfile warning: variable \"%s\" set more than once. using definition in first instance\n",
-                            CONF_STARTUP_PATH_TOKEN);
+                    report_duplicate(CONF_STARTUP_PATH_TOKEN);
                     ++startup_path_set;
                 }
+            } else if (token_equals(tok, CONF_FONTSIZE_TOKEN)) {
+                if (!fontsize_set) {
+                    float value = get_float_entry(&tokenizer, CONF_FONTSIZE_TOKEN);
+                    if (value > 0.0f) {
+                        sargs->font_size = value;
+                        ++fontsize_set;
+                    }
+                } else if (1 == fontsize_set) {
+                    report_duplicate(CONF_FONTSIZE_TOKEN);
+                    ++fontsize_set;
+                }
+            } else {
+                snprintf(stringbuf, tok.length + 1, "%s", tok.text);
+                fprintf(stderr, "2wfile warning: unknown identifier: \"%s\". ignoring\n",
+                        stringbuf);
             }
         } break;
 

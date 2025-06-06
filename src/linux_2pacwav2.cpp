@@ -266,7 +266,7 @@ int main(int arg_count, char **args)
     mdata.music_list.dirnames_string_loclist = (char **)bufgroup.flist_dirnames_string_loclist;
     mdata.music_list.dirnames_string_loclist[0] = (char *)mdata.music_list.dirnames_buf;
     mdata.music_list.match_flags = (char *)bufgroup.flist_match_flags;
-    mdata.volume = 30;
+    mdata.volume = MIX_MAX_VOLUME/2;
 
 #if PAC_SPECTRUM_ENABLED
     mdata.astream.complex32_buffer_in = (Complex32 *)bufgroup.fft_complex32_buffer;

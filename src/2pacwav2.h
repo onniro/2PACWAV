@@ -107,8 +107,6 @@ struct Metadata_Editor;
 struct Audio_Stream;
 
 #define PAC_CONFNAME_STRING         "2wfile"
-#define CONF_STARTUP_PATH_TOKEN     "startup_path"
-#define CONF_FONTSIZE_TOKEN         "font_size"
 
 typedef struct General_Buffer_Group 
 {
