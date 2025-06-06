@@ -235,6 +235,8 @@ int main(int arg_count, char **args)
     sargs.paths.buffer = (char *)bufgroup.scratch_space;
     sargs.paths.buffer[0] = 0;
     sargs.paths.ptrs[0] = sargs.paths.buffer;
+    sargs.font_size = PAC_LATIN_FONTSIZE;
+    rtvars.sargs_ptr = &sargs;
     if (pac_do_command_args(arg_count, args, &sargs, &bufgroup)) 
     { return EXIT_SUCCESS; }
 
@@ -257,28 +259,6 @@ int main(int arg_count, char **args)
     platform_get_working_directory(rtvars.working_directory, PATH_MAX);
     platform_find_res_path(&rtvars, rtvars.resource_directory, PATH_MAX - 1);
 
-    if (!sargs.no_load_conf) {
-        startup_load_conf(&rtvars, 
-                (char *)bufgroup.conf_file_buffer, 
-                CONFBUFFER_SIZE);
-    }
-
-    IMGUI_CHECKVERSION();
-    ImGuiContext *imgui_context = ImGui::CreateContext();
-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    ImGui::GetIO().ConfigFlags |= ImGuiWindowFlags_NoSavedSettings;
-    ImGui::GetIO().IniFilename = 0;
-    ImGui::StyleColorsDark();
-    ImGui_ImplSDL2_InitForOpenGL(sdldata.window_ptr, sdldata.ogl_context);
-    ImGui_ImplOpenGL3_Init("#version 130");
-
-    if (!pac_imgui_load_font(PAC_LATIN_FONT_STRING, 
-            PAC_LATIN_FONTSIZE, 
-            &rtvars)) {
-        platform_log("[error]: loading fonts failed\n");
-        return -1;
-    }
-
     mdata.music_list.filenames_buf = (char *)bufgroup.flist_filenames_buf;
     mdata.music_list.filenames_string_loclist = (char **)bufgroup.flist_filenames_string_loclist;
     mdata.music_list.filenames_string_loclist[0] = (char *)mdata.music_list.filenames_buf;
@@ -300,6 +280,35 @@ int main(int arg_count, char **args)
     Frametime_Vars frametime;
     rtvars.frametime_info_ptr = &frametime;
     rtvars.mdata_ptr = &mdata;
+
+    if (!sargs.no_load_conf) {
+        startup_load_conf(&rtvars, 
+                (char *)bufgroup.conf_file_buffer, 
+                CONFBUFFER_SIZE);
+        int conf_len = strlen((char *)bufgroup.conf_file_buffer);
+        if (conf_len && (conf_len < CONFBUFFER_SIZE)) {
+            parse_and_apply_config(&rtvars, 
+                    (char *)bufgroup.conf_file_buffer, 
+                    CONFBUFFER_SIZE);
+        }
+    }
+
+    IMGUI_CHECKVERSION();
+    ImGuiContext *imgui_context = ImGui::CreateContext();
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    ImGui::GetIO().ConfigFlags |= ImGuiWindowFlags_NoSavedSettings;
+    ImGui::GetIO().IniFilename = 0;
+    ImGui::StyleColorsDark();
+    ImGui_ImplSDL2_InitForOpenGL(sdldata.window_ptr, sdldata.ogl_context);
+    ImGui_ImplOpenGL3_Init("#version 130");
+
+    if (!pac_imgui_load_font(PAC_LATIN_FONT_STRING, 
+            sargs.font_size, 
+            &rtvars)) {
+        platform_log("[error]: loading fonts failed\n");
+        return -1;
+    }
+
     useconds_t us2sleep;
 
     Mix_SetPostMix(pac_sdlmixer_postmix_callback, (void *)&rtvars);
@@ -332,6 +341,7 @@ int main(int arg_count, char **args)
         memset(bufgroup.scratch_space, 0, (sargs.paths.count + 2)*PATH_MAX);
     }
     
+#if 0
     if (!sargs.no_load_conf) {
         int conf_len = strlen((char *)bufgroup.conf_file_buffer);
         if (conf_len && (conf_len < CONFBUFFER_SIZE)) {
@@ -340,6 +350,7 @@ int main(int arg_count, char **args)
                     CONFBUFFER_SIZE);
         }
     }
+#endif
 
     rtvars.autocomp_list.filenames_buf = (char *)bufgroup.autocomp_buffer;
     rtvars.autocomp_list.filenames_string_loclist = (char **)bufgroup.autocomp_string_loclist;

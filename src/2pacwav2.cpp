@@ -30,6 +30,7 @@ TODO: figure out how to make the search dialog not block input
 
 #include "2pacwav2_visualizer.cpp"
 #include "2pacwav2_tagging.cpp"
+#include "2pacwav2_confparser.cpp"
 
 PAC_INTERNAL void pac_nop() 
 {
@@ -109,6 +110,19 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
             break;
         } else if (!sargs->no_load_conf && !strcmp("-noconf", arg)) {
             sargs->no_load_conf = 1;
+        } else if ((sargs->font_size == PAC_LATIN_FONTSIZE) &&
+            !strcmp("-fontsize", arg)) {
+            if (args[arg_index + 1]) {
+                float value = strtof(args[arg_index + 1], 0);
+                if (value != 0.0f) {
+                    sargs->font_size = value;
+                } else {
+                    fprintf(stderr, "invalid argument given after -%s, ignoring.\n", arg);
+                }
+            } else {
+                fprintf(stderr, "no argument given after -%s, ignoring.\n", arg);
+            }
+            ++arg_index;
         } else {
             if (platform_path_exists(arg)) {
                 startup_push_path(sargs, arg);
@@ -141,81 +155,6 @@ PAC_INTERNAL void startup_load_conf(Runtime_Vars *rtvars,
         char infobuf[infosize];
         snprintf(infobuf, infosize - 1, "loaded config: %s", confpath);
         set_userinfo(rtvars, infobuf, USERINFO_TYPE_NOTE);
-    }
-}
-
-PAC_INTERNAL void parse_startup_paths(Runtime_Vars *rtvars,
-                                    char *parse_ptr,
-                                    char *confbuf,
-                                    int confbuf_bytes)
-{
-    const int errsz = 1024;
-    char errbuf[errsz];
-    parse_ptr += strlen(CONF_STARTUP_PATH_TOKEN);
-    char *eq_sign_maybe, *dbquote_maybe, *dbquote_maybe2;
-    int linelen, chars_in_quotes;
-
-    eq_sign_maybe = eat_whitespace(parse_ptr);
-    if (eq_sign_maybe[0] != '=') {
-        snprintf(errbuf, errsz, 
-                "2wfile syntax error: expected '=' after identifier \"%s\"\n",
-                CONF_STARTUP_PATH_TOKEN);
-        goto report_error;
-    }
-
-    ++eq_sign_maybe;
-    dbquote_maybe = eat_whitespace(eq_sign_maybe);
-    if (dbquote_maybe[0] != '"') {
-        snprintf(errbuf, errsz,
-                "2wfile syntax error: expected '\"' after '=' "
-                "in definition of identifier \"%s\"\n", 
-                CONF_STARTUP_PATH_TOKEN);
-        goto report_error;
-    }
-
-    ++dbquote_maybe;
-    linelen = txtline_len(dbquote_maybe);
-    dbquote_maybe2 = strchr(dbquote_maybe, '"');
-    if (!dbquote_maybe2) {
-        snprintf(errbuf, errsz, 
-                "2wfile syntax error: unterminated double quotes "
-                "in definition of identifier \"%s\". "
-                "(terminating double quotes have to be on the same line)\n",
-                CONF_STARTUP_PATH_TOKEN);
-        goto report_error;
-    }
-
-    chars_in_quotes = (dbquote_maybe2 - dbquote_maybe) + 1;
-    if (linelen < chars_in_quotes) {
-        snprintf(errbuf, errsz, 
-                "2wfile syntax error: unterminated double quotes "
-                "in definition of identifier \"%s\". "
-                "(terminating double quotes have to be on the same line)\n",
-                CONF_STARTUP_PATH_TOKEN);
-        goto report_error;
-    }
-
-    char path[PATH_MAX];
-    snprintf(path, chars_in_quotes, "%s", dbquote_maybe);
-    platform_dbg_log("loading startup path %s\n", path);
-    add_to_music_list(path, rtvars->mdata_ptr, rtvars);
-
-    return; 
-
-report_error: 
-    fprintf(stderr, "%s", errbuf);
-}
-
-PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars, 
-                                        char *confbuf, 
-                                        int confbuf_bytes)
-{
-    char *parse_ptr = strstr(confbuf, CONF_STARTUP_PATH_TOKEN);
-    if (parse_ptr) {
-        parse_startup_paths(rtvars,
-                parse_ptr,
-                confbuf,
-                confbuf_bytes);
     }
 }
 
@@ -260,7 +199,9 @@ PAC_INTERNAL char pac_btn_press(SDL_Scancode scan,
     return state;
 }
 
-PAC_INTERNAL char pac_imgui_load_font(char *font_name, float font_size, Runtime_Vars *rtvars)
+PAC_INTERNAL char pac_imgui_load_font(char *font_name,
+                                    float font_size,
+                                    Runtime_Vars *rtvars)
 {
     char status = 0;
     char latin_path[PATH_MAX], cjk_path[PATH_MAX];
@@ -289,6 +230,7 @@ PAC_INTERNAL char pac_imgui_load_font(char *font_name, float font_size, Runtime_
                                     latin_ranges_buffer.Data);
 
         ImFontConfig cjk_conf;
+        float cjk_font_size = font_size + 1.0f;
         cjk_conf.MergeMode = true;
         cjk_conf.PixelSnapH = true;
         ranges_builder.AddRanges(io.Fonts->GetGlyphRangesJapanese());
@@ -298,7 +240,7 @@ PAC_INTERNAL char pac_imgui_load_font(char *font_name, float font_size, Runtime_
         ranges_builder.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
         ranges_builder.BuildRanges(&cjk_ranges_buffer);
         rtvars->main_font = io.Fonts->AddFontFromFileTTF(cjk_path,
-                                                        PAC_CJK_FONTSIZE, 
+                                                        cjk_font_size, 
                                                         &cjk_conf, 
                                                         cjk_ranges_buffer.Data);
 

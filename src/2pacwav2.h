@@ -17,7 +17,7 @@ typedef float _Complex Complex32;
 #define _2PACWAV_VER_MINOR      (5)
 #define _2PACWAV_VER_PATCH      (1)
 
-#define PAC_DEF static inline
+#define PAC_INLINE static inline
 #define PAC_INTERNAL static
 #define PAC_LOCAL_STATIC static
 
@@ -106,8 +106,9 @@ struct Mouse_State;
 struct Metadata_Editor;
 struct Audio_Stream;
 
-#define PAC_CONFNAME_STRING "2wfile"
-#define CONF_STARTUP_PATH_TOKEN "startup_path"
+#define PAC_CONFNAME_STRING         "2wfile"
+#define CONF_STARTUP_PATH_TOKEN     "startup_path"
+#define CONF_FONTSIZE_TOKEN         "font_size"
 
 typedef struct General_Buffer_Group 
 {
@@ -146,6 +147,7 @@ typedef struct Startup_Args
     char no_load_conf;
     General_Buffer_Group *bufgroup_ptr;
     Startup_Args_Paths paths;
+    float font_size;
 } Startup_Args;
 
 typedef struct File_List
@@ -186,7 +188,7 @@ typedef enum Center_View_State
     CENTER_VIEW_STATE__LAST
 } Center_View_State;
 
-PAC_DEF void cycle_center_view_state(Center_View_State *value) 
+PAC_INLINE void cycle_center_view_state(Center_View_State *value) 
 {
     if (!value) { return; }
     uint8_t new_value = 1 + (uint8_t)(*value);
@@ -329,6 +331,7 @@ typedef struct Runtime_Vars
     const uint8_t *kbd_state;
     State_Flags sflags;
     Frametime_Vars *frametime_info_ptr;
+    Startup_Args *sargs_ptr;
     General_Buffer_Group *bufgroup_ptr;
     File_List autocomp_list;
     Ro_Heap_Buffer main_storage;
@@ -340,7 +343,7 @@ typedef struct Runtime_Vars
     char conf_directory[PATH_MAX];
 } Runtime_Vars;
 
-PAC_DEF char *pac_strnstr(char *haystack, char *needle, int nchars)
+PAC_INLINE char *pac_strnstr(char *haystack, char *needle, int nchars)
 {
     char *ret = 0, *tmp_full, *tmp_sub;
     for (int chari = 0;
@@ -359,7 +362,7 @@ PAC_DEF char *pac_strnstr(char *haystack, char *needle, int nchars)
     return ret;
 }
 
-PAC_DEF char *pac_strnchr(char *haystack, char needle, int nvalue)
+PAC_INLINE char *pac_strnchr(char *haystack, char needle, int nvalue)
 {
     char *ret = 0;
     int index = 0;
@@ -374,7 +377,8 @@ PAC_DEF char *pac_strnchr(char *haystack, char needle, int nvalue)
     return ret;
 }
 
-PAC_DEF char is_whitespace(char c)
+#if 0
+PAC_INLINE char is_whitespace(char c)
 {
     char ret = 0;
     if ((c == ' ') ||
@@ -385,7 +389,7 @@ PAC_DEF char is_whitespace(char c)
     return ret;
 }
 
-PAC_DEF int txtline_len(char *line)
+PAC_INLINE int txtline_len(char *line)
 {
     int count = 0;
     while (1) {
@@ -398,16 +402,40 @@ PAC_DEF int txtline_len(char *line)
     return count;
 }
 
-PAC_DEF char *eat_whitespace(char *ptr)
+PAC_INTERNAL char *find_line_start(char *ptr)
+{
+    while (1) {
+        if ((ptr[0] == '\0') ||
+            (ptr[0] == '\n') ||
+            (ptr[0] == '\r')) 
+        {  break; }
+        --ptr;
+    }
+    return ptr + 1;
+}
+
+PAC_INLINE char *eat_whitespace(char *ptr)
 {
     char *ret = ptr;
     while (1) {
-        if (!is_whitespace(ret[0])) 
+        if (!ret[0] || !is_whitespace(ret[0])) 
         { break; }
         ++ret; 
     }
     return ret;
 }
+
+PAC_INLINE char *eat_nonwhitespace(char *ptr)
+{
+    char *ret = ptr;
+    while (1) {
+        if (is_whitespace(ret[0])) 
+        { break; }
+        ++ret; 
+    }
+    return ret;
+}
+#endif
 
 //(forward declarations)
 PAC_INTERNAL void pac_nop(void);
