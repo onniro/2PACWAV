@@ -11,8 +11,6 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 #include <GL/gl.h>
 #include <limits.h>
 
-typedef float _Complex Complex32;
-
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (5)
 #define _2PACWAV_VER_PATCH      (1)
@@ -89,6 +87,8 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 
 #define PAC_DEFAULT_SEEK_INCREMENT (10) //(seconds)
 #define PAC_DEFAULT_VOLUME_INCREMENT (5) //(seconds)
+
+typedef float _Complex Complex32;
 
 struct Runtime_Vars;
 struct General_Buffer_Group;

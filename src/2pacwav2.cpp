@@ -32,7 +32,7 @@ TODO: figure out how to make the search dialog not block input
 #include "2pacwav2_tagging.cpp"
 #include "2pacwav2_confparser.cpp"
 
-PAC_INTERNAL void pac_nop() 
+PAC_INTERNAL void pac_nop()
 {
     return; 
 }
@@ -67,7 +67,8 @@ PAC_INTERNAL void show_help()
     platform_log("usage: 2w [options] [files]\n"
                 "-h | --help : show this message and exit\n"
                 "-v | --version : show version and exit\n"
-                "-noconf : do not look for a configuration file\n");
+                "-noconf : do not look for a configuration file\n"
+                "-fontsize <value> : set point size for font\n");
 }
 
 PAC_INTERNAL void startup_push_path(Startup_Args *sargs, char *path) 

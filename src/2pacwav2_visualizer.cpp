@@ -49,7 +49,7 @@ PAC_INTERNAL void spectrum_fft2(Complex32 *in, Complex32 *out, int num_iters, in
 
     spectrum_fft2(in, out, num_iters/2, stride*2);
     spectrum_fft2(in + stride, out + num_iters/2, num_iters/2, stride*2);
-    for(int k = 0; k < num_iters/2; ++k) {
+    for (int k = 0; k < num_iters/2; ++k) {
         float t = (float)k/num_iters;
         Complex32 v = MULCC(cexpf(CFROMIMAG(-2*M_PI*t)), out[k + num_iters/2]);
         Complex32 e = out[k];
@@ -83,11 +83,13 @@ PAC_INTERNAL void spectrum_squash(Complex32 *post_fft_outbuf,
                                 Squash_Logfunc log_func) 
 {
     float real, imag, i_magnitude, max_magnitude = -INFINITY, min_magnitude = INFINITY, avg_magnitude;
-    for (int bin_index = 0; bin_index < num_bins; ++bin_index) {
+    for (int bin_index = 0;
+        bin_index < num_bins;
+        ++bin_index) {
         avg_magnitude = 0.0f;
         for (int fft_index = bin_index*bins_per_point;
-                fft_index < (bin_index + 1)*bins_per_point;
-                ++fft_index) {
+            fft_index < (bin_index + 1)*bins_per_point;
+            ++fft_index) {
             real = creal(post_fft_outbuf[fft_index]);
             imag = cimag(post_fft_outbuf[fft_index]);
             i_magnitude = sqrtf((real*real) + (imag*imag));
@@ -122,8 +124,8 @@ PAC_INTERNAL void spectrum_fill_verts_lineseg(float *verts,
 
     int16_t *pcm_buffer = (int16_t *)astream->stream;
     for (int dst_index = 0, src_index = 0; 
-            dst_index < astream->stream_size/2; 
-            ++dst_index, src_index += sizeof(int16_t)*2) {
+        dst_index < astream->stream_size/2; 
+        ++dst_index, src_index += sizeof(int16_t)*2) {
         astream->real32_buffer_in[dst_index] = (float)pcm_buffer[src_index];
         astream->real32_buffer_in[dst_index + 1] = (float)pcm_buffer[src_index + 1];
     }
@@ -149,8 +151,8 @@ PAC_INTERNAL void spectrum_fill_verts_lineseg(float *verts,
     float mag_pos;
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
     for (int vert_index = 0, mag_index = 0; 
-            vert_index < num_elements; 
-            vert_index += elements_per_primitive, ++mag_index) {
+        vert_index < num_elements; 
+        vert_index += elements_per_primitive, ++mag_index) {
         xpos += x_advance;
         verts[vert_index] = xpos;
         verts[vert_index + 1] = ypos;
@@ -172,8 +174,8 @@ PAC_INTERNAL void spectrum_fill_verts_point(float *verts,
 
     int16_t *pcm_buffer = (int16_t *)astream->stream;
     for (int dst_index = 0, src_index = 0; 
-            dst_index < astream->stream_size/2; 
-            ++dst_index, src_index += sizeof(int16_t)*2) {
+        dst_index < astream->stream_size/2; 
+        ++dst_index, src_index += sizeof(int16_t)*2) {
         astream->real32_buffer_in[dst_index] = (float)pcm_buffer[src_index];
         astream->real32_buffer_in[dst_index + 1] = (float)pcm_buffer[src_index + 1];
     }
@@ -220,8 +222,8 @@ PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
     //TODO: optimize this shit out since it doesn't have to change the data 
 #if 1
     for (int dst_index = 0, src_index = 0; 
-            dst_index < mdata->chunk_size/2;
-            ++dst_index, src_index += sizeof(int16_t)*2) {
+        dst_index < mdata->chunk_size/2;
+        ++dst_index, src_index += sizeof(int16_t)*2) {
         astream->real32_buffer_in[dst_index] = (float)pcm_buffer[src_index];
         astream->real32_buffer_in[dst_index + 1] = (float)pcm_buffer[src_index + 1];
     }
@@ -235,8 +237,8 @@ PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
     float yoff = 0.1f;
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
     for (int vert_index = 0, sample_index = 0; 
-            vert_index < num_elements; 
-            vert_index += elements_per_primitive, ++sample_index) {
+        vert_index < num_elements; 
+        vert_index += elements_per_primitive, ++sample_index) {
         xpos += x_advance;
         verts[vert_index] = xpos;
         verts[vert_index + 1] = y_scale*((astream->real32_buffer_in[sample_index])/TWO_TO_15TH) - yoff;

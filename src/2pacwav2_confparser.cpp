@@ -245,7 +245,7 @@ PAC_INTERNAL float get_float_entry(Tokenizer *tokenizer, char *identifier)
             } if (!require_token(tokenizer, TOKEN_SEMICOLON)) {
                 ret = 0.0f;
                 fprintf(stderr, 
-                        "2wfile syntax error: semicolon required after definition of variable \"%s\"\n",
+                        "2wfile syntax error: semicolon (;) required after definition of variable \"%s\"\n",
                         identifier);
             }
         } else {

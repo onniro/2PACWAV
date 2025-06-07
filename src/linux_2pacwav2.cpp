@@ -2,6 +2,8 @@
 /*
 File: linux_2pacwav2.cpp
 Date: Thu 24 Apr 2025 04:22:31 PM EEST
+
+Linux platform-specific code for 2pacwav
 */
 
 #include <stdio.h>
