@@ -98,6 +98,20 @@ PAC_INLINE char token_equals(Token tok, char *match)
     return (*at == 0);
 }
 
+PAC_INTERNAL void report_missing_semicolon(char *identifier)
+{
+    fprintf(stderr, 
+            "2wfile syntax error: semicolon (;) required after definition of variable \"%s\"\n",
+            identifier);
+}
+
+PAC_INTERNAL void report_duplicate(char *identifier)
+{
+    fprintf(stderr, 
+            "2wfile warning: variable \"%s\" set more than once. using definition in first instance\n",
+            identifier);
+}
+
 PAC_INTERNAL void eat_whitespace(Tokenizer *tokenizer)
 {
     while (1) {
@@ -209,9 +223,7 @@ PAC_INTERNAL Token get_string_entry(Tokenizer *tokenizer,
                 if (require_token(tokenizer, TOKEN_SEMICOLON)) {
                     snprintf(dest, tok.length + 1, "%s", tok.text);
                 } else {
-                    fprintf(stderr, 
-                            "2wfile syntax error: semicolon required after definition of variable \"%s\"\n",
-                            identifier);
+                    report_missing_semicolon(identifier);
                 }
             } else {
                 fprintf(stderr, 
@@ -244,9 +256,7 @@ PAC_INTERNAL float get_float_entry(Tokenizer *tokenizer, char *identifier)
                         identifier);
             } if (!require_token(tokenizer, TOKEN_SEMICOLON)) {
                 ret = 0.0f;
-                fprintf(stderr, 
-                        "2wfile syntax error: semicolon (;) required after definition of variable \"%s\"\n",
-                        identifier);
+                report_missing_semicolon(identifier);
             }
         } else {
             fprintf(stderr, "2wfile syntax error: expected number after identifier \"%s\"",
@@ -254,13 +264,6 @@ PAC_INTERNAL float get_float_entry(Tokenizer *tokenizer, char *identifier)
         }
     }
     return ret;
-}
-
-PAC_INTERNAL void report_duplicate(char *identifier)
-{
-    fprintf(stderr, 
-            "2wfile warning: variable \"%s\" set more than once. using definition in first instance\n",
-            identifier);
 }
 
 PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars, 
