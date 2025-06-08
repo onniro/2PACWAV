@@ -11,18 +11,41 @@ extern "C"
 {
 #endif
 
+#define _DEFAULT_SOURCE 1
+#define D_POSIX_C_SOURCE 200809L
+#define _POSIX_C_SOURCE 200809L
+#define __USE_XOPEN_EXTENDED 1
+#define __USE_XOPEN2K 1
+
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/select.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <time.h>
+
+int clock_gettime(clockid_t clockid, struct timespec *tp);
+int nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
+
+#ifndef CLOCK_MONOTONIC
+    #define CLOCK_MONOTONIC (1)
+#endif
 
 #ifndef RO_DEF 
     #define RO_DEF static inline
+#endif
+
+#ifndef RO_ZERO_INIT
+    #if defined(__cplusplus) && (__cplusplus >= 201103L)
+        #define RO_ZERO_INIT
+    #else
+        #define RO_ZERO_INIT 0
+    #endif
 #endif
 
 #if !defined(RO_HEAP_BUFFER) && !defined(RO_HEAPBUF_DOT_H)
@@ -75,9 +98,8 @@ RO_DEF void *ro_posix_make_heap_buffer(Ro_Heap_Buffer *target, uint64_t bytes)
 
 RO_DEF void ro_posix_free_heap_buffer(Ro_Heap_Buffer *buffer) 
 {
-    if (buffer && buffer->memory && buffer->total_bytes) { 
-        munmap(buffer->memory, buffer->total_bytes); 
-    }
+    if (buffer && buffer->memory && buffer->total_bytes)
+    { munmap(buffer->memory, buffer->total_bytes); }
 }
 
 //NOTE: neither of these next couple are POSIX-specific
@@ -109,8 +131,8 @@ RO_DEF void ro_buffer_move_writeptr(Ro_Heap_Buffer *buffer,
                                     ssize_t bytes, 
                                     char write_zeroes) 
 {
-    if (!buffer || !buffer->memory || !bytes) { return; }
-
+    if (!(buffer && buffer->memory && bytes))
+    { return; }
     uintptr_t buf_begin = (uintptr_t)buffer->memory;
     uintptr_t buf_end = buf_begin + buffer->total_bytes;
     uintptr_t current_pos = (uintptr_t)buffer->write_ptr;
@@ -118,11 +140,10 @@ RO_DEF void ro_buffer_move_writeptr(Ro_Heap_Buffer *buffer,
     uint64_t move_bytes = ro_abs_i64(bytes);
 
     if ((future_pos >= buf_begin) && 
-            (future_pos < buf_end)) {
+        (future_pos < buf_end)) {
         buffer->write_ptr = (void *)future_pos;
-        if (write_zeroes) { 
-            memset(buffer->write_ptr, 0, move_bytes); 
-        }
+        if (write_zeroes)
+        { memset(buffer->write_ptr, 0, move_bytes); }
     }
 }
 
@@ -138,8 +159,8 @@ RO_DEF char *ro_posix_get_working_directory(char *destination,
                             buffer_size);
     destination[bytes_read] = 0x0;
     for (int char_index = (int)bytes_read; 
-            char_index >= 0; 
-            --char_index) {
+        char_index >= 0; 
+        --char_index) {
         if (destination[char_index] != '/') { 
             destination[char_index] = 0x0; 
         } else { 
@@ -149,27 +170,19 @@ RO_DEF char *ro_posix_get_working_directory(char *destination,
     return destination;
 }
 
-RO_DEF uint64_t ro_posix_get_timestamp(void) 
+RO_DEF uint64_t ro_posix_get_timestamp(void)
 {
     uint64_t result;
-    struct timespec tspec = {};
+    struct timespec tspec = {RO_ZERO_INIT};
     clock_gettime(CLOCK_MONOTONIC, &tspec);
     result = (tspec.tv_sec*1000000) + (tspec.tv_nsec/1000);
     return result;
 }
 
-RO_DEF void ro_posix_sleep_microsec(uint64_t microseconds) 
+RO_DEF void ro_posix_sleep_usec(uint64_t usec) 
 {
-    uint64_t nanoseconds = microseconds*1000;
-    struct timespec tspec = {};
-    tspec.tv_nsec = nanoseconds;
-    nanosleep(&tspec, 0);
-}
-
-RO_DEF void ro_posix_sleep_sec(uint64_t seconds) 
-{
-    uint64_t nanoseconds = seconds*1000000000;
-    struct timespec tspec = {};
+    uint64_t nanoseconds = usec*1000;
+    struct timespec tspec = {RO_ZERO_INIT};
     tspec.tv_nsec = nanoseconds;
     nanosleep(&tspec, 0);
 }
@@ -178,7 +191,8 @@ RO_DEF char ro_posix_path_exists(char *path)
 {
     char result = 0;
     struct stat stat_struct;
-    if(!stat(path, &stat_struct)) { result = 1; }
+    if(!stat(path, &stat_struct))
+    { result = 1; }
     return result;
 }
 
@@ -187,9 +201,8 @@ RO_DEF char ro_posix_file_exists(char *file_path)
     char result = 0;
     struct stat stat_struct;
     if (!stat(file_path, &stat_struct) && 
-            !(S_ISDIR(stat_struct.st_mode))) { 
-        result = 1; 
-    }
+        !(S_ISDIR(stat_struct.st_mode)))
+    { result = 1; }
     return result;
 }
 
@@ -198,9 +211,8 @@ RO_DEF char ro_posix_directory_exists(char *directory_name)
     char result = 0;
     struct stat stat_struct;
     if (!stat(directory_name, &stat_struct) && 
-            S_ISDIR(stat_struct.st_mode)) { 
-        result = 1; 
-    }
+        S_ISDIR(stat_struct.st_mode))
+    { result = 1; }
     return result;
 }
 
