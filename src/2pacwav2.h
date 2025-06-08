@@ -24,7 +24,8 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)11111) //90fps
 #define PAC_SEEK_VALUE_MAX (1000)
 
-#define PAC_LATIN_FONT_STRING   "DejaVuSansMono.ttf"
+//#define PAC_LATIN_FONT_STRING   "DejaVuSansMono.ttf"
+#define PAC_LATIN_FONT_STRING   "LiberationMono-Regular.ttf"
 #define PAC_CJK_FONT_STRING     "NotoSansMonoCJKhk-Regular.otf"
 #define PAC_LATIN_FONTSIZE (17.0f)
 #define PAC_CJK_FONTSIZE (18.0f)
