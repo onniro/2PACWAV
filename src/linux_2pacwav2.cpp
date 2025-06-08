@@ -268,7 +268,6 @@ int main(int arg_count, char **args)
     mdata.music_list.dirnames_string_loclist = (char **)bufgroup.flist_dirnames_string_loclist;
     mdata.music_list.dirnames_string_loclist[0] = (char *)mdata.music_list.dirnames_buf;
     mdata.music_list.match_flags = (char *)bufgroup.flist_match_flags;
-    mdata.volume = MIX_MAX_VOLUME/2;
 
 #if PAC_SPECTRUM_ENABLED
     mdata.astream.complex32_buffer_in = (Complex32 *)bufgroup.fft_complex32_buffer;
@@ -366,7 +365,7 @@ int main(int arg_count, char **args)
 
         if ((useconds_t)frametime.delta < MAX_FRAMETIME_MICROSEC) {
             us2sleep = (MAX_FRAMETIME_MICROSEC - (useconds_t)frametime.delta);
-            ro_posix_sleep_microsec(us2sleep);
+            ro_posix_sleep_usec(us2sleep);
         }
     }
 
