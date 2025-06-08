@@ -51,7 +51,7 @@ PAC_INTERNAL void get_version_string(char *buffer)
             buildtype);
 }
 
-PAC_INTERNAL void show_version() 
+PAC_INTERNAL void show_version()
 {
     char verbuf[128];
     get_version_string(verbuf);
@@ -66,12 +66,12 @@ PAC_INTERNAL void show_help()
     show_version();
     platform_log("usage: 2w [options] [files]\n"
                 "-h | --help : show this message and exit\n"
-                "-v | --version : show version and exit\n"
+                "-v | --version \n"
                 "-noconf : do not look for a configuration file\n"
                 "-fontsize <value> : set point size for font\n");
 }
 
-PAC_INTERNAL void startup_push_path(Startup_Args *sargs, char *path) 
+PAC_INTERNAL void startup_push_path(Startup_Args *sargs, char *path)
 {
     Startup_Args_Paths *p = &sargs->paths;
     if (p->count < PAC_MAX_DIRS) {
@@ -170,7 +170,7 @@ PAC_INTERNAL void startup_add_paths(Startup_Args *sargs,
     }
 }
 
-PAC_INTERNAL char pac_mousebtn_press(Mouse_State *mouse) 
+PAC_INTERNAL char pac_mousebtn_press(Mouse_State *mouse)
 {
     char result = 0;
     if (mouse->down) {
@@ -1313,7 +1313,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     float btn_side_len = 30;
     float btn_height = btn_side_len + (ImGui::GetStyle().CellPadding.y*2.0f);
 
-    float add_width = 100.0f;
+    float add_width = 100.0f + rtvars->sargs_ptr->font_size;
     float vol_width = 200.0f;
     State_Flags *sflags = &rtvars->sflags;
 
@@ -1511,7 +1511,7 @@ PAC_INTERNAL void sdlmixer_start_music(Music_Data *mdata, char *music_path)
         platform_dbg_log("failed to load music. desc: %s\n", SDL_GetError()); 
         char info[USERINFO_BUFFER_SIZE];
         snprintf(info, USERINFO_BUFFER_SIZE - 1,
-                "[error]: failed to play file %s, skipping.", //NOTE: this will never show up since it just gets overwritten
+                "[error]: failed to play file %s, skipping.", //NOTE: this will (almost) never show up since it just gets overwritten
                 mdata->music_list.filenames_string_loclist[mdata->music_list.current_index]);
         set_userinfo(mdata->rtvars_ptr, info, USERINFO_TYPE_ERROR);
         goto_next_file(mdata);
@@ -1567,7 +1567,7 @@ PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata)
     mdata->pcm_bits = PAC_PCM_BITS;
     mdata->channels = PAC_CHAN_COUNT;
     mdata->chunk_size = PAC_SDLMIXER_CHUNKSIZE;
-    mdata->volume = 20;
+    mdata->volume = MIX_MAX_VOLUME/2;
     mdata->seek_increment = PAC_DEFAULT_SEEK_INCREMENT;
 
     if (Mix_OpenAudioDevice(mdata->sample_rate, 
