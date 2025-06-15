@@ -22,9 +22,12 @@ Linux platform-specific code for 2pacwav
 
 #define GL_GLEXT_PROTOTYPES 1
 #include "SDL.h"
-#include "SDL_mixer.h"
+//#include "SDL_mixer.h"
 #include <GL/gl.h>
 #include <GL/glu.h>
+
+#define PACMXR_IMPLEMENTATION 1
+#include "2pacmixer.h"
 
 #include "ro_posix.h"
 #include "2pacwav2.h"
@@ -253,8 +256,12 @@ int main(int arg_count, char **args)
     sdldata.mdata_ptr = &mdata;
 
     if (!pac_init_sdl(&sdldata)) { return -1; }
+#if PORT_THIS
     if (!pac_init_sdlmixer(&mdata)) { return -1; }
-        
+#else
+    if (!pac_init_tupacmixer(&mdata)) { return -1; }
+#endif
+    rtvars.pacmxr_ctx = pacmxr_get_context();
     mdata.current_filename = (char *)bufgroup.music_current_filename;
     mdata.rtvars_ptr = &rtvars;
 
@@ -312,28 +319,27 @@ int main(int arg_count, char **args)
 
     useconds_t us2sleep;
 
+#if PORT_THIS
     Mix_SetPostMix(pac_sdlmixer_postmix_callback, (void *)&rtvars);
+#else
+#endif
 
 #if _2PACWAV_DEBUG
     {
         int gl_maj, gl_min;
-        const SDL_version *sdlver = Mix_Linked_Version();
+        //const SDL_version *sdlver = Mix_Linked_Version();
         SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &gl_maj);
         SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &gl_min);            
         platform_dbg_log("OpenGL vendor: %s\n"
                 "OpenGL version: %s\n"
                 "renderer: %s\n"
                 "GLSL version: %s\n"
-                "SDL_GL context version: %d.%d\n"
-                "SDL2 mixer version: %u.%u.%u\n",
+                "SDL_GL context version: %d.%d\n",
                 glGetString(GL_VENDOR),
                 glGetString(GL_VERSION),
                 glGetString(GL_RENDERER),
                 glGetString(GL_SHADING_LANGUAGE_VERSION),
-                gl_maj, gl_min,
-                sdlver->major,
-                sdlver->minor,
-                sdlver->patch);
+                gl_maj, gl_min);
     }
 #endif
 
@@ -372,10 +378,14 @@ int main(int arg_count, char **args)
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
+#if PORT_THIS
     if (mdata.sdlmixer_music) { 
         Mix_FreeMusic(mdata.sdlmixer_music); 
     }
     Mix_CloseAudio();
+#else
+    pacmxr_deinit();
+#endif
     SDL_GL_DeleteContext(sdldata.ogl_context);
     SDL_DestroyWindow(sdldata.window_ptr);
     SDL_Quit();

@@ -4,6 +4,7 @@ File: 2pacwav2_visualizer.cpp
 Date: Thu 24 Apr 2025 04:31:17 PM EEST
 
 TODO: fix spectrum
+NOTE: it seems taht the oscilloscope is backwards but it's fine
 */
 
 #ifndef __STDC_IEC_559_COMPLEX__
@@ -15,6 +16,7 @@ TODO: fix spectrum
 #include <stdlib.h>
 #include <tgmath.h>
 #include <complex.h>
+#include "2pacmixer.h"
 
 #if PAC_SPECTRUM_ENABLED
 
@@ -42,11 +44,15 @@ PAC_INTERNAL void spectrum_fft(Complex32 *inbuf,
 #define SUBCC(a, b) ((a) - (b))
 #define CFROMIMAG(im) ((im)*I)
 
-PAC_INTERNAL void spectrum_fft2(Complex32 *in, Complex32 *out, int num_iters, int stride)
+PAC_INTERNAL void spectrum_fft2(Complex32 *in,
+                            Complex32 *out,
+                            int num_iters,
+                            int stride)
 {
-    if (num_iters > 0) { return; }
-    if (num_iters == 1) { out[0] = in[0]; return; }
-
+    if (num_iters > 0)
+    { return; }
+    if (num_iters == 1)
+    { out[0] = in[0]; return; }
     spectrum_fft2(in, out, num_iters/2, stride*2);
     spectrum_fft2(in + stride, out + num_iters/2, num_iters/2, stride*2);
     for (int k = 0; k < num_iters/2; ++k) {
@@ -82,7 +88,11 @@ PAC_INTERNAL void spectrum_squash(Complex32 *post_fft_outbuf,
                                 int bins_per_point,
                                 Squash_Logfunc log_func) 
 {
-    float real, imag, i_magnitude, max_magnitude = -INFINITY, min_magnitude = INFINITY, avg_magnitude;
+    float real, imag, i_magnitude,
+            max_magnitude = -INFINITY,
+            min_magnitude = INFINITY,
+            avg_magnitude;
+
     for (int bin_index = 0;
         bin_index < num_bins;
         ++bin_index) {
@@ -233,7 +243,7 @@ PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
     //float xpos = -1.0f + (95.0f/(float)sdldata->win_width);
     float xpos = -1.0f;
     float sample_pos;
-    float y_scale = (float)(MIX_MAX_VOLUME - mdata->volume)/100.0f;
+    float y_scale = (float)(SDL_MIX_MAXVOLUME - mdata->volume)/((float)SDL_MIX_MAXVOLUME/2.0f);
     float yoff = 0.1f;
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
     for (int vert_index = 0, sample_index = 0; 
@@ -269,7 +279,7 @@ void main()
     PAC_LOCAL_STATIC char _opengl_err[4096];
     //PAC_LOCAL_STATIC float verts[4*PAC_SPECTRUM_FREQ_BIN_COUNT];
     PAC_LOCAL_STATIC float verts[2*PAC_OSCILLOSCOPE_POINT_COUNT];
-    if (!rtvars->mdata_ptr->paused) {
+    if (!pacmxr_get_context()->paused) {
         oscilloscope_fill_verts_line(verts,
                 sizeof(verts)/sizeof(*verts),
                 PAC_OSCILLOSCOPE_POINT_COUNT,

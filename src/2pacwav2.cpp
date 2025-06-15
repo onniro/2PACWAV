@@ -11,7 +11,7 @@ TODO: figure out how to make the search dialog not block input
 #include <stdint.h>
 
 #include "SDL.h"
-#include "SDL_mixer.h"
+//#include "SDL_mixer.h"
 #define GL_GLEXT_PROTOTYPES 1
 #include <GL/gl.h>
 #include <GL/glu.h>
@@ -31,6 +31,10 @@ TODO: figure out how to make the search dialog not block input
 #include "2pacwav2_visualizer.cpp"
 #include "2pacwav2_tagging.cpp"
 #include "2pacwav2_confparser.cpp"
+
+#define PORT_THIS 0
+
+//#include "2pacmixer.h"
 
 PAC_INTERNAL void pac_nop()
 {
@@ -342,6 +346,15 @@ PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+    Audio_Stream *astream = &rtvars->mdata_ptr->astream;
+    Pacmxr_Context *pac_ctx = pacmxr_get_context();
+    astream->stream = pac_ctx->aqueue.sdl_stream;
+    //astream->stream = pac_ctx->aqueue.read_ptr;
+    astream->stream_size = pac_ctx->aqueue.sdl_stream_len;
+    //printf("stream=%p, stream_len=%d\n", astream->stream, astream->stream_size);
+    //astream->stream_size = stream_len;
+
     if (rtvars->sflags.viewstate == CENTER_VIEW_STATE_CURRENT_INFO) 
     { do_visualizer(rtvars, sdldata); }
     SDL_GL_SwapWindow(sdldata->window_ptr);
@@ -349,10 +362,19 @@ PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
 
 PAC_INTERNAL void update_music_info(Music_Data *mdata)
 {
-    mdata->current_duration = Mix_MusicDuration(mdata->sdlmixer_music);
+#if PORT_THIS
+    mdata->current_duration = Mix_MusicDuration();
     mdata->current_position = Mix_GetMusicPosition(mdata->sdlmixer_music);
     if ((mdata->current_position + 0.1) >= mdata->current_duration) 
     { goto_next_file(mdata); }
+#else
+    mdata->current_duration = pacmxr_stream_duration();
+    mdata->current_position = pacmxr_seconds_played();
+    Pacmxr_Context *pac_ctx = pacmxr_get_context();
+    if ((!pac_ctx->paused && pacmxr_file_is_open()) && 
+        ((mdata->current_position + 0.1) >= mdata->current_duration))
+    { goto_next_file(mdata); }
+#endif
 }
 
 PAC_INTERNAL int pac_qsort_strcmp(const void *a, const void *b)
@@ -380,22 +402,20 @@ PAC_INTERNAL void sort_file_list_alpha(File_List *flist, char reversed)
 
 PAC_INTERNAL void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bufgroup) 
 {
-    snprintf((char *)bufgroup->music_info_buffer, DEBUG_BUFFER_SIZE - 1, 
-            "[srate:%dhz][pcm_bits:%d][chan:%d][vol:%d/128][pos:%06.1f/%06.1f][type:%s]\n[path:%s]", 
-            mdata->sample_rate, 
-            mdata->pcm_bits, 
-            mdata->channels,
-            mdata->volume,
-            mdata->current_position,
-            mdata->current_duration,
-            mdata->music_type_buf,
+    snprintf((char *)bufgroup->music_info_buffer, DEBUG_BUFFER_SIZE,
+            "[srate:%dhz][pcm_bits:%d][chan:%d]"
+            "[vol:%d/128][pos:%06.1f/%06.1f][type:%s]"
+            "\n[path:%s]", 
+            mdata->sample_rate, mdata->pcm_bits, mdata->channels,
+            mdata->volume, mdata->current_position, mdata->current_duration, mdata->music_type_buf,
             mdata->current_filename);
 }
 
 PAC_INTERNAL void sdlmixer_get_music_type(Music_Data *mdata)
 {
+#if PORT_THIS
     Mix_MusicType music_type = Mix_GetMusicType(mdata->sdlmixer_music);
-    switch(music_type) {
+    switch (music_type) {
         case MUS_CMD: strcpy(mdata->music_type_buf, "CMD"); break;
         case MUS_MOD: strcpy(mdata->music_type_buf, "MOD"); break;
         case MUS_FLAC: strcpy(mdata->music_type_buf, "FLAC"); break;
@@ -409,12 +429,18 @@ PAC_INTERNAL void sdlmixer_get_music_type(Music_Data *mdata)
         case MUS_NONE:
         default: strcpy(mdata->music_type_buf, "NONE"); break;
     }
+#else
+#endif
 }
 
 PAC_INTERNAL void load_file_from_path(char *path, Music_Data *mdata)
 {
     if (platform_file_exists(path)) {
+#if PORT_THIS
         sdlmixer_start_music(mdata, path); 
+#else
+        tupacmixer_start_music(mdata, path);
+#endif
     } else { 
         platform_dbg_log("%s: no such file or directory\n", path); 
         set_userinfo(mdata->rtvars_ptr, 
@@ -460,8 +486,9 @@ PAC_INTERNAL char check_dir_already_added(char *dir, File_List *flist)
     return result;
 }
 
-PAC_INTERNAL double conv_slide_value2songpos(Music_Data *mdata) 
+PAC_INTERNAL float conv_slide_value2songpos(Music_Data *mdata) 
 {
+#if PORT_THIS
     double result = 0;
     if (mdata->sdlmixer_music && 
         mdata->current_position && 
@@ -471,13 +498,23 @@ PAC_INTERNAL double conv_slide_value2songpos(Music_Data *mdata)
                 mdata->current_duration; 
     }
     return result;
+#else
+    float result = 0;
+    if (pacmxr_file_is_open() &&
+        mdata->current_position &&
+        mdata->current_duration) {
+        result = (((double)(mdata->seek_value)) /
+                PAC_SEEK_VALUE_MAX) *
+                mdata->current_duration;
+    }
+    return result;
+#endif
 }
 
 PAC_INTERNAL float conv_songpos2slide_value(Music_Data *mdata) 
 {
     float result = 0.0f;
-    if (mdata->sdlmixer_music && 
-        mdata->current_position && 
+    if (mdata->current_position &&
         mdata->current_duration) {
         result = ((float)(mdata->current_position / 
                 mdata->current_duration)) * 
@@ -644,8 +681,7 @@ PAC_INTERNAL void goto_next_file(Music_Data *mdata)
 //for now this is kinda bogus if youre using shuffle
 PAC_INTERNAL void goto_prev_file(Music_Data *mdata)
 {
-    if (!mdata->sdlmixer_music || 
-        (mdata->music_list.current_index == 0)) 
+    if (0 == mdata->music_list.current_index) 
     { return; }
     File_List *mlist = &mdata->music_list;
     uint32_t cur_index = mlist->current_index;
@@ -734,6 +770,8 @@ PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
 
 PAC_INTERNAL void format_taginfo(Music_Data *mdata, char *begin, char separate)
 {
+//don't actually port this, i've realized that this is dumb
+#if PORT_THIS
     char **title_ptr = &mdata->current_metadata.title_begin_in_buf;
     char **artist_ptr = &mdata->current_metadata.artist_begin_in_buf;
     char **album_ptr = &mdata->current_metadata.album_begin_in_buf;
@@ -767,6 +805,7 @@ PAC_INTERNAL void format_taginfo(Music_Data *mdata, char *begin, char separate)
                     mlist->filenames_string_loclist[mlist->current_index]);
         }
     }
+#endif
 }
 
 PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars, 
@@ -778,23 +817,27 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
     char *path_begin = strchr(infobuf, '\n');
     *path_begin = 0; ++path_begin;
     Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
+
+#if PORT_THIS
     char **title_ptr = &mdata->current_metadata.title_begin_in_buf;
     char **artist_ptr = &mdata->current_metadata.artist_begin_in_buf;
     char **album_ptr = &mdata->current_metadata.album_begin_in_buf;
 
     if (sdlmixer_get_taginfo(mdata)) {
         char *meta_begin = path_begin + strlen(path_begin);
-        format_taginfo(mdata, meta_begin, 0); 
+        gormat_taginfo(mdata, meta_begin, 0); 
     }
+#else
+    tupacmixer_get_taginfo(mdata);
+#endif
 
     ImGui::Text("%s\n%s", (char *)bufgroup->music_info_buffer, path_begin);
     
-    if (*title_ptr) {
-        ImVec2 tdims = ImGui::CalcTextSize(*title_ptr);
-        ImGui::SetCursorPos(ImVec2(((float)sdldata->win_width/2.0f) - (tdims.x/2.0f), 
-                sdldata->win_height - 200.0f));
-        ImGui::Text("%s", *title_ptr);
-    }
+    char *taginfo_buffer = mdata->current_metadata.tagbuffer;
+    ImVec2 tdims = ImGui::CalcTextSize(taginfo_buffer);
+    ImGui::SetCursorPos(ImVec2(((float)sdldata->win_width/2.0f) - (tdims.x/2.0f), 
+            sdldata->win_height - 200.0f));
+    ImGui::Text("%s", taginfo_buffer);
 }
 
 PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars,
@@ -1046,19 +1089,27 @@ PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
     //if(rtvars->kbd_state[SDL_SCANCODE_LCTRL])
     if (!ImGui::GetIO().WantTextInput) {
         if (pac_btn_press(SDL_SCANCODE_0, &sflags->zero_wasdown, rtvars->kbd_state)) { 
-            if ((mdata->volume + PAC_DEFAULT_VOLUME_INCREMENT) < MIX_MAX_VOLUME) { 
+            if ((mdata->volume + PAC_DEFAULT_VOLUME_INCREMENT) < SDL_MIX_MAXVOLUME) { 
                 mdata->volume += PAC_DEFAULT_VOLUME_INCREMENT; 
             } else {
-                mdata->volume = MIX_MAX_VOLUME;
+                mdata->volume = SDL_MIX_MAXVOLUME;
             }
+#if PORT_THIS
             Mix_VolumeMusic(mdata->volume);
+#else
+            pacmxr_set_volume(mdata->volume);
+#endif
         } if (pac_btn_press(SDL_SCANCODE_9, &sflags->nine_wasdown, rtvars->kbd_state)) { 
             if (((int)mdata->volume - PAC_DEFAULT_VOLUME_INCREMENT) > 0) {
                 mdata->volume -= PAC_DEFAULT_VOLUME_INCREMENT; 
             } else { 
                 mdata->volume = 0;
             }
+#if PORT_THIS
             Mix_VolumeMusic(mdata->volume);
+#else
+            pacmxr_set_volume(mdata->volume);
+#endif
         }
     }
 
@@ -1066,9 +1117,9 @@ PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
     ImGui::SetNextItemWidth(vol_width);
     if (ImGui::SliderInt("##vol_slider", 
             &mdata->volume, 0, 
-            MIX_MAX_VOLUME, "vol: %d",
+            SDL_MIX_MAXVOLUME, "vol: %d",
             ImGuiSliderFlags_NoInput)) 
-    { Mix_VolumeMusic(mdata->volume); }
+    { pacmxr_set_volume(mdata->volume); }
 }
 
 PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
@@ -1077,21 +1128,35 @@ PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
     const uint8_t *kbd = rtvars->kbd_state;
     mdata->seek_value = conv_songpos2slide_value(mdata);
 
-    if (mdata->sdlmixer_music && kbd[SDL_SCANCODE_LCTRL]) {
-        double new_pos;
+    if (kbd[SDL_SCANCODE_LCTRL]) {
+        float new_pos;
         if (pac_btn_press(SDL_SCANCODE_RIGHT, &sflags->right_wasdown, kbd)) {
             new_pos = mdata->current_position + (double)mdata->seek_increment;
-            if (new_pos < (mdata->current_duration - 0.1)) { 
+            //new_pos = mdata->seek_value + 0.05f;
+            if (new_pos < mdata->current_duration) { 
+#if PORT_THIS
                 Mix_SetMusicPosition(new_pos); 
+#else
+                pacmxr_seek(pacmxr_seconds_to_seek_value(new_pos));
+#endif
             } else { 
                 goto_next_file(mdata); 
             }
         } else if (pac_btn_press(SDL_SCANCODE_LEFT, &sflags->left_wasdown, kbd)) {
             new_pos = mdata->current_position - (double)mdata->seek_increment;
+            //new_pos = mdata->seek_value - 0.05f;
             if (new_pos > 0.0) { 
+#if PORT_THIS
                 Mix_SetMusicPosition(new_pos); 
+#else
+                pacmxr_seek(pacmxr_seconds_to_seek_value(new_pos));
+#endif
             } else { 
+#if PORT_THIS
                 Mix_SetMusicPosition(0.0); 
+#else
+                pacmxr_seek(0.0f);
+#endif
             }
         }
     }
@@ -1103,8 +1168,11 @@ PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
         &mdata->seek_value, 0, 
         PAC_SEEK_VALUE_MAX, "",
         ImGuiSliderFlags_NoInput)) {
-        double new_seek = conv_slide_value2songpos(mdata);
+#if PORT_THIS
         Mix_SetMusicPosition(new_seek);
+#else
+        pacmxr_seek(mdata->seek_value/(float)PAC_SEEK_VALUE_MAX);
+#endif
     }
 }
 
@@ -1233,6 +1301,7 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
             ImGui::EndMenu();
         } if (ImGui::BeginMenu("playback")) {
             if (ImGui::MenuItem(play_toggle_text, "space")) {
+#if PORT_THIS
                 if (mdata->sdlmixer_music) {
                     if (!mdata->paused) {
                         mdata->paused = 1;
@@ -1242,8 +1311,19 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
                         Mix_ResumeMusic(); 
                     }
                 }
+#else
+                if (pacmxr_file_is_open()) {
+                    pacmxr_toggle_playback();
+                    //mdata->paused = !mdata->paused;
+                    //pacmxr_pause(mdata->paused);
+                }
+#endif
             } if (ImGui::MenuItem("halt")) {
+#if PORT_THIS
                 sdlmixer_stop_music(mdata); 
+#else
+                tupacmixer_stop_music(mdata);
+#endif
                 mdata->current_filename[0] = 0x0;
             } if (ImGui::MenuItem("previous", "ctrl-p")) {
                 goto_prev_file(mdata);
@@ -1317,10 +1397,15 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     float vol_width = 200.0f;
     State_Flags *sflags = &rtvars->sflags;
 
+#if PORT_THIS
     if (mdata->sdlmixer_music && 
         (Mix_PlayingMusic() || 
         Mix_PausedMusic())) 
     { update_music_info(mdata); }
+#else
+    if (pacmxr_file_is_open())
+    { update_music_info(mdata); }
+#endif
 
     pac_begin_frame(rtvars, sdldata);
     menu_do_menubar(rtvars, mdata);
@@ -1430,11 +1515,15 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     { goto_prev_file(mdata); }
 
     if (ImGui::Button((char *)_stop_btn_glyph, ImVec2(btn_side_len, btn_side_len))) {
+#if PORT_THIS
         sdlmixer_stop_music(mdata); 
+#else
+        tupacmixer_stop_music(mdata);
+#endif
         mdata->current_filename[0] = 0x0;
     }
 
-    if (mdata->paused) { 
+    if (rtvars->pacmxr_ctx->paused) { 
         playback_btn_text[0] = '>'; 
         playback_btn_text[1] = 0; 
         strcpy((char *)bufgroup->play_toggle_text, "play");
@@ -1450,6 +1539,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
                                 rtvars->kbd_state);
     if (ImGui::Button(playback_btn_text, ImVec2(btn_side_len, btn_side_len)) || 
         (space_was_pressed && !ImGui::GetIO().WantTextInput)) {
+#if PORT_THIS
         if (mdata->sdlmixer_music) {
             if (!mdata->paused) { 
                 mdata->paused = 1; 
@@ -1459,6 +1549,10 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
                 Mix_ResumeMusic(); 
             }
         }
+#else
+        if (pacmxr_file_is_open())
+        { pacmxr_toggle_playback(); }
+#endif
     }
 
     menu_do_volume_bar(rtvars, mdata, vol_width);
@@ -1484,16 +1578,45 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     pac_end_frame(rtvars, sdldata);
 }
 
+#if PORT_THIS
 PAC_INTERNAL char sdlmixer_get_taginfo(Music_Data *mdata)
 {
-    if(!mdata || !mdata->sdlmixer_music) { return 0; }
+    if (!mdata->sdlmixer_music) { return 0; }
     Audio_Metadata_Group *amg = &mdata->current_metadata;
     amg->tag_title =    Mix_GetMusicTitleTag(mdata->sdlmixer_music);
     amg->tag_artist =   Mix_GetMusicArtistTag(mdata->sdlmixer_music);
     amg->tag_album =    Mix_GetMusicAlbumTag(mdata->sdlmixer_music);
     return 1;
 }
+#else
+PAC_INTERNAL void tupacmixer_get_taginfo(Music_Data *mdata)
+{
+    if (!pacmxr_file_is_open()) { return; }
+    Audio_Metadata_Group *amg = &mdata->current_metadata;
+    int taginfo_len = 0;
+    taginfo_len += pacmxr_meta_get_title(0, amg->tagbuffer, sizeof(amg->tagbuffer));
+    if (taginfo_len) {
+        taginfo_len += snprintf(amg->tagbuffer + taginfo_len,
+                            sizeof(amg->tagbuffer) - taginfo_len,
+                            "  -  ");
+        taginfo_len += pacmxr_meta_get_artist(0,
+                            amg->tagbuffer + taginfo_len,
+                            META_EDITOR_BUFSIZE - taginfo_len);
+        taginfo_len += snprintf(amg->tagbuffer + taginfo_len,
+                            sizeof(amg->tagbuffer) - taginfo_len,
+                            "  -  ");
+        taginfo_len += pacmxr_meta_get_album(0,
+                            amg->tagbuffer + taginfo_len,
+                            META_EDITOR_BUFSIZE - taginfo_len);
+    } else {
+        File_List *mlist = &mdata->music_list;
+        snprintf(amg->tagbuffer, sizeof(amg->tagbuffer),
+                "%s", mlist->filenames_string_loclist[mlist->current_index]);
+    }
+}
+#endif
 
+#if PORT_THIS
 PAC_INTERNAL void sdlmixer_start_music(Music_Data *mdata, char *music_path) 
 {
     if (mdata->sdlmixer_music && 
@@ -1517,7 +1640,21 @@ PAC_INTERNAL void sdlmixer_start_music(Music_Data *mdata, char *music_path)
         goto_next_file(mdata);
     }
 }
+#else
+PAC_INTERNAL void tupacmixer_start_music(Music_Data *mdata, char *music_path) 
+{
+    pacmxr_close_file();
+    if (pacmxr_open_file(music_path)) {
+        pacmxr_pause(0);
+        //SDL_UnlockAudioDevice(global_pacmxr_ctx.au_dev);
+    } else {
+        platform_dbg_log("failed to load music\n");
+        //goto_next_file(mdata);
+    }
+}
+#endif
 
+#if PORT_THIS
 PAC_INTERNAL void sdlmixer_stop_music(Music_Data *mdata)
 {
     if (mdata->sdlmixer_music) {
@@ -1527,6 +1664,12 @@ PAC_INTERNAL void sdlmixer_stop_music(Music_Data *mdata)
         strcpy(mdata->music_type_buf, "NONE");
     }
 }
+#else
+PAC_INTERNAL void tupacmixer_stop_music(Music_Data *mdata)
+{
+    pacmxr_close_file();
+}
+#endif
 
 void pac_sdlmixer_music_finished_callback(void)
 {
@@ -1542,16 +1685,12 @@ void pac_sdlmixer_postmix_callback(void *udata, uint8_t *stream, int stream_len)
     }
 }
 
+#if PORT_THIS
 PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata) 
 {
     //int audio_devs = SDL_GetNumAudioDevices(0);
     const char *dev2open = SDL_GetAudioDeviceName(0, 0);
     PAC_ASSERT(dev2open);
-    //for(int i = 0; i < audio_devs; ++i)
-    //{
-    //    //printf("%d: %s\n", i, SDL_GetAudioDeviceName(i, 0));
-    //    dev
-    //}
 
     char result = 0;
     Mix_Init(MIX_INIT_FLAC
@@ -1590,6 +1729,52 @@ PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata)
     }
     return result;
 }
+#else
+PAC_INTERNAL char pac_init_tupacmixer(Music_Data *mdata) 
+{
+    Pacmxr_Init_Options init_opts = {};
+    init_opts.sample_rate = PACMXR_RESAMPLE_SAMPLERATE;
+    init_opts.no_init_sdl = 1;
+    //init_opts.av_loglevel = AV_LOG_ERROR;
+#if _2PACWAV_DEBUG
+    init_opts.av_loglevel = AV_LOG_DEBUG;
+#else
+    init_opts.av_loglevel = AV_LOG_ERROR;
+#endif
+    if (!pacmxr_init(&init_opts)) {
+        platform_log("FATAL ERROR: 2pacwav failed to initialize its audio mixer\n");
+        return 0;
+    }
+
+    Pacmxr_Context *pacmxr_context = pacmxr_get_context();
+    SDL_AudioSpec wanted_spec, obtained_spec;
+    SDL_zero(wanted_spec);
+    wanted_spec.freq = PACMXR_RESAMPLE_SAMPLERATE;
+    wanted_spec.format = AUDIO_S16SYS;
+    wanted_spec.channels = 2;
+    wanted_spec.samples = PACMXR_SDL_AUDIO_BUFFER_SIZE;
+    wanted_spec.callback = pacmxr__sdl_audio_callback;
+    wanted_spec.userdata = (void *)pacmxr_context;
+
+    pacmxr_context->au_dev = SDL_OpenAudioDevice(0, 0, &wanted_spec, &obtained_spec, 0);
+    if (!pacmxr_context->au_dev) {
+        platform_log("pacmxr_init failed to open audio device: %s\n",
+                SDL_GetError());
+        return 0;
+    }
+    SDL_PauseAudioDevice(pacmxr_context->au_dev, 1);
+    SDL_LockAudioDevice(pacmxr_context->au_dev);
+    //rtvars->pacmxr_ctx->paused = 1;
+    mdata->sample_rate = obtained_spec.freq;
+    mdata->pcm_bits = obtained_spec.format & 0xFF;
+    mdata->channels = obtained_spec.channels;
+    mdata->volume = SDL_MIX_MAXVOLUME/2;
+    mdata->chunk_size = 8192;
+    mdata->seek_increment = PAC_DEFAULT_SEEK_INCREMENT;
+    //pacmxr_pause(1);
+    return 1;
+}
+#endif
 
 PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata) 
 {

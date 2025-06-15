@@ -11,6 +11,8 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 #include <GL/gl.h>
 #include <limits.h>
 
+#include "2pacmixer.h"
+
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (5)
 #define _2PACWAV_VER_PATCH      (1)
@@ -22,7 +24,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 #define WINDOW_WIDTH    1024
 #define WINDOW_HEIGHT   768
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)11111) //90fps
-#define PAC_SEEK_VALUE_MAX (1000)
+#define PAC_SEEK_VALUE_MAX (1000.0f)
 
 //#define PAC_LATIN_FONT_STRING   "DejaVuSansMono.ttf"
 #define PAC_LATIN_FONT_STRING   "LiberationMono-Regular.ttf"
@@ -55,6 +57,9 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 #ifndef PAC_SDLMIXER_CHUNKSIZE
     #define PAC_SDLMIXER_CHUNKSIZE (2048)
 #endif
+
+#define PAC_VISUALIZER_BYTES2COPY (2048)
+
 #ifndef PAC_CHAN_COUNT
     #define PAC_CHAN_COUNT (2)
 #endif
@@ -86,7 +91,7 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 #define PAC_HOLD_WAIT_FRAMES (25)
 #define PAC_HOLD_INCREMENT_MODULO (3) //controls how fast u scroll
 
-#define PAC_DEFAULT_SEEK_INCREMENT (10) //(seconds)
+#define PAC_DEFAULT_SEEK_INCREMENT (5.0f) //(seconds)
 #define PAC_DEFAULT_VOLUME_INCREMENT (5) //(seconds)
 
 typedef float _Complex Complex32;
@@ -257,12 +262,16 @@ typedef struct Metadata_Editor
 
 typedef struct Audio_Metadata_Group
 {
+#if PORT_THIS //(dont actually)
     const char *tag_title;
     char *title_begin_in_buf;
     const char *tag_artist;
     char *artist_begin_in_buf;
     const char *tag_album;
     char *album_begin_in_buf;
+#else
+    char tagbuffer[1024];
+#endif
 } Audio_Metadata_Group;
 
 typedef struct Bitmap_Info 
@@ -291,14 +300,21 @@ typedef struct Audio_Stream
 
 typedef struct Music_Data
 {
-    char paused;
+    //char paused;
     char shuffle_enabled;
     char loop_enabled;
     uint16_t pcm_bits;
     int sample_rate;
     int channels;
+    /*
+    NOTE: after 2pacmixer port chunk_size is a terrible name since 2pacmixer
+    also uses the same name for something totally different and also it doesn't
+    and also it doesn't actually mean anything anymore really, it just denotes
+    how much data the visualizer needs to copy
+    */
     int chunk_size;
-    int seek_increment;
+    //int seek_increment;
+    float seek_increment;
     int previous_index;
     int volume;
     int seek_value;
@@ -308,7 +324,7 @@ typedef struct Music_Data
     Audio_Stream astream;
     Runtime_Vars *rtvars_ptr;
     File_List music_list;
-    Mix_Music *sdlmixer_music; //IMPORTANT: ALWAYS SET TO NULL WHEN MUSIC IS UNLOADED
+    //Mix_Music *sdlmixer_music; //IMPORTANT: ALWAYS SET TO NULL WHEN MUSIC IS UNLOADED
     Audio_Metadata_Group current_metadata;
     Metadata_Editor metaed;
     Bitmap_Info cover;
@@ -336,6 +352,7 @@ typedef struct Runtime_Vars
     Ro_Heap_Buffer main_storage;
     Sdl_Apidata *sdldata_ptr;
     Music_Data *mdata_ptr;
+    Pacmxr_Context *pacmxr_ctx;
     ImFont *main_font;
     char working_directory[PATH_MAX];
     char resource_directory[PATH_MAX];
@@ -456,12 +473,20 @@ PAC_INTERNAL void set_match_flags(char *searchbuf, Music_Data *mdata);
 PAC_INTERNAL void update_music_info(Music_Data *mdata);
 PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars, Sdl_Apidata *sdldata, General_Buffer_Group *bufgroup, Music_Data *mdata);
 PAC_INTERNAL char id3_get_taginfo(Music_Data *mdata);
-PAC_INTERNAL char sdlmixer_get_taginfo(Music_Data *mdata);
 PAC_INTERNAL void sdlmixer_start_music(Music_Data *mdata, char *music_path);
-PAC_INTERNAL void sdlmixer_stop_music(Music_Data *mdata);
+
+#if PORT_THIS
+//PAC_INTERNAL void sdlmixer_stop_music(Music_Data *mdata);
+//PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata);
+//PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata);
 void pac_sdlmixer_postmix_callback(void *udata, uint8_t *stream, int len);
-PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata);
-PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata);
+PAC_INTERNAL char sdlmixer_get_taginfo(Music_Data *mdata);
+#else
+PAC_INTERNAL void tupacmixer_start_music(Music_Data *mdata, char *music_path);
+PAC_INTERNAL void tupacmixer_stop_music(Music_Data *mdata);
+PAC_INTERNAL void tupacmixer_get_taginfo(Music_Data *mdata);
+PAC_INTERNAL char pac_init_tupacmixer(Music_Data *mdata);
+#endif
 
 #define _2PACWAV_DOT_H
 #endif

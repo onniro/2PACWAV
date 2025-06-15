@@ -46,24 +46,23 @@ LINK_LIBS="$SDL_DIR/lib/libSDL2.a \
         -static-libstdc++ \
         -static-libgcc \
         -lGL \
-        $SDL_DIR/lib/libSDL2_mixer.a \
-        $CODEC_DIR/lib/libopusfile.a \
-        $CODEC_DIR/lib/libopus.a \
-        $CODEC_DIR/lib/libvorbisfile.a \
-        $CODEC_DIR/lib/libvorbis.a \
-        $CODEC_DIR/lib/libwavpack.a \
-        $CODEC_DIR/lib/libxmp.a \
-        $CODEC_DIR/lib/libogg.a \
         $BASEDIR/3rd_party/taglib/lib/libtag.a \
-        -l:libz.a"
-#LINK_LIBS="$SDL_DIR/lib/libSDL2.a \
-#        -static-libstdc++ \
-#        -static-libgcc \
-#        -lm \
-#        -lGL \
+        -l:libz.a \
+        -lavcodec \
+        -lavformat \
+        -lavcodec \
+        -lavutil \
+        -lswresample \
+        -lpthread"
+#these are for sdl mixer
 #        $SDL_DIR/lib/libSDL2_mixer.a \
-#        -l:libtag.a \
-#        -l:libz.a"
+#        $CODEC_DIR/lib/libopusfile.a \
+#        $CODEC_DIR/lib/libopus.a \
+#        $CODEC_DIR/lib/libvorbisfile.a \
+#        $CODEC_DIR/lib/libvorbis.a \
+#        $CODEC_DIR/lib/libwavpack.a \
+#        $CODEC_DIR/lib/libxmp.a \
+#        $CODEC_DIR/lib/libogg.a \
 
 WARNINGS="-Wall -Wpedantic -Wextra \
         -Wno-unused-parameter -Wno-pointer-arith \
