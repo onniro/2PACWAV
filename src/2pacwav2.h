@@ -238,6 +238,7 @@ typedef struct State_Flags
     char enter_wasdown;
     char tab_wasdown;
     char esc_wasdown;
+    char home_wasdown;
     char clear_confirmation;
     char search_changed;
     char text_field_focused;
@@ -258,6 +259,7 @@ typedef struct Metadata_Editor
     char inbuf_artist[META_EDITOR_BUFSIZE];
     char inbuf_album[META_EDITOR_BUFSIZE];
     char editor_current[PATH_MAX];
+    Pacmxr_Metadata meta_struct;
 } Metadata_Editor;
 
 typedef struct Audio_Metadata_Group

@@ -29,7 +29,7 @@ TODO: figure out how to make the search dialog not block input
 #endif
 
 #include "2pacwav2_visualizer.cpp"
-#include "2pacwav2_tagging.cpp"
+//#include "2pacwav2_tagging.cpp"
 #include "2pacwav2_confparser.cpp"
 
 #define PORT_THIS 0
@@ -903,6 +903,7 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
         
         ImGui::SetCursorPosX(50);
         if (ImGui::Button("save metadata")) {
+#if PORT_THIS
             Tag_Ref tr;
             if (tag_open_file(meta->editor_current, &tr)) {
                 if (tag_set_all(&tr, meta)) {
@@ -915,6 +916,27 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
                             USERINFO_TYPE_ERROR);
                 }
             }
+#else
+            if (meta->meta_struct.in_avf_ctx) {
+                pacmxr_meta_set_title(&meta->meta_struct, meta->inbuf_title);
+                pacmxr_meta_set_artist(&meta->meta_struct, meta->inbuf_artist);
+                pacmxr_meta_set_album(&meta->meta_struct, meta->inbuf_album);
+
+                if (pacmxr_meta_save(&meta->meta_struct)) {
+                    set_userinfo(rtvars, 
+                            "updated metadata.", 
+                            USERINFO_TYPE_NOTE);
+                } else {
+                    set_userinfo(rtvars, 
+                            "failed to update metadata.", 
+                            USERINFO_TYPE_ERROR);
+                }
+            } else {
+                set_userinfo(rtvars, 
+                        "[error]: failed to update metadata.", 
+                        USERINFO_TYPE_ERROR);
+            }
+#endif
         }
     } else {
         ImGui::Text("invalid file selected for metadata editor");
@@ -936,12 +958,34 @@ PAC_INTERNAL void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
                 "%s\\%s", 
 #endif
                 cont, filename);
+#if PORT_THIS
         Tag_Ref tr;
         if (tag_open_file(meta->editor_current, &tr)) {
             tag_get_title(&tr, meta->inbuf_title, META_EDITOR_BUFSIZE - 1);
             tag_get_artist(&tr, meta->inbuf_artist, META_EDITOR_BUFSIZE - 1);
             tag_get_album(&tr, meta->inbuf_album, META_EDITOR_BUFSIZE - 1);
         }
+#else
+        if (meta->meta_struct.in_avf_ctx) {
+            pacmxr_meta_close_file(&meta->meta_struct); 
+        }
+
+        if (pacmxr_meta_open_file(&meta->meta_struct, meta->editor_current)) {
+            pacmxr_meta_get_title(&meta->meta_struct,
+                    meta->inbuf_title,
+                    META_EDITOR_BUFSIZE);
+            pacmxr_meta_get_artist(&meta->meta_struct,
+                    meta->inbuf_artist,
+                    META_EDITOR_BUFSIZE);
+            pacmxr_meta_get_album(&meta->meta_struct,
+                    meta->inbuf_album,
+                    META_EDITOR_BUFSIZE);
+        } else {
+            set_userinfo(rtvars,
+                    "[error]: couldn't get metadata information",
+                    USERINFO_TYPE_ERROR);
+        }
+#endif
     } else { 
         *meta->editor_current = 0; 
     }
@@ -1128,7 +1172,7 @@ PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
     const uint8_t *kbd = rtvars->kbd_state;
     mdata->seek_value = conv_songpos2slide_value(mdata);
 
-    if (kbd[SDL_SCANCODE_LCTRL]) {
+    if (kbd[SDL_SCANCODE_LCTRL] || kbd[SDL_SCANCODE_RCTRL]) {
         float new_pos;
         if (pac_btn_press(SDL_SCANCODE_RIGHT, &sflags->right_wasdown, kbd)) {
             new_pos = mdata->current_position + (double)mdata->seek_increment;
@@ -1158,6 +1202,9 @@ PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
                 pacmxr_seek(0.0f);
 #endif
             }
+        } else if (pac_btn_press(SDL_SCANCODE_HOME, &sflags->home_wasdown, kbd)) {
+            //NOTE: this doesn't work for the home key on my laptop keypad for example
+            pacmxr_seek(0.0f);
         }
     }
 

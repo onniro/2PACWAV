@@ -705,7 +705,7 @@ PACMXR_INLINE float pacmxr_stream_duration(void)
     File_Context *fctx = &ctx->fctx;
     float ret = -1.0f;
     if (fctx && fctx->avf_ctx) 
-    { ret = fctx->avf_ctx->duration/AV_TIME_BASE; }
+    { ret = (float)fctx->avf_ctx->duration/(float)AV_TIME_BASE; }
     return ret;
 }
 
@@ -753,11 +753,11 @@ PACMXR_INLINE float pacmxr_queue_seconds_total(void)
 PACMXR_INLINE float pacmxr_queue_seconds_left(void)
 {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
-    size_t bytes_left = ctx->aqueue.bytes_left;
+    float bytes_left = (float)ctx->aqueue.bytes_left;
     //int num_chans = ctx->fctx.avc_ctx->ch_layout.nb_channels;
-    int num_chans = PACMXR_CHAN_COUNT;
-    int sample_rate = PACMXR_RESAMPLE_SAMPLERATE;
-    int bytes_per_sample = sizeof(Pcm16_Sample);
+    float num_chans = PACMXR_CHAN_COUNT;
+    float sample_rate = PACMXR_RESAMPLE_SAMPLERATE;
+    float bytes_per_sample = sizeof(Pcm16_Sample);
     float seconds_left = bytes_left/(sample_rate*num_chans*bytes_per_sample);
     return seconds_left;
 }
