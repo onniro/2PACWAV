@@ -272,7 +272,7 @@ R"(
 #version 120
 void main()
 {
-    gl_FragColor = vec4(0.7, 0.2, 0.2, 0.7f);
+    gl_FragColor = vec4(0.0, 0.7, 0.5, 0.7f);
 }
 )";
 
@@ -358,6 +358,7 @@ void main()
 
     //idk if this glBufferSubData call is really good
 #if 1 
+    glLineWidth(2.0f);
     glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(2*PAC_OSCILLOSCOPE_POINT_COUNT)), &verts[0]);
     glDrawArrays(GL_LINE_STRIP, 0, PAC_OSCILLOSCOPE_POINT_COUNT);
 #else
