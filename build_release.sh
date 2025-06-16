@@ -26,10 +26,11 @@ INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2 \
         -I$BASEDIR/3rd_party/SDL2/include \
         -I$BASEDIR/3rd_party/imgui \
         -I$BASEDIR/3rd_party \
-        -I$BASEDIR/3rd_party/id3v2lib/include \
-        -I$BASEDIR/3rd_party/taglib/include \
-        -I$BASEDIR/3rd_party/taglib/include/mpeg/id3v2/ \
-        -I$BASEDIR/3rd_party/taglib/include/mpeg/" 
+        -I$BASEDIR/3rd_party/id3v2lib/include"
+
+#        -I$BASEDIR/3rd_party/taglib/include \
+#        -I$BASEDIR/3rd_party/taglib/include/mpeg/id3v2/ \
+#        -I$BASEDIR/3rd_party/taglib/include/mpeg/" 
 
 COMP_FLAGS="-O3 -gdwarf"
 EXE_NAME="2w"
@@ -46,15 +47,17 @@ LINK_LIBS="$SDL_DIR/lib/libSDL2.a \
         -static-libstdc++ \
         -static-libgcc \
         -lGL \
-        $BASEDIR/3rd_party/taglib/lib/libtag.a \
-        -l:libz.a \
         -lavcodec \
         -lavformat \
         -lavcodec \
         -lavutil \
         -lswresample \
         -lpthread"
-#these are for sdl mixer
+
+#taglib
+#        $BASEDIR/3rd_party/taglib/lib/libtag.a \
+#        -l:libz.a \
+#sdl mixer
 #        $SDL_DIR/lib/libSDL2_mixer.a \
 #        $CODEC_DIR/lib/libopusfile.a \
 #        $CODEC_DIR/lib/libopus.a \

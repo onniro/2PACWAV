@@ -9,10 +9,11 @@ SOURCES="$PWD/linux_2pacwav2.cpp"
 INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2 \
         -I$BASEDIR/3rd_party/SDL2/include \
         -I$BASEDIR/3rd_party/imgui \
-        -I$BASEDIR/3rd_party \
-        -I$BASEDIR/3rd_party/taglib/include \
-        -I$BASEDIR/3rd_party/taglib/include/mpeg/id3v2/ \
-        -I$BASEDIR/3rd_party/taglib/include/mpeg/" 
+        -I$BASEDIR/3rd_party"
+
+#        "-I$BASEDIR/3rd_party/taglib/include \
+#        -I$BASEDIR/3rd_party/taglib/include/mpeg/id3v2/ \
+#        -I$BASEDIR/3rd_party/taglib/include/mpeg/" 
 
 COMP_FLAGS="-O0 -gdwarf"
 EXE_NAME="2w"
@@ -21,24 +22,26 @@ LINK_FLAGS="-o $EXE_NAME"
 SDL_DIR="$BASEDIR/3rd_party/SDL2"
 CODEC_DIR="$BASEDIR/3rd_party/codecs"
 
-LIB_DIRS="-L$BASEDIR/3rd_party/SDL2/lib \
-        -L$BASEDIR/3rd_party/taglib/lib \
-        -L$BASEDIR/3d_party/codecs/lib"
+LIB_DIRS="-L$BASEDIR/3rd_party/SDL2/lib"
+#        "-L$BASEDIR/3rd_party/taglib/lib \
+#        -L$BASEDIR/3d_party/codecs/lib"
 
 LINK_LIBS="$SDL_DIR/lib/libSDL2.a \
         -lm \
         -static-libstdc++ \
         -static-libgcc \
         -lGL \
-        $BASEDIR/3rd_party/taglib/lib/libtag.a \
-        -l:libz.a \
         -lavcodec \
         -lavformat \
         -lavcodec \
         -lavutil \
         -lswresample \
         -lpthread"
-#these are for sdl mixer
+
+#taglib
+        #$BASEDIR/3rd_party/taglib/lib/libtag.a \
+        #-l:libz.a \
+#sdl mixer
 #        $SDL_DIR/lib/libSDL2_mixer.a \
 #        $CODEC_DIR/lib/libopusfile.a \
 #        $CODEC_DIR/lib/libopus.a \
