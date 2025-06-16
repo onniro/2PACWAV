@@ -438,6 +438,8 @@ PAC_INTERNAL void tupacmixer_get_audio_type(Music_Data *mdata)
         snprintf(mdata->music_type_buf,
                 sizeof(mdata->music_type_buf), "%s",
                 pac_ctx->fctx.codec->name);
+    } else {
+        snprintf(mdata->music_type_buf, sizeof(mdata->music_type_buf), "unknown");
     }
 }
 #endif
@@ -853,13 +855,18 @@ PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars,
                                 General_Buffer_Group *bufgroup,
                                 Music_Data *mdata)
 {
-    ImVec2 winspecs = ImVec2(300, 60);
+    Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
+    ImVec2 winspecs = ImVec2(400, 70);
     ImGui::SetNextWindowSize(winspecs);
+    winspecs.x = sdldata->win_width - winspecs.x - 10;
+    ImGui::SetNextWindowPos(winspecs);
+
     if (ImGui::Begin("search list", 0, 
         ImGuiWindowFlags_NoScrollbar
         |ImGuiWindowFlags_NoResize)) {
         ImGui::SetKeyboardFocusHere(0);
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+
         if (ImGui::InputText("##search_query", 
             (char *)bufgroup->inbuf_search,
             SEARCH_BUFFER_SIZE - 1)) { 
@@ -872,6 +879,7 @@ PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars,
                     mdata->music_list.match_count);
             set_userinfo(rtvars, info_buf, USERINFO_TYPE_NOTE);
         }
+
         ImGui::End();
     }
 }
@@ -1401,6 +1409,8 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
                 clear_was_pressed = 1;
             } if (ImGui::MenuItem(ls_toggle_text, "ctrl-l")) {
                 lstoggle_was_pressed = 1;
+            } if (ImGui::MenuItem("search", "ctrl-f")) {
+                sflags->searchwindow_open = 1;
             }
             ImGui::EndMenu();
         }

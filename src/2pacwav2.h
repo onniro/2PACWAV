@@ -330,7 +330,7 @@ typedef struct Music_Data
     Audio_Metadata_Group current_metadata;
     Metadata_Editor metaed;
     Bitmap_Info cover;
-    char music_type_buf[16];
+    char music_type_buf[32];
 } Music_Data;
 
 typedef struct Sdl_Apidata 

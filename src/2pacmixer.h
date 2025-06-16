@@ -1499,5 +1499,5 @@ error:
 }
 #endif
 
-#define _2PACMIXER_DOT_H
+#define _2PACMIXER_DOT_H 1
 #endif
