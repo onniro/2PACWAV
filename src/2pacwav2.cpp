@@ -404,16 +404,16 @@ PAC_INTERNAL void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bu
 {
     snprintf((char *)bufgroup->music_info_buffer, DEBUG_BUFFER_SIZE,
             "[srate:%dhz][pcm_bits:%d][chan:%d]"
-            "[vol:%d/128][pos:%06.1f/%06.1f][type:%s]"
+            "[vol:%d/128][pos:%06.1f/%06.1f][enctype:%s]"
             "\n[path:%s]", 
             mdata->sample_rate, mdata->pcm_bits, mdata->channels,
             mdata->volume, mdata->current_position, mdata->current_duration, mdata->music_type_buf,
             mdata->current_filename);
 }
 
+#if PORT_THIS
 PAC_INTERNAL void sdlmixer_get_music_type(Music_Data *mdata)
 {
-#if PORT_THIS
     Mix_MusicType music_type = Mix_GetMusicType(mdata->sdlmixer_music);
     switch (music_type) {
         case MUS_CMD: strcpy(mdata->music_type_buf, "CMD"); break;
@@ -429,9 +429,18 @@ PAC_INTERNAL void sdlmixer_get_music_type(Music_Data *mdata)
         case MUS_NONE:
         default: strcpy(mdata->music_type_buf, "NONE"); break;
     }
-#else
-#endif
 }
+#else
+PAC_INTERNAL void tupacmixer_get_audio_type(Music_Data *mdata)
+{
+    Pacmxr_Context *pac_ctx = pacmxr_get_context();
+    if (pac_ctx->fctx.codec && pac_ctx->fctx.codec->name) {
+        snprintf(mdata->music_type_buf,
+                sizeof(mdata->music_type_buf), "%s",
+                pac_ctx->fctx.codec->name);
+    }
+}
+#endif
 
 PAC_INTERNAL void load_file_from_path(char *path, Music_Data *mdata)
 {
@@ -969,7 +978,10 @@ PAC_INTERNAL void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
         if (meta->meta_struct.in_avf_ctx) {
             pacmxr_meta_close_file(&meta->meta_struct); 
         }
-
+        
+        meta->inbuf_title[0] = 0;
+        meta->inbuf_artist[0] = 0;
+        meta->inbuf_album[0] = 0;
         if (pacmxr_meta_open_file(&meta->meta_struct, meta->editor_current)) {
             pacmxr_meta_get_title(&meta->meta_struct,
                     meta->inbuf_title,
@@ -1693,6 +1705,7 @@ PAC_INTERNAL void tupacmixer_start_music(Music_Data *mdata, char *music_path)
     pacmxr_close_file();
     if (pacmxr_open_file(music_path)) {
         pacmxr_pause(0);
+        tupacmixer_get_audio_type(mdata);
         //SDL_UnlockAudioDevice(global_pacmxr_ctx.au_dev);
     } else {
         platform_dbg_log("failed to load music\n");
