@@ -87,7 +87,7 @@ PAC_INTERNAL void startup_push_path(Startup_Args *sargs, char *path)
             *dest++ = 0;
             p->ptrs[index] = dest; 
         }
-        snprintf(dest, PATH_MAX - 1, "%s", path);
+        snprintf(dest, PATH_MAX, "%s", path);
         ++p->count; 
     }
 }
@@ -476,7 +476,7 @@ PAC_INTERNAL char *separate_file_and_dir_name(char *dir_in_out,
             --temp_in; ++chars;
         }
     } else {
-        snprintf(name_out, dirlen, "%s", dir_in_out);
+        snprintf(name_out, dirlen + 1, "%s", dir_in_out);
         snprintf(dir_in_out, dirlen, ".");
     }
     return dir_in_out;
@@ -554,7 +554,7 @@ PAC_INTERNAL char add_single_file_to_music_list(char *path, Music_Data *mdata)
 {
     char dir[PATH_MAX];
     char name[NAME_MAX];
-    strncpy(dir, path, PATH_MAX - 1);
+    snprintf(dir, PATH_MAX, "%s", path);
     separate_file_and_dir_name(dir, name, strlen(dir));
     File_List *mlist = &mdata->music_list;
     char cont_dir_already_added = check_dir_already_added(path, &mdata->music_list);
