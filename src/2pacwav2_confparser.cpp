@@ -292,19 +292,14 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
         //check and handle tokens here
         case TOKEN_IDENTIFIER: {
             if (token_equals(tok, CONF_STARTUP_PATH_TOKEN)) {
-                if (!startup_path_set) {
-                    stringbuf[0] = 0;
-                    Token ret_tok = get_string_entry(&tokenizer,
-                                        stringbuf,
-                                        sizeof(stringbuf),
-                                        CONF_STARTUP_PATH_TOKEN);
-                    if (stringbuf[0] && ret_tok.length) {
-                        platform_dbg_log("loading startup path %s\n", stringbuf);
-                        add_to_music_list(stringbuf, rtvars->mdata_ptr, rtvars);
-                        ++startup_path_set;
-                    }
-                } else if (1 == startup_path_set) {
-                    report_duplicate(CONF_STARTUP_PATH_TOKEN);
+                stringbuf[0] = 0;
+                Token ret_tok = get_string_entry(&tokenizer,
+                                    stringbuf,
+                                    sizeof(stringbuf),
+                                    CONF_STARTUP_PATH_TOKEN);
+                if (stringbuf[0] && ret_tok.length) {
+                    platform_dbg_log("loading startup path %s\n", stringbuf);
+                    add_to_music_list(stringbuf, rtvars->mdata_ptr, rtvars);
                     ++startup_path_set;
                 }
             } else if (token_equals(tok, CONF_FONTSIZE_TOKEN)) {
