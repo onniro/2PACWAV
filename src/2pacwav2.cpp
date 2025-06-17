@@ -146,6 +146,9 @@ PAC_INTERNAL void startup_load_conf(Runtime_Vars *rtvars,
                                 int confbuf_bytes)
 {
     char confpath[PATH_MAX];
+    const int infosize = PATH_MAX + sizeof("loaded config: ");
+    char infobuf[infosize];
+
 #if _2PACWAV_LINUX
     snprintf(confpath, PATH_MAX - 1, "%s/%s", 
             rtvars->working_directory, PAC_CONFNAME_STRING);
@@ -153,13 +156,25 @@ PAC_INTERNAL void startup_load_conf(Runtime_Vars *rtvars,
     snprintf(confpath, PATH_MAX - 1, "%s\\%s", 
             rtvars->working_directory, PAC_CONFNAME_STRING);
 #endif
+
     if (platform_file_exists(confpath)) {
-        snprintf(rtvars->conf_directory, PATH_MAX - 1, "%s", confpath);
+        snprintf(rtvars->conf_directory, PATH_MAX, "%s", confpath);
         platform_read_file(confpath, confbuf, confbuf_bytes - 1);
-        const int infosize = PATH_MAX + sizeof("loaded config: ");
-        char infobuf[infosize];
-        snprintf(infobuf, infosize - 1, "loaded config: %s", confpath);
+        snprintf(infobuf, infosize, "loaded config: %s", confpath);
         set_userinfo(rtvars, infobuf, USERINFO_TYPE_NOTE);
+    } else {
+#if _2PACWAV_LINUX
+        char *username = getlogin();
+        if (username) {
+            snprintf(confpath, PATH_MAX, "/home/%s/.config/2pacwav/%s", username, PAC_CONFNAME_STRING);
+            if (platform_file_exists(confpath)) {
+                snprintf(rtvars->conf_directory, PATH_MAX, "%s", confpath);
+                platform_read_file(confpath, confbuf, confbuf_bytes - 1);
+                snprintf(infobuf, infosize, "loaded config: %s", confpath);
+                set_userinfo(rtvars, infobuf, USERINFO_TYPE_NOTE);
+            }
+        }
+#endif
     }
 }
 
@@ -1044,8 +1059,9 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
 
 PAC_INTERNAL void str2lowercase(char *string, int len) 
 {
-    for (int i = 0; i < len; ++i) 
-    { string[i] = tolower(string[i]); }
+    for (int i = 0; i < len; ++i) {
+        string[i] = tolower(string[i]);
+    }
 }
 
 PAC_INTERNAL char *pac_strcasestr(char *str, char *substr) 

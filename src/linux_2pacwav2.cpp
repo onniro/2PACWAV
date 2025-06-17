@@ -295,8 +295,8 @@ int main(int arg_count, char **args)
                 CONFBUFFER_SIZE);
         int conf_len = strlen((char *)bufgroup.conf_file_buffer);
         if (conf_len && (conf_len < CONFBUFFER_SIZE)) {
-            parse_and_apply_config(&rtvars, 
-                    (char *)bufgroup.conf_file_buffer, 
+            parse_and_apply_config(&rtvars,
+                    (char *)bufgroup.conf_file_buffer,
                     CONFBUFFER_SIZE);
         }
     }
