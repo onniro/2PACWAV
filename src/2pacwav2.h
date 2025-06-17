@@ -112,7 +112,7 @@ struct Mouse_State;
 struct Metadata_Editor;
 struct Audio_Stream;
 
-#define PAC_CONFNAME_STRING         "2wfile"
+#define PAC_CONFNAME_STRING         "2wconf"
 
 typedef struct General_Buffer_Group 
 {
