@@ -3,35 +3,30 @@
 the point of this program is to play music on the GNU/+Linux/systemd operating system. this project started because one day vlc media player crashed while i was trying to listen to some Tupac so i got real angry and took matters into my own hands
 
 ### contents:
-[supported formats](#supported-formats)  
-[notable unsupported formats](#notable-unsupported-formats)  
+[features](#features)  
 [installation](#installation)  
-[credits and dependencies](#credits-and-dependencies)
+[configuration file](#configuration-file)  
+[credits and dependencies](#credits-and-dependencies)  
 
-### supported formats:
-- raw PCM (e.g. WAV and AIFF)
-- AAC (only in MP3 container)
-- Vorbis (only in Ogg container)
-- Opus (also only in Ogg container)
-- FLAC (only in FLAC container)
-- WavPack
-
-### notable unsupported formats:
-- anything in a Matroska container
-- anything QuickTime related
-- ALAC
-- WMA (lol)
-- Musepack
-
-note: the above things about supported/unsupported formats is subject to change as the current plan is to stop using SDL mixer
+### features:
+- 2pacwav supports many different codecs and containers thanks to FFmpeg, such as WAV, MP3, AAC, Vorbis, Opus, FLAC, AIFF, WavPack, MusePack and more
+- some metadata editing stuff
+- cool oscilloscope audio visualizer
+- basic music player things like playback controls, seeking and whatnot
 
 ### installation:
-0. (make sure g++ is installed)
+0. (make sure a C++ (sorry) compiler is installed)
 1. run `git clone --depth 1 https://github.com/onniro/2PACWAV.git && cd 2PACWAV && sh build_release.sh`
 2. on success, the executable (named "2w") will be in build/linux_x64_release
 
+### configuration file:
+- the configuration file named "2wconf" should be placed either in `$HOME/.config/2pacwav` or in the same directory as the executable
+- the file is parsed using a C parser, meaning that lines end on semicolons and comments are C & C++ style
+- list of currently supported options:
+	- `startup_path = "/path/to/files";` - path to a file or folder that will be added to the list on startup. (multiple instances of this are allowed)
+	- `font_size = number;` - sets the size for the font  
+
 ### credits and dependencies:
-- SDL2 - abstraction for window and OpenGL context creation as well as actually playing music (from loading files to audio output)
+- SDL2 - abstraction for window and OpenGL context creation as well as audio output
+- FFmpeg libs (avcodec, avformat, swresample et al) decoding and resampling audio and handling metadata
 - Dear ImGui - GUI library
-- TagLib - metadata library
-- stb - completely unused for now but its good
