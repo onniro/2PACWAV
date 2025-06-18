@@ -100,8 +100,8 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
     char *arg;
     char exit_after_ret = 0;
     for (int arg_index = 1; 
-            arg_index < arg_count; 
-            ++arg_index) {
+        arg_index < arg_count; 
+        ++arg_index) {
         arg = args[arg_index];
         if (!strcmp("--", arg)) { 
             break; 
@@ -162,6 +162,7 @@ PAC_INTERNAL void startup_load_conf(Runtime_Vars *rtvars,
         platform_read_file(confpath, confbuf, confbuf_bytes - 1);
         snprintf(infobuf, infosize, "loaded config: %s", confpath);
         set_userinfo(rtvars, infobuf, USERINFO_TYPE_NOTE);
+        platform_dbg_log("%s\n", infobuf);
     } else {
 #if _2PACWAV_LINUX
         char *username = getlogin();
@@ -871,17 +872,20 @@ PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars,
                                 Music_Data *mdata)
 {
     Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
-    ImVec2 winspecs = ImVec2(400, 70);
-    ImGui::SetNextWindowSize(winspecs);
-    winspecs.x = sdldata->win_width - winspecs.x - 10;
-    ImGui::SetNextWindowPos(winspecs);
+    ImVec2 winsize = ImVec2(400, 70);
+    ImGui::SetNextWindowSize(winsize);
+    ImVec2 winpos = ImVec2(sdldata->win_width - winsize.x - 10, winsize.y);
+    ImGui::SetNextWindowPos(winpos);
 
     if (ImGui::Begin("search list", 0, 
         ImGuiWindowFlags_NoScrollbar
         |ImGuiWindowFlags_NoResize)) {
         ImGui::SetKeyboardFocusHere(0);
-        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+        if (!ImGui::IsWindowHovered() &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        { rtvars->sflags.searchwindow_open = 0; }
 
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
         if (ImGui::InputText("##search_query", 
             (char *)bufgroup->inbuf_search,
             SEARCH_BUFFER_SIZE - 1)) { 
@@ -1485,11 +1489,13 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
 #if PORT_THIS
     if (mdata->sdlmixer_music && 
         (Mix_PlayingMusic() || 
-        Mix_PausedMusic())) 
-    { update_music_info(mdata); }
+        Mix_PausedMusic())) {
+        update_music_info(mdata);
+    }
 #else
-    if (pacmxr_file_is_open())
-    { update_music_info(mdata); }
+    if (pacmxr_file_is_open()) {
+        update_music_info(mdata);
+    }
 #endif
 
     pac_begin_frame(rtvars, sdldata);
@@ -1499,8 +1505,9 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     char d_was_pressed = pac_btn_press(SDL_SCANCODE_D, 
                             &sflags->d_wasdown, 
                             rtvars->kbd_state);
-    if (rtvars->kbd_state[SDL_SCANCODE_LALT] && d_was_pressed) 
-    { ImGui::SetKeyboardFocusHere(0); }
+    if (rtvars->kbd_state[SDL_SCANCODE_LALT] && d_was_pressed) {
+        ImGui::SetKeyboardFocusHere(0);
+    }
 
     ImGui::Text("path:");
     ImGui::SameLine();
@@ -1531,8 +1538,8 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
             0);
 
     //this check probably hasn't been necessary since the imgui port
-    if ((sdldata->win_height > MLIST_MIN_WIN_WIDTH) && 
-        (sdldata->win_width > MLIST_MIN_WIN_HEIGHT)) {
+    //if ((sdldata->win_height > MLIST_MIN_WIN_WIDTH) && 
+    //    (sdldata->win_width > MLIST_MIN_WIN_HEIGHT)) {
         switch (rtvars->sflags.viewstate) {
         case CENTER_VIEW_STATE_MUSIC_LIST: {
             menu_do_music_list(rtvars, mdata);
@@ -1548,7 +1555,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
 
         default: break;
         }
-    }
+    //}
     ImGui::EndChild();
     ImGui::SetCursorPosX(50);
     ImGui::Separator();
