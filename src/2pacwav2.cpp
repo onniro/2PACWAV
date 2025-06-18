@@ -17,9 +17,9 @@ TODO: figure out how to make the search dialog not block input
 #include <GL/glu.h>
 #include <GL/glext.h>
 
-#define STB_IMAGE_IMPLEMENTATION 1
-#define STBI_FAILURE_USERMSG 1
-#include "stb/stb_image.h"
+//#define STB_IMAGE_IMPLEMENTATION 1
+//#define STBI_FAILURE_USERMSG 1
+//#include "stb/stb_image.h"
 
 #include "2pacwav2.h"
 
@@ -167,7 +167,10 @@ PAC_INTERNAL void startup_load_conf(Runtime_Vars *rtvars,
 #if _2PACWAV_LINUX
         char *username = getlogin();
         if (username) {
-            snprintf(confpath, PATH_MAX, "/home/%s/.config/2pacwav/%s", username, PAC_CONFNAME_STRING);
+            snprintf(confpath, PATH_MAX,
+                    "/home/%s/.config/2pacwav/%s",
+                    username, PAC_CONFNAME_STRING);
+
             if (platform_file_exists(confpath)) {
                 snprintf(rtvars->conf_directory, PATH_MAX, "%s", confpath);
                 platform_read_file(confpath, confbuf, confbuf_bytes - 1);
@@ -764,6 +767,7 @@ PAC_INTERNAL void set_userinfo_color(Runtime_Vars *rtvars)
     }
 }
 
+#if 0x0
 PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
 {
     bmpinfo->img_data = stbi_load_from_memory(bmpinfo->img_data,
@@ -773,7 +777,7 @@ PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
                             &bmpinfo->chan, 
                             4);
     if (bmpinfo->ogl_tex_id) 
-    { glDeleteTextures(1, &bmpinfo->ogl_tex_id);  }
+    { glDeleteTextures(1, &bmpinfo->ogl_tex_id); }
 
     glGenTextures(1, &bmpinfo->ogl_tex_id);
     glBindTexture(GL_TEXTURE_2D, bmpinfo->ogl_tex_id);
@@ -794,6 +798,7 @@ PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
     glBindTexture(GL_TEXTURE_2D, 0);
     stbi_image_free(bmpinfo->img_data);
 }
+#endif
 
 PAC_INTERNAL void format_taginfo(Music_Data *mdata, char *begin, char separate)
 {
