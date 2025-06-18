@@ -42,8 +42,8 @@ CODEC_DIR="$BASEDIR/3rd_party/codecs"
 LIB_DIRS="-L$BASEDIR/3rd_party/SDL2/lib -L$BASEDIR/3rd_party/taglib/lib"
 OBJ_FILES="$BASEDIR/build/lib/imgui*.o"
 
-LINK_LIBS="$SDL_DIR/lib/libSDL2.a \
-        -lm \
+LINK_LIBS="-lm \
+        -lSDL2 \
         -static-libstdc++ \
         -static-libgcc \
         -lGL \
