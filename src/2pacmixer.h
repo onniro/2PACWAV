@@ -203,7 +203,7 @@ wasn't as self-explanatory as I might have initially thought.
 pacmxr_init:
 Should be called once before calling any other function in this header
 except for pacmxr_default_init_options and the metadata functions.
-This function will set up an audio device with SDL and set audio callback being pacmxr__sdl_audio_callback. 
+This function will set up an audio device with SDL and set the callback to pacmxr__sdl_audio_callback. 
 It will also allocate an amount of memory equal to PACMXR_AUDIOQUEUE_BUFFER_SIZE*2
 using mmap on Unix systems (and nothing on Windows since it isn't supported).
 Lastly it will also start a thread whose entry point is pacmxr__decode_check_thread_entry.
