@@ -1063,8 +1063,7 @@ PACMXR_DEF void pacmxr__sdl_audio_callback(void *userdata, uint8_t *stream, int 
 PACMXR_DEF char pacmxr_open_file(char *filename)
 {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
-    const char fail = 0; 
-    const char success = 1;
+    const char fail = 0, success = 1; 
     File_Context *fctx = &ctx->fctx;
 
     if (avformat_open_input(&fctx->avf_ctx, filename, 0, 0) < 0) {
@@ -1184,12 +1183,21 @@ PACMXR_DEF char pacmxr_open_file(char *filename)
     ctx->paused = 0;
     ctx->fctx.is_open = 1;
 
-    //calling it twice like this makes it work for some fuckin reason lmfaoo
     SDL_UnlockAudioDevice(ctx->au_dev);
     pacmxr_pause(0);
     SDL_UnlockAudioDevice(ctx->au_dev);
-    //SDL_PauseAudioDevice(ctx->au_dev, 0);
-    //SDL_Delay(2000);
+    /*
+    HACK: this delay seems to prevent a bug in 2pacwav where only the first time this function
+    gets called after pacmxr_init, the file is actually opened properly and everything works but something
+    in 2pacwav decides to immediately call this function again with the next file, thus skipping
+    the file the user wanted to play. this is probably due to inconsistencies in state after
+    calls to pacmxr_init and pacmxr_close_file, so that should be looked into
+    */
+    static char first = 1;
+    if (first) {
+        SDL_Delay(100);
+        first = 0;
+    }
 
     return success;
 }
