@@ -2,6 +2,8 @@
 /*
 File: 2pacwav2_tagging.cpp
 Date: Thu 24 Apr 2025 04:31:06 PM EEST
+NOTE: This file is completely unused as of June 15 2025 and
+taglib is no longer included anywhere in this project
 */
 
 #include "tag.h"

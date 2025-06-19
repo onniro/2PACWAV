@@ -2,6 +2,8 @@
 /*
 File: 2pacwav2_tagging.h
 Date: Thu 24 Apr 2025 05:05:51 PM EEST
+NOTE: This file is completely unused as of June 15 2025 and
+taglib is no longer included anywhere in this project
 */
 
 #ifndef _2PACWAV_TAGGING_DOT_H
