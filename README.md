@@ -22,9 +22,7 @@ the point of this program is to play music on the GNU/+Linux/systemd operating s
 ### configuration file:
 - the configuration file named "2wconf" should be placed either in `$HOME/.config/2pacwav` or in the same directory as the executable
 - the file is parsed using a C parser, meaning that lines end on semicolons and comments are C & C++ style
-- list of currently supported options:
-	- `startup_path = "/path/to/files";` - path to a file or folder that will be added to the list on startup. (multiple instances of this are allowed)
-	- `font_size = number;` - sets the size for the font  
+- to get a full list of available options, see the "CONGFIGURATION" -section of `--longhelp`  
 
 ### credits and dependencies:
 - SDL2 - abstraction for window and OpenGL context creation as well as audio output
