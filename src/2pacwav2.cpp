@@ -67,14 +67,29 @@ PAC_INTERNAL void show_version()
     platform_log("%s\n", verbuf);
 }
 
-PAC_INTERNAL void show_help()
+PAC_INTERNAL void show_help(char longhelp)
 {
     show_version();
     platform_log("usage: 2w [options] [files]\n"
+                "-- COMMAND ARGUMENTS --\n"
                 "-h | --help : print this message and exit\n"
+                "--longhelp : print output of the above option as well as additional documentation\n"
                 "-v | --version : print version and exit\n"
                 "-noconf : do not look for a configuration file\n"
                 "-fontsize <value> : set point size for font\n");
+    if (longhelp) {
+        platform_log("-- CONFIGURATION --\n"
+                    "The configuration file named \"2wconf\" should be placed either in $HOME/.config/2pacwav\n"
+                    "or in the same directory as the executable. The syntax of the configuration file is sort of\n"
+                    "similar to C, meaning that '//' and /* */ denote comments and lines end in semicolons.\n"
+                    "Below is a complete list of variables that can be set and some information about them.\n"
+                    "startup_path = \"path/to/file\";  //Sets a path to a file or folder that will be added to the list on startup.\n"
+                    "                                //Multiple instances of this are allowed.\n"
+                    "font_size = value; //Sets point size for the font. (default: 17)\n"
+                    "visualizer = 0 or 1(any nonzero); //Disables visualizer if value is 0 and enables otherwise,\n"
+                    "                                  //including when this variable isn't set.\n"
+                    "                                  //Note that this can be re-enabled from the view menu at any time.\n");
+    }
 }
 
 PAC_INTERNAL void startup_push_path(Startup_Args *sargs, char *path)
@@ -113,7 +128,11 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
             break; 
         } else if (!strcmp("-h", arg) || !strcmp("--help", arg)) {
             exit_after_ret = 1;
-            show_help();
+            show_help(0);
+            break;
+        } else if (!strcmp("--longhelp", arg)) {
+            exit_after_ret = 1;
+            show_help(1);
             break;
         } else if (!sargs->no_load_conf && !strcmp("-noconf", arg)) {
             sargs->no_load_conf = 1;
