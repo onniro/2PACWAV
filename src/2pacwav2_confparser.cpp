@@ -3,16 +3,17 @@
 File: 2pacwav2_confparser.cpp
 Date: Fri 06 Jun 2025 12:45:47 PM EEST
 
-A very simple (non-recursive) descent parser.
+A very simple (non-recursive) descent parser
 Bootlegged off of the introspecter that the bossman himself Casey Muratori wrote on
 episode 206 of Handmade Hero (https://www.youtube.com/watch?v=1IwYEJsvdcs)
-This means that comments are C & C++ style and lines end on semicolons.
+This means that comments are C & C++ style and lines end on semicolons;
 */
 
 #include "2pacwav2.h"
 
-#define CONF_STARTUP_PATH_TOKEN     "startup_path"
-#define CONF_FONTSIZE_TOKEN         "font_size"
+#define CONF_STARTUP_PATH_TOKEN         "startup_path"
+#define CONF_FONTSIZE_TOKEN             "font_size"
+#define CONF_VISUALIZER_STATUS          "visualizer"
 
 typedef enum Token_Type
 {
@@ -275,8 +276,8 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
     Tokenizer tokenizer = {0};
     tokenizer.at = confbuf;
     char stringbuf[PATH_MAX];
-    char startup_path_set = 0,
-            fontsize_set = 0;
+    char fontsize_set = 0,
+            vis_status_set = 0;
 
     while (parsing) {
         Token tok = get_token(&tokenizer);
@@ -300,7 +301,6 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                 if (stringbuf[0] && ret_tok.length) {
                     platform_dbg_log("loading startup path %s\n", stringbuf);
                     add_to_music_list(stringbuf, rtvars->mdata_ptr, rtvars);
-                    ++startup_path_set;
                 }
             } else if (token_equals(tok, CONF_FONTSIZE_TOKEN)) {
                 if (!fontsize_set) {
@@ -312,6 +312,18 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                 } else if (1 == fontsize_set) {
                     report_duplicate(CONF_FONTSIZE_TOKEN);
                     ++fontsize_set;
+                }
+            } else if (token_equals(tok, CONF_VISUALIZER_STATUS)) {
+                if (!vis_status_set) {
+                    float value = get_float_entry(&tokenizer, CONF_VISUALIZER_STATUS);
+                    if (value == 0.0f) {
+                        rtvars->sflags.visualizer_enabled = 0;
+                        strcpy(rtvars->bufgroup_ptr->vis_toggle_text, "enable visualizer");
+                    }
+                    ++vis_status_set;
+                } else if (1 == vis_status_set) {
+                    report_duplicate(CONF_VISUALIZER_STATUS);
+                    ++vis_status_set;
                 }
             } else {
                 snprintf(stringbuf, tok.length + 1, "%s", tok.text);
