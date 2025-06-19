@@ -109,7 +109,7 @@ PAC_INTERNAL void report_missing_semicolon(char *identifier)
 PAC_INTERNAL void report_duplicate(char *identifier)
 {
     fprintf(stderr, 
-            "2wfile warning: variable \"%s\" set more than once. using definition in first instance\n",
+            "2wfile warning: variable \"%s\" set more than once. ignoring all but the first value.\n",
             identifier);
 }
 
@@ -253,14 +253,14 @@ PAC_INTERNAL float get_float_entry(Tokenizer *tokenizer, char *identifier)
             errno = 0;
             ret = strtof(tok.text, &endptr);
             if ((0.0f == ret) && (errno == ERANGE)) {
-                fprintf(stderr, "2wfile error: value used in definition of identifier \"%s\" is invalid\n",
+                fprintf(stderr, "2wfile error: could not set variable \"%s\" to specified value because it might be invalid.\n",
                         identifier);
             } if (!require_token(tokenizer, TOKEN_SEMICOLON)) {
                 ret = 0.0f;
                 report_missing_semicolon(identifier);
             }
         } else {
-            fprintf(stderr, "2wfile syntax error: expected number after identifier \"%s\"",
+            fprintf(stderr, "2wfile syntax error: expected number after identifier \"%s\".",
                     identifier);
         }
     }
@@ -327,7 +327,7 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                 }
             } else {
                 snprintf(stringbuf, tok.length + 1, "%s", tok.text);
-                fprintf(stderr, "2wfile warning: unknown identifier: \"%s\". ignoring\n",
+                fprintf(stderr, "2wfile warning: unknown identifier or variable \"%s\". ignoring.\n",
                         stringbuf);
             }
         } break;
