@@ -226,6 +226,7 @@ PAC_INTERNAL void platform_get_working_directory(char *buf, int buf_size)
 int main(int arg_count, char **args) 
 {
     Runtime_Vars rtvars = {};
+    rtvars.sflags.visualizer_enabled = 1;
     General_Buffer_Group bufgroup = {};
     if (ro_posix_make_heap_buffer(&rtvars.main_storage, 
             PAC_MAIN_STORAGE_SIZE)) { 

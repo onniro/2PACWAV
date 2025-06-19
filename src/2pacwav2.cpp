@@ -17,9 +17,11 @@ TODO: figure out how to make the search dialog not block input
 #include <GL/glu.h>
 #include <GL/glext.h>
 
-//#define STB_IMAGE_IMPLEMENTATION 1
-//#define STBI_FAILURE_USERMSG 1
-//#include "stb/stb_image.h"
+#if STBIMAGE_ENABLED
+    #define STB_IMAGE_IMPLEMENTATION 1
+    #define STBI_FAILURE_USERMSG 1
+    #include "stb/stb_image.h"
+#endif
 
 #include "2pacwav2.h"
 
@@ -69,8 +71,8 @@ PAC_INTERNAL void show_help()
 {
     show_version();
     platform_log("usage: 2w [options] [files]\n"
-                "-h | --help : show this message and exit\n"
-                "-v | --version \n"
+                "-h | --help : print this message and exit\n"
+                "-v | --version : print version and exit\n"
                 "-noconf : do not look for a configuration file\n"
                 "-fontsize <value> : set point size for font\n");
 }
@@ -334,7 +336,7 @@ PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(011, 0x33, 0x3A, 0xFF));
     ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0x11, 0x33, 0x3A, 0xFF));
     ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(0x0, 0x0, 0x0, 0xFF));
-    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, IM_COL32(0xFF, 0xFF, 0xFF, 0xF));
+    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, IM_COL32(0x22, 0x22, 0x22, 0xFF));
 
     ImGui::Begin("2PACWAV", 0, ImGuiWindowFlags_NoTitleBar
                             |ImGuiWindowFlags_NoResize
@@ -374,7 +376,8 @@ PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     //printf("stream=%p, stream_len=%d\n", astream->stream, astream->stream_size);
     //astream->stream_size = stream_len;
 
-    if (rtvars->sflags.viewstate == CENTER_VIEW_STATE_CURRENT_INFO) 
+    if ((rtvars->sflags.viewstate == CENTER_VIEW_STATE_CURRENT_INFO) &&
+        (rtvars->sflags.visualizer_enabled))
     { do_visualizer(rtvars, sdldata); }
     SDL_GL_SwapWindow(sdldata->window_ptr);
 }
@@ -767,7 +770,7 @@ PAC_INTERNAL void set_userinfo_color(Runtime_Vars *rtvars)
     }
 }
 
-#if 0x0
+#if STBIMAGE_ENABLED
 PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
 {
     bmpinfo->img_data = stbi_load_from_memory(bmpinfo->img_data,
@@ -1363,6 +1366,7 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
     char *play_toggle_text = bufgroup->play_toggle_text;
     char *shuf_toggle_text = bufgroup->shuf_toggle_text;
     char *repeat_toggle_text = bufgroup->loop_toggle_text;
+    char *vis_toggle_text = bufgroup->vis_toggle_text;
     char ctrl = kbd[SDL_SCANCODE_LCTRL];
     char shift = kbd[SDL_SCANCODE_LSHIFT];
     Center_View_State *vs = &rtvars->sflags.viewstate;
@@ -1389,6 +1393,24 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
         if (ImGui::BeginMenu("file")) {
             if (ImGui::MenuItem("add", "ctrl-o")) {
                 printf("this does nothing on this build of the program. sorry about that\n");
+            }
+            ImGui::EndMenu();
+        } if (ImGui::BeginMenu("view")) {
+            if (ImGui::MenuItem(sort_text, "ctrl-shift-s")) {
+                clear_was_pressed = 1;
+            } if (ImGui::MenuItem("clear", "ctrl-shift-x")) {
+                clear_was_pressed = 1;
+            } if (ImGui::MenuItem(ls_toggle_text, "ctrl-l")) {
+                lstoggle_was_pressed = 1;
+            } if (ImGui::MenuItem("search", "ctrl-f")) {
+                sflags->searchwindow_open = 1;
+            } if (ImGui::MenuItem(vis_toggle_text, "")) {
+                sflags->visualizer_enabled = !sflags->visualizer_enabled;
+                if (sflags->visualizer_enabled) {
+                    strcpy(vis_toggle_text, "disable visualizer");
+                } else {
+                    strcpy(vis_toggle_text, "enable visualizer");
+                }
             }
             ImGui::EndMenu();
         } if (ImGui::BeginMenu("playback")) {
@@ -1425,17 +1447,6 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
                 mdata->shuffle_enabled = !mdata->shuffle_enabled;
             } if (ImGui::MenuItem(repeat_toggle_text, "ctrl-shift-l")) {
                 reptoggle_was_pressed = 1;
-            }
-            ImGui::EndMenu();
-        } if (ImGui::BeginMenu("list")) {
-            if (ImGui::MenuItem(sort_text, "ctrl-shift-s")) {
-                clear_was_pressed = 1;
-            } if (ImGui::MenuItem("clear", "ctrl-shift-x")) {
-                clear_was_pressed = 1;
-            } if (ImGui::MenuItem(ls_toggle_text, "ctrl-l")) {
-                lstoggle_was_pressed = 1;
-            } if (ImGui::MenuItem("search", "ctrl-f")) {
-                sflags->searchwindow_open = 1;
             }
             ImGui::EndMenu();
         }
@@ -1498,9 +1509,8 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
         update_music_info(mdata);
     }
 #else
-    if (pacmxr_file_is_open()) {
-        update_music_info(mdata);
-    }
+    if (pacmxr_file_is_open())
+    { update_music_info(mdata); }
 #endif
 
     pac_begin_frame(rtvars, sdldata);

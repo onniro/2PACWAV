@@ -137,6 +137,7 @@ typedef struct General_Buffer_Group
     char play_toggle_text[24] = "pause";
     char shuf_toggle_text[24] = "enable shuffle";
     char loop_toggle_text[24] = "enable looping";
+    char vis_toggle_text[24] = "disable visualizer";
 } General_Buffer_Group;
 
 typedef struct Startup_Args_Paths 
@@ -242,8 +243,8 @@ typedef struct State_Flags
     char clear_confirmation;
     char search_changed;
     char text_field_focused;
-    char mlist_ctxmenu_active;
     char visualizer_enabled;
+    char mlist_ctxmenu_active;
     char sort_reversed;
     char searchwindow_open;
     Mouse_State mouse;
