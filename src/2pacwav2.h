@@ -15,7 +15,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (10)
-#define _2PACWAV_VER_PATCH      (7)
+#define _2PACWAV_VER_PATCH      (9)
 
 #define PAC_INLINE static inline
 #define PAC_INTERNAL static
