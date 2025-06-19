@@ -6,7 +6,7 @@ Date: Thu 22 May 2025 07:36:19 PM EEST
 2pacmixer is a wannabe single-header library that is designed to be a replacement
 for SDL mixer in the 2pacwav music player. The motivation for replacing SDL mixer
 was the desire to be able to support more codecs and containers by utilizing
-of the FFmpeg libraries such as avcodec and avformat.
+the FFmpeg libraries such as avcodec and avformat.
 This code has (mostly) been developed in isolation of the rest of 2pacwav and is being
 used in the present format in order to ease potential reuse of this code in the future.
 
