@@ -382,7 +382,7 @@ PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     SDL_GL_SwapWindow(sdldata->window_ptr);
 }
 
-PAC_INTERNAL void update_music_info(Music_Data *mdata)
+PAC_INTERNAL void update_audio_time(Music_Data *mdata)
 {
 #if PORT_THIS
     mdata->current_duration = Mix_MusicDuration();
@@ -788,8 +788,7 @@ PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 
-            0, 
+    glTexImage2D(GL_TEXTURE_2D, 0,
             GL_RGBA,
             bmpinfo->width,
             bmpinfo->height,
@@ -1505,12 +1504,11 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
 #if PORT_THIS
     if (mdata->sdlmixer_music && 
         (Mix_PlayingMusic() || 
-        Mix_PausedMusic())) {
-        update_music_info(mdata);
-    }
+        Mix_PausedMusic()))
+    { update_audio_time(mdata); }
 #else
     if (pacmxr_file_is_open())
-    { update_music_info(mdata); }
+    { update_audio_time(mdata); }
 #endif
 
     pac_begin_frame(rtvars, sdldata);
@@ -1520,9 +1518,8 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     char d_was_pressed = pac_btn_press(SDL_SCANCODE_D, 
                             &sflags->d_wasdown, 
                             rtvars->kbd_state);
-    if (rtvars->kbd_state[SDL_SCANCODE_LALT] && d_was_pressed) {
-        ImGui::SetKeyboardFocusHere(0);
-    }
+    if (rtvars->kbd_state[SDL_SCANCODE_LALT] && d_was_pressed)
+    { ImGui::SetKeyboardFocusHere(0); }
 
     ImGui::Text("path:");
     ImGui::SameLine();

@@ -473,7 +473,7 @@ PAC_INTERNAL void file_list_push_dirname(char *dirname, File_List *flist);
 PAC_INTERNAL void goto_next_file(Music_Data *mdata);
 PAC_INTERNAL void goto_prev_file(Music_Data *mdata);
 PAC_INTERNAL void set_match_flags(char *searchbuf, Music_Data *mdata);
-PAC_INTERNAL void update_music_info(Music_Data *mdata);
+PAC_INTERNAL void update_audio_time(Music_Data *mdata);
 PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars, Sdl_Apidata *sdldata, General_Buffer_Group *bufgroup, Music_Data *mdata);
 PAC_INTERNAL char id3_get_taginfo(Music_Data *mdata);
 PAC_INTERNAL void sdlmixer_start_music(Music_Data *mdata, char *music_path);
