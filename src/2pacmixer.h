@@ -323,7 +323,7 @@ The number of seconds you want to convert to bytes.
 
 pacmxr_seconds_to_seek_value:
 Converts a number of seconds to the kind of value expected by pacmxr_seek.
-Return value is equal seconds/pacmxr_stream_duration() unless seconds is negative 
+Return value is to equal seconds/pacmxr_stream_duration() unless seconds is negative 
 or greater than pacmxr_stream_duration(), in which case the return value will be
 clamped accordingly.
 */
