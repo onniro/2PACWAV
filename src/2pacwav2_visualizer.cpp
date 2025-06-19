@@ -4,7 +4,6 @@ File: 2pacwav2_visualizer.cpp
 Date: Thu 24 Apr 2025 04:31:17 PM EEST
 
 TODO: fix spectrum
-NOTE: it seems taht the oscilloscope is backwards but it's fine
 */
 
 #ifndef __STDC_IEC_559_COMPLEX__
