@@ -14,15 +14,15 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 #include "2pacmixer.h"
 
 #define _2PACWAV_VER_MAJOR      (0)
-#define _2PACWAV_VER_MINOR      (10)
-#define _2PACWAV_VER_PATCH      (10)
+#define _2PACWAV_VER_MINOR      (11)
+#define _2PACWAV_VER_PATCH      (3)
 
 #define PAC_INLINE static inline
 #define PAC_INTERNAL static
 #define PAC_LOCAL_STATIC static
 
-#define WINDOW_WIDTH    1024
-#define WINDOW_HEIGHT   768
+#define WINDOW_WIDTH    1280
+#define WINDOW_HEIGHT   800
 #define MAX_FRAMETIME_MICROSEC ((useconds_t)11111) //90fps
 #define PAC_SEEK_VALUE_MAX (1000.0f)
 
@@ -395,66 +395,6 @@ PAC_INLINE char *pac_strnchr(char *haystack, char needle, int nvalue)
     }
     return ret;
 }
-
-#if 0
-PAC_INLINE char is_whitespace(char c)
-{
-    char ret = 0;
-    if ((c == ' ') ||
-        (c == '\n') ||
-        (c == '\r') ||
-        (c == '\0'))
-    { ret = 1; }
-    return ret;
-}
-
-PAC_INLINE int txtline_len(char *line)
-{
-    int count = 0;
-    while (1) {
-        if ((line[count] == '\n') ||
-            (line[count] == '\r') ||
-            (line[count] == '\0')) 
-        { ++count; break; }
-        ++count;
-    }
-    return count;
-}
-
-PAC_INTERNAL char *find_line_start(char *ptr)
-{
-    while (1) {
-        if ((ptr[0] == '\0') ||
-            (ptr[0] == '\n') ||
-            (ptr[0] == '\r')) 
-        {  break; }
-        --ptr;
-    }
-    return ptr + 1;
-}
-
-PAC_INLINE char *eat_whitespace(char *ptr)
-{
-    char *ret = ptr;
-    while (1) {
-        if (!ret[0] || !is_whitespace(ret[0])) 
-        { break; }
-        ++ret; 
-    }
-    return ret;
-}
-
-PAC_INLINE char *eat_nonwhitespace(char *ptr)
-{
-    char *ret = ptr;
-    while (1) {
-        if (is_whitespace(ret[0])) 
-        { break; }
-        ++ret; 
-    }
-    return ret;
-}
-#endif
 
 //(forward declarations)
 PAC_INTERNAL void pac_nop(void);

@@ -17,10 +17,13 @@ TODO: figure out how to make the search dialog not block input
 #include <GL/glu.h>
 #include <GL/glext.h>
 
+#define STBIMAGE_ENABLED 1
 #if STBIMAGE_ENABLED
     #define STB_IMAGE_IMPLEMENTATION 1
     #define STBI_FAILURE_USERMSG 1
+    #define STB_IMAGE_RESIZE_IMPLEMENTATION 1
     #include "stb/stb_image.h"
+    #include "stb/stb_image_resize2.h"
 #endif
 
 #include "2pacwav2.h"
@@ -85,10 +88,11 @@ PAC_INTERNAL void show_help(char longhelp)
                     "Below is a complete list of variables that can be set and some information about them.\n"
                     "startup_path = \"path/to/file\";  //Sets a path to a file or folder that will be added to the list on startup.\n"
                     "                                //Multiple instances of this are allowed.\n"
-                    "font_size = value; //Sets point size for the font. (default: 17)\n"
+                    "font_size = value; //Sets point size for the font. (default: %g)\n"
                     "visualizer = 0 or 1(any nonzero); //Disables visualizer if value is 0 and enables it otherwise,\n"
                     "                                  //including when this variable isn't set.\n"
-                    "                                  //Note that this can be re-enabled from the view menu at any time.\n");
+                    "                                  //Note that this can be re-enabled from the view menu at any time.\n",
+                    PAC_LATIN_FONTSIZE);
     }
 }
 
@@ -789,14 +793,28 @@ PAC_INTERNAL void set_userinfo_color(Runtime_Vars *rtvars)
     }
 }
 
+PAC_INTERNAL void resize_cover(Bitmap_Info *bmpinfo)
+{
+}
+
+PAC_INTERNAL void tupacmixer_get_cover(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
+{
+    bmpinfo->img_data = pacmxr_meta_get_cover_art(0, &bmpinfo->img_data_bytes);
+    if (bmpinfo->img_data) {
+        pac_init_bitmap(bmpinfo, rtvars);
+        //resize_cover(bmpinfo);
+    }
+    int x = 200;
+}
+
 #if STBIMAGE_ENABLED
 PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
 {
     bmpinfo->img_data = stbi_load_from_memory(bmpinfo->img_data,
                             bmpinfo->img_data_bytes,
-                            &bmpinfo->width, 
-                            &bmpinfo->height, 
-                            &bmpinfo->chan, 
+                            &bmpinfo->width,
+                            &bmpinfo->height,
+                            &bmpinfo->chan,
                             4);
     if (bmpinfo->ogl_tex_id) 
     { glDeleteTextures(1, &bmpinfo->ogl_tex_id); }
@@ -886,11 +904,31 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
 
     ImGui::Text("%s\n%s", (char *)bufgroup->music_info_buffer, path_begin);
     
+    if (mdata->cover.img_data &&
+        mdata->cover.img_data_bytes &&
+        mdata->cover.ogl_tex_id) {
+        const float dimension = 512.0f, pad = 150.0f, alpha = 0.5f;
+        Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
+        ImGui::SetCursorPos(ImVec2(sdldata->win_width - (dimension + pad),
+                                sdldata->win_height - (dimension + pad)));
+        ImVec2 cover_dims = ImVec2(dimension, dimension);
+        //NOTE: apparently this overload of ImGui::Image is deprecated/obsolete or some shit
+        //but it works on our imgui version and is the easiest way i found to change the alpha.
+        //so if imgui is updated some day for whatever reason then this might no longer compile
+        ImGui::Image(mdata->cover.ogl_tex_id,
+                cover_dims,
+                ImVec2(0, 0),
+                ImVec2(1, 1),
+                ImVec4(1, 1, 1, alpha),
+                ImVec4(0, 0, 0, 0));
+    }
+
     char *taginfo_buffer = mdata->current_metadata.tagbuffer;
     ImVec2 tdims = ImGui::CalcTextSize(taginfo_buffer);
     ImGui::SetCursorPos(ImVec2(((float)sdldata->win_width/2.0f) - (tdims.x/2.0f), 
             sdldata->win_height - 200.0f));
     ImGui::Text("%s", taginfo_buffer);
+
 }
 
 PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars,
@@ -1770,6 +1808,7 @@ PAC_INTERNAL void tupacmixer_start_music(Music_Data *mdata, char *music_path)
     if (pacmxr_open_file(music_path)) {
         pacmxr_pause(0);
         tupacmixer_get_audio_type(mdata);
+        tupacmixer_get_cover(&mdata->cover, mdata->rtvars_ptr);
         //SDL_UnlockAudioDevice(global_pacmxr_ctx.au_dev);
     } else {
         platform_dbg_log("failed to load music\n");
@@ -1799,6 +1838,7 @@ void pac_sdlmixer_music_finished_callback(void)
 {
 }
 
+#if 0
 void pac_sdlmixer_postmix_callback(void *udata, uint8_t *stream, int stream_len)
 {
     Runtime_Vars *rtvars = (Runtime_Vars *)udata;
@@ -1808,6 +1848,7 @@ void pac_sdlmixer_postmix_callback(void *udata, uint8_t *stream, int stream_len)
         astream->stream_size = stream_len;
     }
 }
+#endif
 
 #if PORT_THIS
 PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata) 

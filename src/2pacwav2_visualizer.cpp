@@ -240,11 +240,11 @@ PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
 
     int elements_per_primitive = 2;
     //float xpos = -1.0f + (95.0f/(float)sdldata->win_width);
-    float xpos = -1.0f;
+    float xpos = -0.95f;
     float sample_pos;
     float y_scale = (float)(SDL_MIX_MAXVOLUME - mdata->volume)/((float)SDL_MIX_MAXVOLUME/2.0f);
-    float yoff = 0.1f;
-    float x_advance = (2.0f/((float)num_primitives - 1.0f));
+    const float yoff = 0.1f;
+    const float x_advance = ((fabsf(xpos)*2.0f)/((float)num_primitives - 1.0f));
     for (int vert_index = 0, sample_index = 0; 
         vert_index < num_elements; 
         vert_index += elements_per_primitive, ++sample_index) {
@@ -263,6 +263,7 @@ attribute vec3 position;
 void main()
 {
     gl_Position = vec4(position, 1.0);
+    //gl_PointSize = 3.0;
 }
 )";
 
@@ -271,7 +272,7 @@ R"(
 #version 120
 void main()
 {
-    gl_FragColor = vec4(0.0, 0.7, 0.5, 0.7f);
+    gl_FragColor = vec4(0.0, 0.8, 0.5, 1.0);
 }
 )";
 
@@ -302,6 +303,7 @@ void main()
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
+    //glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 
     if (!opengl_prep_done) {
         GLint vert_status, frag_status;

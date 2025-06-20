@@ -1354,6 +1354,32 @@ PACMXR_DEF int pacmxr_meta_get_album(Pacmxr_Metadata *pac_meta,
     return ret;
 }
 
+PACMXR_DEF uint8_t *pacmxr_meta_get_cover_art(Pacmxr_Metadata *pac_meta, int *out_size)
+{
+    uint8_t *ret = 0;
+    Pacmxr_Context *ctx = &global_pacmxr_ctx;
+    AVFormatContext *avf_ctx;
+    if (!pac_meta) {
+        avf_ctx = ctx->fctx.avf_ctx;
+    } else {
+        avf_ctx = pac_meta->in_avf_ctx;
+    }
+    if (!(avf_ctx && out_size)) 
+    { return ret; }
+
+    AVPacket *pkt;
+    for (uint32_t stream_i = 0; stream_i < avf_ctx->nb_streams; stream_i++) {
+        if (avf_ctx->streams[stream_i]->disposition & AV_DISPOSITION_ATTACHED_PIC) {
+            pkt = &avf_ctx->streams[stream_i]->attached_pic;
+            ret = pkt->data;
+            *out_size = pkt->size;
+            break;
+        }
+    }
+
+    return ret;
+}
+
 PACMXR_DEF void pacmxr_meta_set_title(Pacmxr_Metadata *pac_meta, char *value)
 {
     av_dict_set(&pac_meta->out_metadata, "title", value, 0);
