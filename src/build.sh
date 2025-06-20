@@ -68,7 +68,7 @@ DEFINES="-D_2PACWAV_DEBUG=1 \
 WORKDIR="$BASEDIR/build/linux_x64_debug"
 
 #CMDLINE="clang++ $DEFINES \
-CMDLINE="g++ $DEFINES \
+CMDLINE="c++ $DEFINES \
         $INCLUDE_DIRS \
         $LIB_DIRS \
         $WARNINGS \
