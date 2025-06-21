@@ -15,7 +15,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (11)
-#define _2PACWAV_VER_PATCH      (3)
+#define _2PACWAV_VER_PATCH      (5)
 
 #define PAC_INLINE static inline
 #define PAC_INTERNAL static
@@ -153,6 +153,7 @@ typedef struct Startup_Args
     General_Buffer_Group *bufgroup_ptr;
     Startup_Args_Paths paths;
     float font_size;
+    int volume;
 } Startup_Args;
 
 typedef struct File_List

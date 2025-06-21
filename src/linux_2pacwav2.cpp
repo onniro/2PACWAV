@@ -349,17 +349,6 @@ int main(int arg_count, char **args)
         memset(bufgroup.scratch_space, 0, (sargs.paths.count + 2)*PATH_MAX);
     }
     
-#if 0
-    if (!sargs.no_load_conf) {
-        int conf_len = strlen((char *)bufgroup.conf_file_buffer);
-        if (conf_len && (conf_len < CONFBUFFER_SIZE)) {
-            parse_and_apply_config(&rtvars, 
-                    (char *)bufgroup.conf_file_buffer, 
-                    CONFBUFFER_SIZE);
-        }
-    }
-#endif
-
     rtvars.autocomp_list.filenames_buf = (char *)bufgroup.autocomp_buffer;
     rtvars.autocomp_list.filenames_string_loclist = (char **)bufgroup.autocomp_string_loclist;
     rtvars.autocomp_list.filenames_string_loclist[0] = rtvars.autocomp_list.filenames_buf;

@@ -14,6 +14,7 @@ This means that comments are C & C++ style and lines end on semicolons;
 #define CONF_STARTUP_PATH_TOKEN         "startup_path"
 #define CONF_FONTSIZE_TOKEN             "font_size"
 #define CONF_VISUALIZER_STATUS          "visualizer"
+#define CONF_STARTUP_VOLUME             "volume"
 
 typedef enum Token_Type
 {
@@ -277,7 +278,8 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
     tokenizer.at = confbuf;
     char stringbuf[PATH_MAX];
     char fontsize_set = 0,
-            vis_status_set = 0;
+            vis_status_set = 0,
+            volume_set = 0;
 
     while (parsing) {
         Token tok = get_token(&tokenizer);
@@ -324,6 +326,17 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                 } else if (1 == vis_status_set) {
                     report_duplicate(CONF_VISUALIZER_STATUS);
                     ++vis_status_set;
+                }
+            } else if (token_equals(tok, CONF_STARTUP_VOLUME)) {
+                if (!volume_set) {
+                    float value = get_float_entry(&tokenizer, CONF_STARTUP_VOLUME);
+                    value = pacmxr_clamp_float(value, 0.0f, SDL_MIX_MAXVOLUME);
+                    rtvars->mdata_ptr->volume = value;
+                    pacmxr_set_volume(value);
+                    ++volume_set;
+                } else if (1 == volume_set) {
+                    report_duplicate(CONF_STARTUP_VOLUME);
+                    ++volume_set;
                 }
             } else {
                 snprintf(stringbuf, tok.length + 1, "%s", tok.text);

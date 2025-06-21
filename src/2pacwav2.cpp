@@ -88,6 +88,7 @@ PAC_INTERNAL void show_help(char longhelp)
                     "Below is a complete list of variables that can be set and some information about them.\n"
                     "startup_path = \"path/to/file\";  //Sets a path to a file or folder that will be added to the list on startup.\n"
                     "                                //Multiple instances of this are allowed.\n"
+                    "volume = value; //Sets the volume level on startup. The value is clamped to 0-128\n"
                     "font_size = value; //Sets point size for the font. (default: %g)\n"
                     "visualizer = 0 or 1(any nonzero); //Disables visualizer if value is 0 and enables it otherwise,\n"
                     "                                  //including when this variable isn't set.\n"
@@ -153,6 +154,8 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
                 fprintf(stderr, "no argument given after -%s, ignoring.\n", arg);
             }
             ++arg_index;
+        } else if (!sargs->volume && !strcmp("-vol", arg)) {
+            //TODO
         } else {
             if (platform_path_exists(arg)) {
                 startup_push_path(sargs, arg);
