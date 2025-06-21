@@ -79,6 +79,7 @@ WORKDIR="$BASEDIR/build/linux_x64_release"
 
 #CMDLINE="clang++ $DEFINES \
 CMDLINE="c++ $DEFINES \
+        $WARNINGS \
         $INCLUDE_DIRS \
         $LIB_DIRS \
         $WARNINGS \
