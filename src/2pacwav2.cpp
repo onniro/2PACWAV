@@ -74,26 +74,29 @@ PAC_INTERNAL void show_help(char longhelp)
 {
     show_version();
     platform_log("usage: 2w [options] [files]\n"
-                "-- COMMAND ARGUMENTS --\n"
-                "-h | --help : print this message and exit\n"
-                "--longhelp : print output of the above option as well as additional documentation\n"
-                "-v | --version : print version and exit\n"
-                "-noconf : do not look for a configuration file\n"
-                "-fontsize <value> : set point size for font\n");
+            "-- COMMAND ARGUMENTS --\n"
+            "-h | --help : print this message and exit\n"
+            "--longhelp : print output of the above option as well as additional documentation\n"
+            "-v | --version : print version and exit\n"
+            "-vol <value> : set the volume\n"
+            "-noconf : do not look for a configuration file\n"
+            "-fontsize <value> : set point size for font\n");
     if (longhelp) {
         platform_log("-- CONFIGURATION --\n"
-                    "The configuration file named \"2wconf\" should be placed either in $HOME/.config/2pacwav/\n"
-                    "or in the same directory as the executable. The syntax of the configuration file is sort of\n"
-                    "similar to C, meaning that '//' and /* */ denote comments and lines end in semicolons.\n"
-                    "Below is a complete list of variables that can be set and some information about them.\n"
-                    "startup_path = \"path/to/file\";  //Sets a path to a file or folder that will be added to the list on startup.\n"
-                    "                                //Multiple instances of this are allowed.\n"
-                    "volume = value; //Sets the volume level on startup. The value is clamped to 0-128\n"
-                    "font_size = value; //Sets point size for the font. (default: %g)\n"
-                    "visualizer = 0 or 1(any nonzero); //Disables visualizer if value is 0 and enables it otherwise,\n"
-                    "                                  //including when this variable isn't set.\n"
-                    "                                  //Note that this can be re-enabled from the view menu at any time.\n",
-                    PAC_LATIN_FONTSIZE);
+                "The configuration file named \"2wconf\" should be placed either in $HOME/.config/2pacwav/\n"
+                "or in the same directory as the executable. The syntax of the configuration file is sort of\n"
+                "similar to C, meaning that '//' and /* */ denote comments and lines end in semicolons.\n"
+                "Below is a complete list of variables that can be set and some information about them.\n"
+                "---\n"
+                "startup_path = \"path/to/file\";  //Sets a path to a file or folder that will be added to the list on startup.\n"
+                "                                //Multiple instances of this are allowed.\n"
+                "volume = value;  //Sets the volume level on startup. The value is clamped to 0-128\n"
+                "                 //The -vol command option overrides this\n"
+                "font_size = value; //Sets point size for the font. (default: %g)\n"
+                "visualizer = 0 or 1(any nonzero); //Disables visualizer if value is 0 and enables it otherwise,\n"
+                "                                  //including when this variable isn't set.\n"
+                "                                  //Note that this can be re-enabled from the view menu at any time.\n",
+                PAC_LATIN_FONTSIZE);
     }
 }
 
@@ -119,6 +122,7 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
                                     Startup_Args *sargs,
                                     General_Buffer_Group *bufgroup)
 {
+    sargs->volume = -1;
     char *arg;
     char exit_after_ret = 0;
     for (int arg_index = 1; 
@@ -148,14 +152,25 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
                 if (value != 0.0f) {
                     sargs->font_size = value;
                 } else {
-                    fprintf(stderr, "invalid argument given after -%s, ignoring.\n", arg);
+                    fprintf(stderr, "invalid argument given after %s, ignoring.\n", arg);
                 }
             } else {
-                fprintf(stderr, "no argument given after -%s, ignoring.\n", arg);
+                fprintf(stderr, "no argument given after %s, ignoring.\n", arg);
             }
             ++arg_index;
-        } else if (!sargs->volume && !strcmp("-vol", arg)) {
-            //TODO
+        } else if ((-1 == sargs->volume) && !strcmp("-vol", arg)) {
+            if (args[arg_index + 1]) {
+                errno = 0;
+                int value = strtol(args[arg_index + 1], 0, 10);
+                if (errno != ERANGE) {
+                    sargs->volume = value;
+                } else {
+                    fprintf(stderr, "invalid argument given after %s, ignoring.\n", arg);
+                }
+                ++arg_index;
+            } else {
+                fprintf(stderr, "no argument given after %s, ignoring.\n", arg);
+            }
         } else {
             if (platform_path_exists(arg)) {
                 startup_push_path(sargs, arg);

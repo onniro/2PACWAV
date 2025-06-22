@@ -302,6 +302,12 @@ int main(int arg_count, char **args)
         }
     }
 
+    if (sargs.volume != -1) {
+        mdata.volume = sargs.volume;
+        pacmxr_set_volume(mdata.volume);
+        mdata.volume = pacmxr_get_volume();
+    }
+
     IMGUI_CHECKVERSION();
     ImGuiContext *imgui_context = ImGui::CreateContext();
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
