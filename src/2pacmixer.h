@@ -675,6 +675,7 @@ PACMXR_DEF void pacmxr_deinit(void)
     ctx->thread_keep_running = 0;
     Audio_Queue *aq = &ctx->aqueue;
     //SDL_PauseAudioDevice(ctx->au_dev, 0);
+    pacmxr_set_volume(0);
     pacmxr_close_file();
     //it seems to be that unlocking, unpausing and unlocking again
     //is a fool proof method to un deadlock the sdl audio shit every time
