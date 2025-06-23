@@ -402,21 +402,44 @@ ARG 2 - dest:
 Pointer to a buffer that will receive the data.
 ARG 3 - dest_size:
 The number of bytes that can safely be written to dest.
+RETURN VALUE:
+Zero if the queried value doesn't exist and nonzero otherwise
 */
 PACMXR_DEF int pacmxr_meta_get_title(Pacmxr_Metadata *pac_meta, char *dest, int dest_size);
 PACMXR_DEF int pacmxr_meta_get_artist(Pacmxr_Metadata *pac_meta, char *dest, int dest_size);
 PACMXR_DEF int pacmxr_meta_get_album(Pacmxr_Metadata *pac_meta, char *dest, int dest_size);
+PACMXR_DEF int pacmxr_meta_get_genre(Pacmxr_Metadata *pac_meta, char *dest, int dest_size);
 
 /*
-TODO: documentation
+pacmxr_meta_get_track
+pacmxr_meta_get_year
+
+Get metadata information from a file
+ARG 1 - pac_meta:
+Pointer to a Pacmxr_Metadata struct that was previously initialized
+with pacmxr_meta_open_file. If this argument is null, this function
+will output the corresponding data of the file that was last opened with pacmxr_open_file
+RETURN VALUE:
+The integer value being queried if it exists in the file and -1 otherwise
 */
 PACMXR_DEF int pacmxr_meta_get_track(Pacmxr_Metadata *pac_meta);
 PACMXR_DEF int pacmxr_meta_get_year(Pacmxr_Metadata *pac_meta);
 
 /*
-TODO: documentation
+pacmxr_meta_get_cover
+
+Get the cover art image data from a file.
+ARG 1 - pac_meta:
+Pointer to a Pacmxr_Metadata struct that was previously initialized
+with pacmxr_meta_open_file. If this argument is null, this function
+will output the corresponding data of the file that was last opened with pacmxr_open_file
+ARG 2 - out_size:
+A pointer to an integer variable that will receive the number of bytes in the cover art.
+RETURN VALUE:
+If any cover art is present in the opened file, this will return a pointer to the beginning
+of a buffer that contains the image data. Otherwise, the returned pointer will be null.
 */
-PACMXR_DEF uint8_t *pacmxr_meta_get_cover_art(Pacmxr_Metadata *pac_meta, int *out_size);
+PACMXR_DEF uint8_t *pacmxr_meta_get_cover(Pacmxr_Metadata *pac_meta, int *out_size);
 
 /*
 pacmxr_meta_set_title
@@ -438,17 +461,24 @@ PACMXR_DEF void pacmxr_meta_set_artist(Pacmxr_Metadata *pac_meta, char *value);
 PACMXR_DEF void pacmxr_meta_set_album(Pacmxr_Metadata *pac_meta, char *value);
 
 /*
-TODO: documentation
+pacmxr_meta_set_year 
+pacmxr_meta_set_track
+
+ARG 1 - pac_meta:
+Pointer to a previously initialized Pacmxr_Metadata struct. Cannot be null.
+ARG 2 - value:
+The integer value to which you want to set the new metadata.
 */
-PACMXR_DEF void pacmxr_meta_set_year(Pacmxr_Metadata *pac_meta, int year);
-PACMXR_DEF void pacmxr_meta_set_track(Pacmxr_Metadata *pac_meta, int num);
+PACMXR_DEF void pacmxr_meta_set_year(Pacmxr_Metadata *pac_meta, int value);
+PACMXR_DEF void pacmxr_meta_set_track(Pacmxr_Metadata *pac_meta, int value);
 
 /*
 pacmxr_meta_save:
-Write the currently opened file in its current state, whether or not any data has been modified.
+Write the metadata information in its current state to the currently open file,
+whether or not any data has been modified.
 More technically speaking, this file is actually written twice because I don't really know
 how (else) to do in-place metadata editing at least with libavformat.
-The file is first written to /tmp and then copied via pacmxr_copy_file to where your actual
+The file is first written to /tmp/ and then copied via pacmxr_copy_file to where your actual
 file is, overwriting the original file. Lastly, the temporary file is deleted.
 ARG 1 - pac_meta:
 Pointer to previously initialized Pacmxr_Metadata struct.
@@ -1453,7 +1483,7 @@ PACMXR_DEF int pacmxr_meta_get_track(Pacmxr_Metadata *pac_meta)
     return ret;
 }
 
-PACMXR_DEF uint8_t *pacmxr_meta_get_cover_art(Pacmxr_Metadata *pac_meta, int *out_size)
+PACMXR_DEF uint8_t *pacmxr_meta_get_cover(Pacmxr_Metadata *pac_meta, int *out_size)
 {
     uint8_t *ret = 0;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
@@ -1463,7 +1493,7 @@ PACMXR_DEF uint8_t *pacmxr_meta_get_cover_art(Pacmxr_Metadata *pac_meta, int *ou
     } else {
         avf_ctx = pac_meta->in_avf_ctx;
     }
-    if (!(avf_ctx && out_size)) 
+    if (!avf_ctx)
     { return ret; }
 
     AVPacket *pkt;
@@ -1471,7 +1501,8 @@ PACMXR_DEF uint8_t *pacmxr_meta_get_cover_art(Pacmxr_Metadata *pac_meta, int *ou
         if (avf_ctx->streams[stream_i]->disposition & AV_DISPOSITION_ATTACHED_PIC) {
             pkt = &avf_ctx->streams[stream_i]->attached_pic;
             ret = pkt->data;
-            *out_size = pkt->size;
+            if (out_size)
+            { *out_size = pkt->size; }
             break;
         }
     }
@@ -1499,14 +1530,14 @@ PACMXR_DEF void pacmxr_meta_set_genre(Pacmxr_Metadata *pac_meta, char *value)
     av_dict_set(&pac_meta->out_metadata, "genre", value, 0);
 }
 
-PACMXR_DEF void pacmxr_meta_set_year(Pacmxr_Metadata *pac_meta, int year)
+PACMXR_DEF void pacmxr_meta_set_year(Pacmxr_Metadata *pac_meta, int value)
 {
-    av_dict_set_int(&pac_meta->out_metadata, "date", year, 0);
+    av_dict_set_int(&pac_meta->out_metadata, "date", value, 0);
 }
 
-PACMXR_DEF void pacmxr_meta_set_track(Pacmxr_Metadata *pac_meta, int num)
+PACMXR_DEF void pacmxr_meta_set_track(Pacmxr_Metadata *pac_meta, int value)
 {
-    av_dict_set_int(&pac_meta->out_metadata, "track", num, 0);
+    av_dict_set_int(&pac_meta->out_metadata, "track", value, 0);
 }
 
 #ifndef PATH_MAX
