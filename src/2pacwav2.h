@@ -15,7 +15,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (11)
-#define _2PACWAV_VER_PATCH      (5)
+#define _2PACWAV_VER_PATCH      (10)
 
 #define PAC_INLINE static inline
 #define PAC_INTERNAL static
@@ -260,6 +260,9 @@ typedef struct Metadata_Editor
     char inbuf_title[META_EDITOR_BUFSIZE];
     char inbuf_artist[META_EDITOR_BUFSIZE];
     char inbuf_album[META_EDITOR_BUFSIZE];
+    char inbuf_genre[META_EDITOR_BUFSIZE];
+    char inbuf_tracknum[16];
+    char inbuf_date[64];
     char editor_current[PATH_MAX];
     Pacmxr_Metadata meta_struct;
 } Metadata_Editor;

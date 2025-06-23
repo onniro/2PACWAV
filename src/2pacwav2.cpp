@@ -999,7 +999,8 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
     if (filename[0]) {
         ImGui::Text("editing metadata for:");
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(ImGui::CalcTextSize(filename).x + 10.0f);
+        //ImGui::SetNextItemWidth(ImGui::CalcTextSize(filename).x + 10.0f);
+        ImGui::PushItemWidth(ImGui::CalcTextSize(filename).x + 10.0f);
         ImGui::InputText("##metadata_filename", 
                 filename, 
                 PATH_MAX - 1, 
@@ -1018,8 +1019,27 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
         ImGui::InputText("album##meta_album", 
                 meta->inbuf_album, 
                 META_EDITOR_BUFSIZE - 1);
-        
         ImGui::SetCursorPosX(50);
+        ImGui::InputText("genre##meta_genre", 
+                meta->inbuf_genre, 
+                META_EDITOR_BUFSIZE - 1);
+
+        ImGui::PushItemWidth(100);
+
+        ImGui::SetCursorPosX(50);
+        ImGui::InputText("year##meta_year", 
+                meta->inbuf_date, 
+                sizeof(meta->inbuf_date) - 1);
+
+        ImGui::SetCursorPosX(50);
+        ImGui::InputText("track##meta_tracknum", 
+                meta->inbuf_tracknum, 
+                sizeof(meta->inbuf_tracknum) - 1);
+        
+        ImGui::PopItemWidth();
+        ImGui::PopItemWidth();
+        ImGui::SetCursorPosX(50);
+
         if (ImGui::Button("save metadata")) {
 #if PORT_THIS
             Tag_Ref tr;
@@ -1036,9 +1056,19 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
             }
 #else
             if (meta->meta_struct.in_avf_ctx) {
-                pacmxr_meta_set_title(&meta->meta_struct, meta->inbuf_title);
-                pacmxr_meta_set_artist(&meta->meta_struct, meta->inbuf_artist);
-                pacmxr_meta_set_album(&meta->meta_struct, meta->inbuf_album);
+                if (meta->inbuf_title[0]) {
+                    pacmxr_meta_set_title(&meta->meta_struct, meta->inbuf_title);
+                } if (meta->inbuf_artist[0]) {
+                    pacmxr_meta_set_artist(&meta->meta_struct, meta->inbuf_artist);
+                } if (meta->inbuf_album[0]) {
+                    pacmxr_meta_set_album(&meta->meta_struct, meta->inbuf_album);
+                } if (meta->inbuf_genre[0]) {
+                    pacmxr_meta_set_genre(&meta->meta_struct, meta->inbuf_genre);
+                } if (meta->inbuf_date[0]) {
+                    pacmxr_meta_set_year(&meta->meta_struct, strtol(meta->inbuf_date, 0, 10));
+                } if (meta->inbuf_tracknum[0]) {
+                    pacmxr_meta_set_track(&meta->meta_struct, strtol(meta->inbuf_tracknum, 0, 10));
+                }
 
                 if (pacmxr_meta_save(&meta->meta_struct)) {
                     set_userinfo(rtvars, 
@@ -1091,6 +1121,9 @@ PAC_INTERNAL void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
         meta->inbuf_title[0] = 0;
         meta->inbuf_artist[0] = 0;
         meta->inbuf_album[0] = 0;
+        meta->inbuf_genre[0] = 0;
+        meta->inbuf_tracknum[0] = 0;
+        meta->inbuf_date[0] = 0;
         if (pacmxr_meta_open_file(&meta->meta_struct, meta->editor_current)) {
             pacmxr_meta_get_title(&meta->meta_struct,
                     meta->inbuf_title,
@@ -1101,6 +1134,17 @@ PAC_INTERNAL void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
             pacmxr_meta_get_album(&meta->meta_struct,
                     meta->inbuf_album,
                     META_EDITOR_BUFSIZE);
+            pacmxr_meta_get_genre(&meta->meta_struct,
+                    meta->inbuf_genre,
+                    META_EDITOR_BUFSIZE);
+            int date = pacmxr_meta_get_year(&meta->meta_struct);
+            if (date >= 0) {
+                snprintf(meta->inbuf_date, sizeof(meta->inbuf_date), "%d", date);
+            } 
+            int track = pacmxr_meta_get_track(&meta->meta_struct);
+            if (track >= 0) {
+                snprintf(meta->inbuf_tracknum, sizeof(meta->inbuf_tracknum), "%d", track);
+            }
         } else {
             set_userinfo(rtvars,
                     "[error]: couldn't get metadata information",
