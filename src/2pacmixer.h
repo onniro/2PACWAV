@@ -675,17 +675,17 @@ PACMXR_DEF void pacmxr_deinit(void)
     ctx->thread_keep_running = 0;
     Audio_Queue *aq = &ctx->aqueue;
     //SDL_PauseAudioDevice(ctx->au_dev, 0);
-    pacmxr_set_volume(0);
-    pacmxr_close_file();
-    //it seems to be that unlocking, unpausing and unlocking again
-    //is a fool proof method to un deadlock the sdl audio shit every time
-    //100p success rate tricknology
     SDL_UnlockAudioDevice(ctx->au_dev);
+    pacmxr_set_volume(0);
     pacmxr_pause(0);
     SDL_UnlockAudioDevice(ctx->au_dev);
     SDL_Delay(100);
     SDL_CloseAudioDevice(ctx->au_dev);
     SDL_Quit();
+    pacmxr_close_file();
+    //it seems to be that unlocking, unpausing and unlocking again
+    //is a fool proof method to un deadlock the sdl audio shit every time
+    //100p success rate tricknology
 #if 1
     munmap(aq->buffer1, aq->bytes_allocated);
 #else
