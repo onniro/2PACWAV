@@ -725,7 +725,8 @@ PAC_INTERNAL int get_random_file_index(Music_Data *mdata)
 
 PAC_INTERNAL void goto_next_file(Music_Data *mdata)
 {
-    if (mdata->music_list.entry_count < 1) { return; }
+    if (mdata->music_list.entry_count < 1)
+    { return; }
 
     File_List *mlist = &mdata->music_list;
     uint32_t cur_index = mlist->current_index;
@@ -769,7 +770,8 @@ PAC_INTERNAL void goto_prev_file(Music_Data *mdata)
 
 PAC_INTERNAL void clear_file_list(Music_Data *mdata)
 {
-    if (!mdata->music_list.entry_count) { return; }
+    if (!mdata->music_list.entry_count)
+    { return; }
     File_List *mlist = &mdata->music_list;
 
     for (int clear_index = 1;
@@ -811,18 +813,12 @@ PAC_INTERNAL void set_userinfo_color(Runtime_Vars *rtvars)
     }
 }
 
-PAC_INTERNAL void resize_cover(Bitmap_Info *bmpinfo)
-{
-}
-
 PAC_INTERNAL void tupacmixer_get_cover(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
 {
-    bmpinfo->img_data = pacmxr_meta_get_cover_art(0, &bmpinfo->img_data_bytes);
+    bmpinfo->img_data = pacmxr_meta_get_cover(0, &bmpinfo->img_data_bytes);
     if (bmpinfo->img_data) {
         pac_init_bitmap(bmpinfo, rtvars);
-        //resize_cover(bmpinfo);
     }
-    int x = 200;
 }
 
 #if STBIMAGE_ENABLED
@@ -925,7 +921,7 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
     if (mdata->cover.img_data &&
         mdata->cover.img_data_bytes &&
         mdata->cover.ogl_tex_id) {
-        const float dimension = 512.0f, pad = 150.0f, alpha = 0.5f;
+        const float dimension = 500.0f, pad = 150.0f, alpha = 0.5f;
         Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
         ImGui::SetCursorPos(ImVec2(sdldata->win_width - (dimension + pad),
                                 sdldata->win_height - (dimension + pad)));
