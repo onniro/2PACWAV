@@ -82,7 +82,6 @@ CMDLINE="c++ $DEFINES \
         $WARNINGS \
         $INCLUDE_DIRS \
         $LIB_DIRS \
-        $WARNINGS \
         $COMP_FLAGS \
         $SOURCES \
         $LINK_LIBS \
