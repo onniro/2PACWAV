@@ -128,12 +128,12 @@ PAC_INTERNAL int platform_list_files_mlist(char *path, File_List *out_flist)
 PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf, 
                                     General_Buffer_Group *bufgroup) 
 {
-#define MEM_INIT_ASSERT(main_buffer, buf2init, size)\
-    buf2init = ro_buffer_alloc_region(main_buffer, size);\
-    if (!buf2init) {\
-        platform_dbg_log("failed to init buffer %s\n(unallocated=%u)exiting.\n",\
-                #buf2init, ro_buffer_unallocated_bytes(heapbuf));\
-        PAC_ASSERT(0);\
+#define MEM_INIT_ASSERT(main_buffer, buf2init, size)                                \
+    buf2init = ro_buffer_alloc_region(main_buffer, size);                           \
+    if (!buf2init) {                                                                \
+        platform_dbg_log("failed to init buffer %s\n(unallocated=%u)exiting.\n",    \
+                #buf2init, ro_buffer_unallocated_bytes(heapbuf));                   \
+        PAC_ASSERT(0);                                                              \
     } PAC_NOP_MACRO()
 
     memset(heapbuf->memory, 0, PAC_MAIN_STORAGE_SIZE);
