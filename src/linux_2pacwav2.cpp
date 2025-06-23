@@ -45,7 +45,7 @@ PAC_INTERNAL char *platform_find_res_path(Runtime_Vars *rtvars,
     char *end_ptr = try_buf + strlen(try_buf);
     char *last_ptr;
     int max_tries = 5;
-    for( int try_index = 0; try_index < max_tries; ++try_index) {
+    for (int try_index = 0; try_index < max_tries; ++try_index) {
         strcat(end_ptr, "/../res/");
         if (platform_directory_exists(try_buf)) {
             strncpy(out_res_path, try_buf, bufsize);

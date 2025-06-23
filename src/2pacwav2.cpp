@@ -1504,14 +1504,17 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
     char reptoggle_was_pressed = (ctrl && shift && lkey);
 
     if (ImGui::BeginMenuBar()) {
+#if 0
         if (ImGui::BeginMenu("file")) {
             if (ImGui::MenuItem("add", "ctrl-o")) {
                 printf("this does nothing on this build of the program. sorry about that\n");
             }
             ImGui::EndMenu();
-        } if (ImGui::BeginMenu("view")) {
+        }
+#endif
+        if (ImGui::BeginMenu("view")) {
             if (ImGui::MenuItem(sort_text, "ctrl-shift-s")) {
-                clear_was_pressed = 1;
+                sort_was_pressed = 1;
             } if (ImGui::MenuItem("clear", "ctrl-shift-x")) {
                 clear_was_pressed = 1;
             } if (ImGui::MenuItem(ls_toggle_text, "ctrl-l")) {
