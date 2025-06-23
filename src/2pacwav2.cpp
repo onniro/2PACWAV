@@ -910,7 +910,7 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
 
     if (sdlmixer_get_taginfo(mdata)) {
         char *meta_begin = path_begin + strlen(path_begin);
-        gormat_taginfo(mdata, meta_begin, 0); 
+        format_taginfo(mdata, meta_begin, 0); 
     }
 #else
     tupacmixer_get_taginfo(mdata);
@@ -921,10 +921,10 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
     if (mdata->cover.img_data &&
         mdata->cover.img_data_bytes &&
         mdata->cover.ogl_tex_id) {
-        const float dimension = 500.0f, pad = 150.0f, alpha = 0.5f;
+        const float dimension = 500.0f, heightpad = 220.0f, alpha = 0.5f;
         Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
-        ImGui::SetCursorPos(ImVec2(sdldata->win_width - (dimension + pad),
-                                sdldata->win_height - (dimension + pad)));
+        ImGui::SetCursorPos(ImVec2((sdldata->win_width/2) - (dimension/2),
+                                (sdldata->win_height) - (dimension + heightpad)));
         ImVec2 cover_dims = ImVec2(dimension, dimension);
         //NOTE: apparently this overload of ImGui::Image is deprecated/obsolete or some shit
         //but it works on our imgui version and is the easiest way i found to change the alpha.
