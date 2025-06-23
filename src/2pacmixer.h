@@ -44,6 +44,7 @@ if they aren't found automatically with the -I option in your compiler.
 #include <unistd.h>
 #include <assert.h>
 #include <limits.h>
+#include <errno.h>
 
 #if defined(unix) || defined(__unix) || defined(__unix__)
     #define PACMXR_UNIX 1
@@ -407,6 +408,17 @@ PACMXR_DEF int pacmxr_meta_get_artist(Pacmxr_Metadata *pac_meta, char *dest, int
 PACMXR_DEF int pacmxr_meta_get_album(Pacmxr_Metadata *pac_meta, char *dest, int dest_size);
 
 /*
+TODO: documentation
+*/
+PACMXR_DEF int pacmxr_meta_get_track(Pacmxr_Metadata *pac_meta);
+PACMXR_DEF int pacmxr_meta_get_year(Pacmxr_Metadata *pac_meta);
+
+/*
+TODO: documentation
+*/
+PACMXR_DEF uint8_t *pacmxr_meta_get_cover_art(Pacmxr_Metadata *pac_meta, int *out_size);
+
+/*
 pacmxr_meta_set_title
 pacmxr_meta_set_artist
 pacmxr_meta_set_album
@@ -424,6 +436,12 @@ Pointer to a null-terminated string to which you want to set the metadata.
 PACMXR_DEF void pacmxr_meta_set_title(Pacmxr_Metadata *pac_meta, char *value);
 PACMXR_DEF void pacmxr_meta_set_artist(Pacmxr_Metadata *pac_meta, char *value);
 PACMXR_DEF void pacmxr_meta_set_album(Pacmxr_Metadata *pac_meta, char *value);
+
+/*
+TODO: documentation
+*/
+PACMXR_DEF void pacmxr_meta_set_year(Pacmxr_Metadata *pac_meta, int year);
+PACMXR_DEF void pacmxr_meta_set_track(Pacmxr_Metadata *pac_meta, int num);
 
 /*
 pacmxr_meta_save:
@@ -1355,6 +1373,86 @@ PACMXR_DEF int pacmxr_meta_get_album(Pacmxr_Metadata *pac_meta,
     return ret;
 }
 
+PACMXR_DEF int pacmxr_meta_get_genre(Pacmxr_Metadata *pac_meta, 
+                                    char *dest,
+                                    int dest_size)
+{
+    int ret = 0;
+    Pacmxr_Context *ctx = &global_pacmxr_ctx;
+    AVFormatContext *avf_ctx;
+    if (!pac_meta) {
+        avf_ctx = ctx->fctx.avf_ctx;
+    } else {
+        avf_ctx = pac_meta->in_avf_ctx;
+    }
+
+    if (!(avf_ctx && dest && dest_size)) 
+    { return ret; }
+    AVDictionaryEntry *tag = 0;
+    tag = av_dict_get(avf_ctx->metadata,
+                "genre",
+                tag,
+                AV_DICT_IGNORE_SUFFIX);
+    if (tag) {
+        ret = snprintf(dest, dest_size, "%s", tag->value);
+    }
+    return ret;
+}
+
+PACMXR_DEF int pacmxr_meta_get_year(Pacmxr_Metadata *pac_meta)
+{
+    int ret = -1;
+    Pacmxr_Context *ctx = &global_pacmxr_ctx;
+    AVFormatContext *avf_ctx;
+    if (!pac_meta) {
+        avf_ctx = ctx->fctx.avf_ctx;
+    } else {
+        avf_ctx = pac_meta->in_avf_ctx;
+    }
+
+    if (!avf_ctx) 
+    { return ret; }
+    AVDictionaryEntry *tag = 0;
+    tag = av_dict_get(avf_ctx->metadata,
+                "date",
+                tag,
+                AV_DICT_IGNORE_SUFFIX);
+    if (tag) {
+        errno = 0;
+        int value = strtol(tag->value, 0, 10);
+        if (errno != ERANGE)
+        { ret = value; }
+    }
+    return ret;
+}
+
+PACMXR_DEF int pacmxr_meta_get_track(Pacmxr_Metadata *pac_meta)
+{
+    int ret = -1;
+    Pacmxr_Context *ctx = &global_pacmxr_ctx;
+    AVFormatContext *avf_ctx;
+    if (!pac_meta) {
+        avf_ctx = ctx->fctx.avf_ctx;
+    } else {
+        avf_ctx = pac_meta->in_avf_ctx;
+    }
+
+    if (!avf_ctx) 
+    { return ret; }
+    AVDictionaryEntry *tag = 0;
+    tag = av_dict_get(avf_ctx->metadata,
+                "track",
+                tag,
+                AV_DICT_IGNORE_SUFFIX);
+    if (tag) {
+        errno = 0;
+        int value = strtol(tag->value, 0, 10);
+        if (errno != ERANGE)
+        { ret = value; }
+    }
+    return ret;
+}
+
 PACMXR_DEF uint8_t *pacmxr_meta_get_cover_art(Pacmxr_Metadata *pac_meta, int *out_size)
 {
     uint8_t *ret = 0;
@@ -1394,6 +1492,21 @@ PACMXR_DEF void pacmxr_meta_set_artist(Pacmxr_Metadata *pac_meta, char *value)
 PACMXR_DEF void pacmxr_meta_set_album(Pacmxr_Metadata *pac_meta, char *value)
 {
     av_dict_set(&pac_meta->out_metadata, "album", value, 0);
+}
+
+PACMXR_DEF void pacmxr_meta_set_genre(Pacmxr_Metadata *pac_meta, char *value)
+{
+    av_dict_set(&pac_meta->out_metadata, "genre", value, 0);
+}
+
+PACMXR_DEF void pacmxr_meta_set_year(Pacmxr_Metadata *pac_meta, int year)
+{
+    av_dict_set_int(&pac_meta->out_metadata, "date", year, 0);
+}
+
+PACMXR_DEF void pacmxr_meta_set_track(Pacmxr_Metadata *pac_meta, int num)
+{
+    av_dict_set_int(&pac_meta->out_metadata, "track", num, 0);
 }
 
 #ifndef PATH_MAX
