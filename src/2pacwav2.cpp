@@ -1347,26 +1347,18 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
     }
 
     char sort_was_pressed = (ctrl && shift &&
-                                pac_btn_press(SDL_SCANCODE_S, 
-                                &sflags->s_wasdown, 
-                                kbd));
+                            pac_btn_press(SDL_SCANCODE_S, 
+                            &sflags->s_wasdown, 
+                            kbd));
     char clear_was_pressed = (ctrl && shift &&
-                                pac_btn_press(SDL_SCANCODE_X,
-                                &sflags->x_wasdown,
-                                kbd));
+                            pac_btn_press(SDL_SCANCODE_X,
+                            &sflags->x_wasdown,
+                            kbd));
     char lkey = pac_btn_press(SDL_SCANCODE_L, &sflags->l_wasdown, kbd);
     char lstoggle_was_pressed = ((ctrl && lkey) && !shift);
     char reptoggle_was_pressed = (ctrl && shift && lkey);
 
     if (ImGui::BeginMenuBar()) {
-#if 1
-        if (ImGui::BeginMenu("edit")) {
-            if (ImGui::MenuItem("metadata", "ctrl-o")) {
-                printf("this does nothing on this build of the program. sorry about that\n");
-            }
-            ImGui::EndMenu();
-        }
-#endif
         if (ImGui::BeginMenu("view")) {
             if (ImGui::MenuItem(sort_text, "ctrl-shift-s")) {
                 sort_was_pressed = 1;
@@ -1376,7 +1368,7 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
                 lstoggle_was_pressed = 1;
             } if (ImGui::MenuItem("search", "ctrl-f")) {
                 sflags->searchwindow_open = 1;
-            } if (ImGui::MenuItem(vis_toggle_text, "")) {
+            } if (ImGui::MenuItem(vis_toggle_text)) {
                 sflags->visualizer_enabled = !sflags->visualizer_enabled;
                 if (sflags->visualizer_enabled) {
                     strcpy(vis_toggle_text, "disable visualizer");
