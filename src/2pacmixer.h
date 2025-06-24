@@ -972,6 +972,8 @@ PACMXR_INLINE float pacmxr_seconds_to_seek_value(float seconds)
 
 PACMXR_DEF void pacmxr_seek(float percent)
 {
+    if (!pacmxr_file_is_open())
+    { return; }
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     percent = pacmxr_clamp_float(percent, 0.0f, 1.0f);
 
