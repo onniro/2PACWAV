@@ -133,8 +133,8 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
     if (!buf2init) {                                                                \
         platform_dbg_log("failed to init buffer %s\n(unallocated=%u)exiting.\n",    \
                 #buf2init, ro_buffer_unallocated_bytes(heapbuf));                   \
-        PAC_ASSERT(0);                                                              \
-    } PAC_NOP_MACRO()
+        PAC_ASSERT(0 && "not enough memory!");                                      \
+    }
 
     memset(heapbuf->memory, 0, PAC_MAIN_STORAGE_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->userinfo_buffer,                 USERINFO_BUFFER_SIZE);
@@ -257,11 +257,7 @@ int main(int arg_count, char **args)
     sdldata.mdata_ptr = &mdata;
 
     if (!pac_init_sdl(&sdldata)) { return -1; }
-#if PORT_THIS
-    if (!pac_init_sdlmixer(&mdata)) { return -1; }
-#else
     if (!pac_init_tupacmixer(&mdata)) { return -1; }
-#endif
     rtvars.pacmxr_ctx = pacmxr_get_context();
     mdata.current_filename = (char *)bufgroup.music_current_filename;
     mdata.rtvars_ptr = &rtvars;
@@ -326,11 +322,6 @@ int main(int arg_count, char **args)
 
     useconds_t us2sleep;
 
-#if PORT_THIS
-    Mix_SetPostMix(pac_sdlmixer_postmix_callback, (void *)&rtvars);
-#else
-#endif
-
 #if _2PACWAV_DEBUG
     {
         int gl_maj, gl_min;
@@ -374,14 +365,7 @@ int main(int arg_count, char **args)
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
-#if PORT_THIS
-    if (mdata.sdlmixer_music) { 
-        Mix_FreeMusic(mdata.sdlmixer_music); 
-    }
-    Mix_CloseAudio();
-#else
     pacmxr_deinit();
-#endif
     SDL_GL_DeleteContext(sdldata.ogl_context);
     SDL_DestroyWindow(sdldata.window_ptr);
     SDL_Quit();

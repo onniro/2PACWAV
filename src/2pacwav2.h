@@ -15,7 +15,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (11)
-#define _2PACWAV_VER_PATCH      (11)
+#define _2PACWAV_VER_PATCH      (12)
 
 #define PAC_INLINE static inline
 #define PAC_INTERNAL static
@@ -269,16 +269,7 @@ typedef struct Metadata_Editor
 
 typedef struct Audio_Metadata_Group
 {
-#if PORT_THIS //(dont actually)
-    const char *tag_title;
-    char *title_begin_in_buf;
-    const char *tag_artist;
-    char *artist_begin_in_buf;
-    const char *tag_album;
-    char *album_begin_in_buf;
-#else
     char tagbuffer[1024];
-#endif
 } Audio_Metadata_Group;
 
 typedef struct Bitmap_Info 
@@ -419,21 +410,10 @@ PAC_INTERNAL void goto_prev_file(Music_Data *mdata);
 PAC_INTERNAL void set_match_flags(char *searchbuf, Music_Data *mdata);
 PAC_INTERNAL void update_audio_time(Music_Data *mdata);
 PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars, Sdl_Apidata *sdldata, General_Buffer_Group *bufgroup, Music_Data *mdata);
-PAC_INTERNAL char id3_get_taginfo(Music_Data *mdata);
-PAC_INTERNAL void sdlmixer_start_music(Music_Data *mdata, char *music_path);
-
-#if PORT_THIS
-//PAC_INTERNAL void sdlmixer_stop_music(Music_Data *mdata);
-//PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata);
-//PAC_INTERNAL char pac_init_sdlmixer(Music_Data *mdata);
-void pac_sdlmixer_postmix_callback(void *udata, uint8_t *stream, int len);
-PAC_INTERNAL char sdlmixer_get_taginfo(Music_Data *mdata);
-#else
 PAC_INTERNAL void tupacmixer_start_music(Music_Data *mdata, char *music_path);
 PAC_INTERNAL void tupacmixer_stop_music(Music_Data *mdata);
 PAC_INTERNAL void tupacmixer_get_taginfo(Music_Data *mdata);
 PAC_INTERNAL char pac_init_tupacmixer(Music_Data *mdata);
-#endif
 
 #define _2PACWAV_DOT_H
 #endif
