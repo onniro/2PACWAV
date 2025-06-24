@@ -1,6 +1,7 @@
 ## 2PACWAV - music player for linux
 
-the point of this program is to play music on the GNU/+Linux/systemd operating system. this project started because one day vlc media player crashed while i was trying to listen to some Tupac so i got real angry and took matters into my own hands
+the point of this program is to play music on the GNU/+Linux/systemd operating system.  
+this project started because one day vlc media player crashed while i was trying to listen to some Tupac so i got real angry and took matters into my own hands
 
 ### contents:
 [features](#features)  
@@ -26,5 +27,6 @@ the point of this program is to play music on the GNU/+Linux/systemd operating s
 
 ### credits and dependencies:
 - SDL2 - abstraction for window and OpenGL context creation as well as audio output
-- FFmpeg libs (avcodec, avformat, swresample et al) decoding and resampling audio and handling metadata
+- FFmpeg libs (avcodec, avformat, swresample et al) - decoding and resampling audio and handling metadata
 - Dear ImGui - GUI library
+- stb - image handling
