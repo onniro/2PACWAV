@@ -10,6 +10,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #include <GL/gl.h>
 #include <limits.h>
+#include <libavcodec/avfft.h>
 
 #include "2pacmixer.h"
 
@@ -95,6 +96,7 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 #define PAC_DEFAULT_VOLUME_INCREMENT (5) //(seconds)
 
 typedef float _Complex Complex32;
+//typedef FFTComplex Complex32;
 
 struct Runtime_Vars;
 struct General_Buffer_Group;
@@ -209,7 +211,7 @@ PAC_INLINE void cycle_center_view_state(Center_View_State *value)
 #define PAC_SDL_MOUSEMIDDLE (2)
 #define PAC_SDL_MOUSERIGHT  (3)
 
-typedef struct Mouse_State 
+typedef struct Mouse_State
 {
     char down;
     char wasdown_flags[4];
@@ -272,7 +274,7 @@ typedef struct Audio_Metadata_Group
     char tagbuffer[1024];
 } Audio_Metadata_Group;
 
-typedef struct Bitmap_Info 
+typedef struct Bitmap_Info
 {
     uint8_t *img_data;
     int img_data_bytes;

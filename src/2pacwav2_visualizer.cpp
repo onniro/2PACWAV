@@ -156,7 +156,7 @@ PAC_INTERNAL void spectrum_fill_verts_lineseg(float *verts,
 
     int elements_per_primitive = 4;
     float xpos = -1.0f + (85.0f/(float)sdldata->win_width);
-    float ypos = -1.0f + (85.0f/(float)sdldata->win_height);
+    float ypos = -0.5f + (85.0f/(float)sdldata->win_height);
     float mag_pos;
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
     for (int vert_index = 0, mag_index = 0; 
@@ -166,12 +166,12 @@ PAC_INTERNAL void spectrum_fill_verts_lineseg(float *verts,
         verts[vert_index] = xpos;
         verts[vert_index + 1] = ypos;
         verts[vert_index + 2] = xpos;
-        mag_pos = (1.0f - astream->real32_buffer_final[mag_index]*0.75f) - 1.25f;
+        mag_pos = (1.0f - astream->real32_buffer_final[mag_index]) - 0.5f;
         if (mag_pos < ypos) { mag_pos = ypos + 0.01f; }
         verts[vert_index + 3] = mag_pos;
     }
 }
- 
+
 PAC_INTERNAL void spectrum_fill_verts_point(float *verts, 
                                         int num_elements,
                                         int num_primitives,
@@ -206,12 +206,13 @@ PAC_INTERNAL void spectrum_fill_verts_point(float *verts,
     float mag_pos;
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
     for (int vert_index = 0, mag_index = 0; 
-            vert_index < num_elements; 
-            vert_index += elements_per_primitive, ++mag_index) {
+        vert_index < num_elements; 
+        vert_index += elements_per_primitive, ++mag_index) {
         xpos += x_advance;
         verts[vert_index] = xpos;
-        mag_pos = (1.0f - astream->real32_buffer_final[mag_index]) - 0.75f;
-        if(mag_pos > 0.0f) { mag_pos = 0.0f; }
+        mag_pos = (astream->real32_buffer_final[mag_index]) - 0.75f;
+        if (mag_pos > 0.0f)
+        { mag_pos = 0.0f; }
         verts[vert_index + 1] = mag_pos;
     }
 }
@@ -277,14 +278,22 @@ void main()
 )";
 
     PAC_LOCAL_STATIC char _opengl_err[4096];
-    //PAC_LOCAL_STATIC float verts[4*PAC_SPECTRUM_FREQ_BIN_COUNT];
-    PAC_LOCAL_STATIC float verts[2*PAC_OSCILLOSCOPE_POINT_COUNT];
+    PAC_LOCAL_STATIC float verts[4*PAC_SPECTRUM_FREQ_BIN_COUNT];
+    //PAC_LOCAL_STATIC float verts[2*PAC_OSCILLOSCOPE_POINT_COUNT];
     if (!pacmxr_get_context()->paused) {
+#if !PAC_SPECTRUM_ENABLED
         oscilloscope_fill_verts_line(verts,
                 sizeof(verts)/sizeof(*verts),
                 PAC_OSCILLOSCOPE_POINT_COUNT,
                 rtvars,
                 sdldata);
+#else
+        spectrum_fill_verts_lineseg(verts, 
+                sizeof(verts)/sizeof(*verts),
+                PAC_SPECTRUM_FREQ_BIN_COUNT,
+                rtvars,
+                sdldata);
+#endif
     }
 
     const char *shdr_vert_src = _shdr_vert_src;
@@ -358,11 +367,12 @@ void main()
     glBindBuffer(GL_ARRAY_BUFFER, vert_buf_id);
 
     //idk if this glBufferSubData call is really good
-#if 1 
-    glLineWidth(2.0f);
+#if !PAC_SPECTRUM_ENABLED
+    //glLineWidth(2.0f);
     glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(2*PAC_OSCILLOSCOPE_POINT_COUNT)), &verts[0]);
-    glDrawArrays(GL_LINE_STRIP, 0, PAC_OSCILLOSCOPE_POINT_COUNT);
+    glDrawArrays(GL_POINTS, 0, PAC_OSCILLOSCOPE_POINT_COUNT);
 #else
+    glLineWidth(3.0f);
     glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(4*PAC_SPECTRUM_FREQ_BIN_COUNT)), &verts[0]);
     glDrawArrays(GL_LINES, 0, sizeof(verts)/sizeof(verts[0]));
 #endif
