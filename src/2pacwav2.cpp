@@ -21,9 +21,9 @@ TODO: figure out how to make the search dialog not block input
 #if STBIMAGE_ENABLED
     #define STB_IMAGE_IMPLEMENTATION 1
     #define STBI_FAILURE_USERMSG 1
-    #define STB_IMAGE_RESIZE_IMPLEMENTATION 1
     #include "stb/stb_image.h"
-    #include "stb/stb_image_resize2.h"
+    //#define STB_IMAGE_RESIZE_IMPLEMENTATION 1
+    //#include "stb/stb_image_resize2.h"
 #endif
 
 #include "2pacwav2.h"
