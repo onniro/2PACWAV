@@ -278,8 +278,8 @@ void main()
 )";
 
     PAC_LOCAL_STATIC char _opengl_err[4096];
-    PAC_LOCAL_STATIC float verts[4*PAC_SPECTRUM_FREQ_BIN_COUNT];
-    //PAC_LOCAL_STATIC float verts[2*PAC_OSCILLOSCOPE_POINT_COUNT];
+    //PAC_LOCAL_STATIC float verts[4*PAC_SPECTRUM_FREQ_BIN_COUNT];
+    PAC_LOCAL_STATIC float verts[2*PAC_OSCILLOSCOPE_POINT_COUNT];
     if (!pacmxr_get_context()->paused) {
 #if !PAC_SPECTRUM_ENABLED
         oscilloscope_fill_verts_line(verts,
@@ -368,9 +368,9 @@ void main()
 
     //idk if this glBufferSubData call is really good
 #if !PAC_SPECTRUM_ENABLED
-    //glLineWidth(2.0f);
+    glLineWidth(2.5f);
     glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(2*PAC_OSCILLOSCOPE_POINT_COUNT)), &verts[0]);
-    glDrawArrays(GL_POINTS, 0, PAC_OSCILLOSCOPE_POINT_COUNT);
+    glDrawArrays(GL_LINE_STRIP, 0, PAC_OSCILLOSCOPE_POINT_COUNT);
 #else
     glLineWidth(3.0f);
     glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(4*PAC_SPECTRUM_FREQ_BIN_COUNT)), &verts[0]);
