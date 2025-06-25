@@ -14,7 +14,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (11)
-#define _2PACWAV_VER_PATCH      (13)
+#define _2PACWAV_VER_PATCH      (14)
 
 #define PAC_INLINE static inline
 #define PAC_INTERNAL static
@@ -178,7 +178,7 @@ typedef struct Frametime_Vars
     uint64_t delta;
 } Frametime_Vars;
 
-typedef enum Userinfo_Type 
+typedef enum Userinfo_Type
 {
     USERINFO_TYPE_ERROR = 0,
     USERINFO_TYPE_WARNING,
@@ -194,7 +194,7 @@ typedef enum Center_View_State
     CENTER_VIEW_STATE__LAST
 } Center_View_State;
 
-PAC_INLINE void cycle_center_view_state(Center_View_State *value) 
+PAC_INLINE void cycle_center_view_state(Center_View_State *value)
 {
     if (!value) { return; }
     uint8_t new_value = 1 + (uint8_t)(*value);

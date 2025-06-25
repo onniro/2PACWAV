@@ -182,13 +182,14 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
     return exit_after_ret;
 }
 
-PAC_INTERNAL void startup_load_conf(Runtime_Vars *rtvars, 
-                                char *confbuf, 
-                                int confbuf_bytes)
+PAC_INTERNAL size_t startup_load_conf(Runtime_Vars *rtvars, 
+                                    char *confbuf, 
+                                    int confbuf_bytes)
 {
     char confpath[PATH_MAX];
     const int infosize = PATH_MAX + sizeof("loaded config: ");
     char infobuf[infosize];
+    size_t bytes_read = 0;
 
 #if _2PACWAV_LINUX
     snprintf(confpath, PATH_MAX - 1, "%s/%s", 
@@ -200,7 +201,8 @@ PAC_INTERNAL void startup_load_conf(Runtime_Vars *rtvars,
 
     if (platform_file_exists(confpath)) {
         snprintf(rtvars->conf_directory, PATH_MAX, "%s", confpath);
-        platform_read_file(confpath, confbuf, confbuf_bytes - 1);
+        bytes_read = platform_read_file(confpath, confbuf, confbuf_bytes - 1);
+        confbuf[bytes_read] = 0;
         snprintf(infobuf, infosize, "loaded config: %s", confpath);
         set_userinfo(rtvars, infobuf, USERINFO_TYPE_NOTE);
         platform_dbg_log("%s\n", infobuf);
@@ -214,13 +216,16 @@ PAC_INTERNAL void startup_load_conf(Runtime_Vars *rtvars,
 
             if (platform_file_exists(confpath)) {
                 snprintf(rtvars->conf_directory, PATH_MAX, "%s", confpath);
-                platform_read_file(confpath, confbuf, confbuf_bytes - 1);
+                bytes_read = platform_read_file(confpath, confbuf, confbuf_bytes - 1);
+                confbuf[bytes_read] = 0;
                 snprintf(infobuf, infosize, "loaded config: %s", confpath);
                 set_userinfo(rtvars, infobuf, USERINFO_TYPE_NOTE);
             }
         }
 #endif
     }
+
+    return bytes_read;
 }
 
 PAC_INTERNAL void startup_add_paths(Startup_Args *sargs,
@@ -264,14 +269,17 @@ PAC_INTERNAL char pac_btn_press(SDL_Scancode scan,
     return state;
 }
 
-PAC_INTERNAL char pac_imgui_load_font(char *font_name,
+PAC_INTERNAL char pac_imgui_load_font(char *font_path,
                                     float font_size,
                                     Runtime_Vars *rtvars)
 {
     char status = 0;
-    char latin_path[PATH_MAX], cjk_path[PATH_MAX];
+    char *latin_path = font_path, cjk_path[PATH_MAX];
+#if 0
     snprintf(latin_path, PATH_MAX - 1, "%s/%s", 
             rtvars->resource_directory, font_name);
+#else
+#endif
     snprintf(cjk_path, PATH_MAX - 1, "%s/%s", 
             rtvars->resource_directory, PAC_CJK_FONT_STRING);
     PAC_LOCAL_STATIC ImVector<ImWchar> latin_ranges_buffer;

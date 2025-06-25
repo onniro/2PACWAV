@@ -15,6 +15,8 @@ Linux platform-specific code for 2pacwav
 #include <locale.h>
 #include <complex.h>
 
+#include <fontconfig/fontconfig.h>
+
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
@@ -56,6 +58,35 @@ PAC_INTERNAL char *platform_find_res_path(Runtime_Vars *rtvars,
         *last_ptr = 0;
     }
     return result;
+}
+
+PAC_INTERNAL void platform_get_font_path(Runtime_Vars *rtvars,
+                                        char *dest,
+                                        int dest_size)
+{
+    FcInit();
+    FcConfig *fc_cfg = FcInitLoadConfigAndFonts();
+    FcPattern *pattern = FcNameParse((const FcChar8 *)"Liberation Mono:Regular");
+    FcObjectSet* obj_set = FcObjectSetBuild(FC_FILE, (void *)0);
+    FcFontSet *font_set = FcFontList(fc_cfg, pattern, obj_set);
+    FcChar8 *file;
+    FcPattern *font;
+
+    for (int i = 0; i < font_set->nfont; ++i) {
+        font = font_set->fonts[i];
+        FcPatternGetString(font, FC_FILE, 0, &file);
+        if (!strcasestr((char *)file, "italic")) {
+            snprintf(dest, dest_size, "%s", (char *)file);
+            platform_dbg_log("loading font %s\n", dest);
+            break;
+        }
+    }
+
+    FcFontSetDestroy(font_set);
+    FcObjectSetDestroy(obj_set);
+    FcPatternDestroy(pattern);
+    FcConfigDestroy(fc_cfg);
+    FcFini();
 }
 
 PAC_INTERNAL int platform_list_files_simple(char *path, 
@@ -193,7 +224,7 @@ PAC_INTERNAL int platform_write_file(char *file_path,
 }
 
 
-void platform_log(char *fmt_string, ...)
+PAC_INTERNAL void platform_log(char *fmt_string, ...)
 {
     char buf[4096];
     va_list args;
@@ -203,7 +234,7 @@ void platform_log(char *fmt_string, ...)
     va_end(args);
 }
 
-void platform_dbg_log(char *fmt_string, ...)
+PAC_INTERNAL void platform_dbg_log(char *fmt_string, ...)
 {
 #if _2PACWAV_DEBUG || (defined(_2PACWAV_ENABLE_LOG) && _2PACWAV_ENABLE_LOG)
     char buf[4096];
@@ -263,6 +294,7 @@ int main(int arg_count, char **args)
     mdata.rtvars_ptr = &rtvars;
 
     platform_get_working_directory(rtvars.working_directory, PATH_MAX);
+    platform_get_font_path(&rtvars, (char *)bufgroup.scratch_space, PATH_MAX);
     platform_find_res_path(&rtvars, rtvars.resource_directory, PATH_MAX - 1);
 
     mdata.music_list.filenames_buf = (char *)bufgroup.flist_filenames_buf;
@@ -287,10 +319,9 @@ int main(int arg_count, char **args)
     rtvars.mdata_ptr = &mdata;
 
     if (!sargs.no_load_conf) {
-        startup_load_conf(&rtvars, 
-                (char *)bufgroup.conf_file_buffer, 
-                CONFBUFFER_SIZE);
-        int conf_len = strlen((char *)bufgroup.conf_file_buffer);
+        size_t conf_len = startup_load_conf(&rtvars,
+                            (char *)bufgroup.conf_file_buffer, 
+                            CONFBUFFER_SIZE);
         if (conf_len && (conf_len < CONFBUFFER_SIZE)) {
             parse_and_apply_config(&rtvars,
                     (char *)bufgroup.conf_file_buffer,
@@ -313,9 +344,9 @@ int main(int arg_count, char **args)
     ImGui_ImplSDL2_InitForOpenGL(sdldata.window_ptr, sdldata.ogl_context);
     ImGui_ImplOpenGL3_Init("#version 130");
 
-    if (!pac_imgui_load_font(PAC_LATIN_FONT_STRING, 
-            sargs.font_size, 
-            &rtvars)) {
+    if (!pac_imgui_load_font((char *)bufgroup.scratch_space,
+        sargs.font_size,
+        &rtvars)) {
         platform_log("[error]: loading fonts failed\n");
         return -1;
     }
@@ -342,7 +373,7 @@ int main(int arg_count, char **args)
 #endif
 
     if (sargs.paths.count) {
-        startup_add_paths(&sargs, &rtvars, &mdata); 
+        startup_add_paths(&sargs, &rtvars, &mdata);
         memset(bufgroup.scratch_space, 0, (sargs.paths.count + 2)*PATH_MAX);
     }
     

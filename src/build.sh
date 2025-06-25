@@ -36,7 +36,8 @@ LINK_LIBS="-lm \
         -lavcodec \
         -lavutil \
         -lswresample \
-        -lpthread"
+        -lpthread \
+        -lfontconfig"
 
 #taglib
         #$BASEDIR/3rd_party/taglib/lib/libtag.a \

@@ -233,12 +233,14 @@ Call this to open an audio file with 2pacmixer.
 Opens a file with avformat_open_input and begins decoding and resampling it immediately.
 ARG 1 - filename:
 Pointer to a null-terminated string that contains the path to the file to be opened.
+RETURN VALUE:
+Zero on failure, nonzero on success.
 
 pacmxr_close_file:
 Call this to close a file that was previously opened with pacmxr_open_file.
 This is important before opening another file.
 */
-PACMXR_DEF char pacmxr_open_file(char *filename);
+PACMXR_DEF int pacmxr_open_file(char *filename);
 PACMXR_DEF void pacmxr_close_file(void);
 
 /*
@@ -1111,10 +1113,10 @@ PACMXR_DEF void pacmxr__sdl_audio_callback(void *userdata, uint8_t *stream, int 
     aq->bytes_left -= len;
 }
 
-PACMXR_DEF char pacmxr_open_file(char *filename)
+PACMXR_DEF int pacmxr_open_file(char *filename)
 {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
-    const char fail = 0, success = 1; 
+    const int fail = 0, success = 1; 
     File_Context *fctx = &ctx->fctx;
 
     if (avformat_open_input(&fctx->avf_ctx, filename, 0, 0) < 0) {
