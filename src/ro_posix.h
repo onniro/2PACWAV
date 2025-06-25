@@ -57,6 +57,10 @@ typedef struct Ro_Heap_Buffer
     uint64_t total_bytes;
 } Ro_Heap_Buffer;
 
+#define RO_HEAP_BUFFER 1
+#define RO_HEAPBUF_DOT_H 1
+#endif
+
 #ifndef RO_MATH_DOT_H
 
 RO_DEF uint64_t ro_abs_i64(int64_t number)
@@ -146,10 +150,6 @@ RO_DEF void ro_buffer_move_writeptr(Ro_Heap_Buffer *buffer,
         { memset(buffer->write_ptr, 0, move_bytes); }
     }
 }
-
-#define RO_HEAP_BUFFER 1
-#define RO_HEAPBUF_DOT_H 1
-#endif
 
 RO_DEF char *ro_posix_get_working_directory(char *destination, 
                                         uint64_t buffer_size) 
@@ -243,8 +243,8 @@ RO_DEF int ro_posix_write_file(char *file_path,
                             S_IRUSR|S_IWUSR);
     if (file_descriptor != -1) {
         int64_t write_status = write(file_descriptor, 
-                                in_buffer, 
-                                buffer_size);  
+                                    in_buffer, 
+                                    buffer_size);  
         close(file_descriptor);
         if(write_status == (int64_t)buffer_size) { result = 1; }
     }
@@ -272,9 +272,9 @@ RO_DEF int ro_posix_get_stdout(char *command,
         dup2(pipe_fd[STDOUT_FILENO], STDOUT_FILENO);
         if (include_stderr) { dup2(STDOUT_FILENO, STDERR_FILENO); }
         close(pipe_fd[STDOUT_FILENO]);
-        char _temp[1024*8];
-        snprintf(_temp, (1024*8) - 1, "''%s''", command);
-        execl("/bin/sh", "sh", "-c", _temp, (char *)0);
+        char tempbuf[1024*8];
+        snprintf(tempbuf, sizeof(tempbuf), "''%s''", command);
+        execl("/bin/sh", "sh", "-c", tempbuf, (char *)0);
         perror("execl");
         _exit(1);
     } else {
