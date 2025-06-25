@@ -6,8 +6,6 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #ifndef _2PACWAV_DOT_H
 
-#include "ro_heapbuf.h"
-
 #include <GL/gl.h>
 #include <limits.h>
 #include <libavcodec/avfft.h>
