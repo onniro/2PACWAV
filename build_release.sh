@@ -47,6 +47,7 @@ LINK_LIBS="-lm \
         -static-libstdc++ \
         -static-libgcc \
         -lGL \
+        -lfontconfig \
         -lavcodec \
         -lavformat \
         -lavcodec \
