@@ -67,7 +67,7 @@ PAC_INTERNAL void platform_get_font_path(Runtime_Vars *rtvars,
     FcInit();
     FcConfig *fc_cfg = FcInitLoadConfigAndFonts();
     FcPattern *pattern = FcNameParse((const FcChar8 *)"Liberation Mono:Regular");
-    FcObjectSet* obj_set = FcObjectSetBuild(FC_FILE, (void *)0);
+    FcObjectSet *obj_set = FcObjectSetBuild(FC_FILE, (void *)0);
     FcFontSet *font_set = FcFontList(fc_cfg, pattern, obj_set);
     FcChar8 *file;
     FcPattern *font;

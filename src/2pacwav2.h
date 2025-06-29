@@ -14,7 +14,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (11)
-#define _2PACWAV_VER_PATCH      (17)
+#define _2PACWAV_VER_PATCH      (19)
 
 #define PAC_INLINE static inline
 #define PAC_INTERNAL static
@@ -142,20 +142,21 @@ typedef struct General_Buffer_Group
     char vis_toggle_text[24] = "disable visualizer";
 } General_Buffer_Group;
 
-typedef struct Startup_Args_Paths 
+typedef struct Startup_Args_Paths
 {
     int count;
     char *ptrs[PAC_MAX_DIRS];
     char *buffer;
 } Startup_Args_Paths;
 
-typedef struct Startup_Args 
+typedef struct Startup_Args
 {
     char no_load_conf;
     General_Buffer_Group *bufgroup_ptr;
     Startup_Args_Paths paths;
     float font_size;
     int volume;
+    char *conf_path;
 } Startup_Args;
 
 typedef struct File_List
@@ -332,7 +333,7 @@ typedef struct Music_Data
     char music_type_buf[32];
 } Music_Data;
 
-typedef struct Sdl_Apidata 
+typedef struct Sdl_Apidata
 {
     int win_width;
     int win_height;

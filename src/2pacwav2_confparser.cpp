@@ -353,7 +353,7 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                         ret_tok.length &&
                         (ret_tok.length + 1 < PATH_MAX)) {
                         if (platform_file_exists(stringbuf)) {
-                            snprintf(buf, ret_tok.length + 1, "%s", ret_tok.text);
+                            snprintf(buf, PATH_MAX, "%s", stringbuf);
                             ++fontpath_set;
                         } else {
                             fprintf(stderr, "2wconf error: specified font path doesn't exist on the system.\n");

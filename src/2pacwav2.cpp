@@ -77,6 +77,7 @@ PAC_INTERNAL void show_help(char longhelp)
             "--longhelp : print output of the above option as well as additional documentation\n"
             "-v | --version : print version and exit\n"
             "-vol <value> : set the volume\n"
+            "-conf <path> : specify config file\n"
             "-noconf : do not look for a configuration file\n"
             "-fontsize <value> : set point size for font\n");
     if (longhelp) {
@@ -170,6 +171,13 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
             } else {
                 fprintf(stderr, "no argument given after %s, ignoring.\n", arg);
             }
+        } else if (!sargs->conf_path && !strcmp("-conf", arg)) {
+            if (args[arg_index + 1]) {
+                sargs->conf_path = args[arg_index + 1];
+            } else {
+                fprintf(stderr, "no argument given after %s, ignoring.\n", arg);
+            }
+            ++arg_index;
         } else {
             if (platform_path_exists(arg)) {
                 startup_push_path(sargs, arg);
@@ -187,14 +195,18 @@ PAC_INTERNAL size_t startup_load_conf(Runtime_Vars *rtvars,
                                     char *confbuf, 
                                     int confbuf_bytes)
 {
-    char confpath[PATH_MAX];
+    char confpath[PATH_MAX]; confpath[0] = 0;
     const int infosize = PATH_MAX + sizeof("loaded config: ");
     char infobuf[infosize];
     size_t bytes_read = 0;
 
 #if _2PACWAV_LINUX
-    snprintf(confpath, PATH_MAX - 1, "%s/%s", 
-            rtvars->working_directory, PAC_CONFNAME_STRING);
+    if (rtvars->sargs_ptr->conf_path) {
+        snprintf(confpath, PATH_MAX, "%s", rtvars->sargs_ptr->conf_path);
+    } else {
+        snprintf(confpath, PATH_MAX, "%s/%s", 
+                rtvars->working_directory, PAC_CONFNAME_STRING);
+    }
 #elif _2PACWAV_WIN32
     snprintf(confpath, PATH_MAX - 1, "%s\\%s", 
             rtvars->working_directory, PAC_CONFNAME_STRING);
@@ -206,7 +218,6 @@ PAC_INTERNAL size_t startup_load_conf(Runtime_Vars *rtvars,
         confbuf[bytes_read] = 0;
         snprintf(infobuf, infosize, "loaded config: %s", confpath);
         set_userinfo(rtvars, infobuf, USERINFO_TYPE_NOTE);
-        platform_dbg_log("%s\n", infobuf);
     } else {
 #if _2PACWAV_LINUX
         char *username = getlogin();
@@ -224,6 +235,10 @@ PAC_INTERNAL size_t startup_load_conf(Runtime_Vars *rtvars,
             }
         }
 #endif
+    }
+
+    if (confpath[0]) {
+        platform_dbg_log("config path: %s\n", confpath);
     }
 
     return bytes_read;
@@ -323,7 +338,6 @@ PAC_INTERNAL char pac_imgui_load_font(char *font_path,
     return status;
 }
 
-#if 1
 PAC_INTERNAL void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
 {
     SDL_Event event;
@@ -358,7 +372,6 @@ PAC_INTERNAL void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdlda
         }
     }
 }
-#endif
 
 PAC_INTERNAL void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata)
 {
@@ -833,7 +846,7 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
         const float dimension = 500.0f, heightpad = 220.0f, alpha = 0.5f;
         Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
         ImGui::SetCursorPos(ImVec2((sdldata->win_width/2) - (dimension/2),
-                                (sdldata->win_height) - (dimension + heightpad)));
+                        (sdldata->win_height) - (dimension + heightpad)));
         ImVec2 cover_dims = ImVec2(dimension, dimension);
         //NOTE: apparently this overload of ImGui::Image is deprecated/obsolete or some shit
         //but it works on our imgui version and is the easiest way i found to change the alpha.
@@ -1249,9 +1262,8 @@ PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
     if (ImGui::SliderInt("##vol_seeker", 
         &mdata->seek_value, 0, 
         PAC_SEEK_VALUE_MAX, "",
-        ImGuiSliderFlags_NoInput)) {
-        pacmxr_seek(mdata->seek_value/(float)PAC_SEEK_VALUE_MAX);
-    }
+        ImGuiSliderFlags_NoInput))
+    { pacmxr_seek(mdata->seek_value/(float)PAC_SEEK_VALUE_MAX); }
 }
 
 PAC_INTERNAL void do_path_autocomplete(char *current, Runtime_Vars *rtvars)
