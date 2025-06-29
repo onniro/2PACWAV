@@ -282,6 +282,7 @@ int main(int arg_count, char **args)
     strcpy(mdata.music_type_buf, "NONE");
 
     setlocale(LC_ALL, "en_US.UTF-8");
+    srand48(time(0));
 
     rtvars.sdldata_ptr = &sdldata;
     rtvars.bufgroup_ptr = &bufgroup;
@@ -294,7 +295,7 @@ int main(int arg_count, char **args)
     mdata.rtvars_ptr = &rtvars;
 
     platform_get_working_directory(rtvars.working_directory, PATH_MAX);
-    platform_get_font_path(&rtvars, (char *)bufgroup.scratch_space, PATH_MAX);
+    //platform_get_font_path(&rtvars, (char *)bufgroup.scratch_space, PATH_MAX);
     platform_find_res_path(&rtvars, rtvars.resource_directory, PATH_MAX - 1);
 
     mdata.music_list.filenames_buf = (char *)bufgroup.flist_filenames_buf;
@@ -312,8 +313,6 @@ int main(int arg_count, char **args)
 
     rtvars.keep_running = 1;
 
-    srand48(time(0));
-
     Frametime_Vars frametime;
     rtvars.frametime_info_ptr = &frametime;
     rtvars.mdata_ptr = &mdata;
@@ -326,7 +325,11 @@ int main(int arg_count, char **args)
             parse_and_apply_config(&rtvars,
                     (char *)bufgroup.conf_file_buffer,
                     CONFBUFFER_SIZE);
+        } else {
+            platform_get_font_path(&rtvars, (char *)bufgroup.scratch_space, PATH_MAX);
         }
+    } else {
+        platform_get_font_path(&rtvars, (char *)bufgroup.scratch_space, PATH_MAX);
     }
 
     if (sargs.volume != -1) {
@@ -350,6 +353,7 @@ int main(int arg_count, char **args)
         platform_log("[error]: loading fonts failed\n");
         return -1;
     }
+    *(char *)bufgroup.scratch_space = 0;
 
     useconds_t us2sleep;
 

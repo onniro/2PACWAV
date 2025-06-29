@@ -14,7 +14,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (11)
-#define _2PACWAV_VER_PATCH      (14)
+#define _2PACWAV_VER_PATCH      (17)
 
 #define PAC_INLINE static inline
 #define PAC_INTERNAL static
@@ -45,13 +45,15 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
         platform_log("ASSERTION FAILED. file: %s @ L%d\nexpression: (%s)\n",\
                 __FILE__, __LINE__, #expression);\
         PLATFORM_EXITCALL(1337);\
-    } PAC_NOP_MACRO()
+    }
 
 #ifndef PAC_SAMPLE_RATE
-    #define PAC_SAMPLE_RATE MIX_DEFAULT_FREQUENCY
+    //#define PAC_SAMPLE_RATE MIX_DEFAULT_FREQUENCY
+    #define PAC_SAMPLE_RATE (48000)
 #endif
 #ifndef PAC_PCM_BITS
-    #define PAC_PCM_BITS MIX_DEFAULT_FORMAT
+    //#define PAC_PCM_BITS MIX_DEFAULT_FORMAT
+    #define PAC_PCM_BITS ("do not use PAC_PCM_BITS")
 #endif
 #ifndef PAC_SDLMIXER_CHUNKSIZE
     #define PAC_SDLMIXER_CHUNKSIZE (2048)
@@ -228,6 +230,7 @@ typedef struct State_Flags
     char l_wasdown;
     char f_wasdown;
     char n_wasdown;
+    char m_wasdown;
     char p_wasdown;
     char r_wasdown;
     char right_wasdown;

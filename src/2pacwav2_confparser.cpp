@@ -11,8 +11,9 @@ This means that comments are C & C++ style and lines end on semicolons;
 
 #include "2pacwav2.h"
 
-#define CONF_STARTUP_PATH_TOKEN         "startup_path"
-#define CONF_FONTSIZE_TOKEN             "font_size"
+#define CONF_STARTUP_PATH               "startup_path"
+#define CONF_FONTSIZE                   "font_size"
+#define CONF_FONT_PATH                  "font_path"
 #define CONF_VISUALIZER_STATUS          "visualizer"
 #define CONF_STARTUP_VOLUME             "volume"
 
@@ -103,14 +104,14 @@ PAC_INLINE char token_equals(Token tok, char *match)
 PAC_INTERNAL void report_missing_semicolon(char *identifier)
 {
     fprintf(stderr, 
-            "2wfile syntax error: semicolon (;) required after definition of variable \"%s\"\n",
+            "2wconf syntax error: semicolon (;) required after definition of variable \"%s\"\n",
             identifier);
 }
 
 PAC_INTERNAL void report_duplicate(char *identifier)
 {
     fprintf(stderr, 
-            "2wfile warning: variable \"%s\" set more than once. ignoring all but the first value.\n",
+            "2wconf warning: variable \"%s\" set more than once. ignoring all but the first value.\n",
             identifier);
 }
 
@@ -229,16 +230,16 @@ PAC_INTERNAL Token get_string_entry(Tokenizer *tokenizer,
                 }
             } else {
                 fprintf(stderr, 
-                        "2wfile syntax error: invalid path in definition of variable \"%s\"\n",
+                        "2wconf syntax error: invalid path in definition of variable \"%s\"\n",
                         identifier);
             }
         } else {
             fprintf(stderr, 
-                    "2wfile syntax error: identifier \"%s\" must be followed by a string\n",
+                    "2wconf syntax error: identifier \"%s\" must be followed by a string\n",
                     identifier);
         }
     } else {
-        fprintf(stderr, "2wfile syntax error: missing = after identifier\n");
+        fprintf(stderr, "2wconf syntax error: missing = after identifier\n");
     }
     return tok;
 }
@@ -254,14 +255,14 @@ PAC_INTERNAL float get_float_entry(Tokenizer *tokenizer, char *identifier)
             errno = 0;
             ret = strtof(tok.text, &endptr);
             if ((0.0f == ret) && (errno == ERANGE)) {
-                fprintf(stderr, "2wfile error: could not set variable \"%s\" to specified value because it might be invalid.\n",
+                fprintf(stderr, "2wconf error: could not set variable \"%s\" to specified value because it might be invalid.\n",
                         identifier);
             } if (!require_token(tokenizer, TOKEN_SEMICOLON)) {
                 ret = 0.0f;
                 report_missing_semicolon(identifier);
             }
         } else {
-            fprintf(stderr, "2wfile syntax error: expected number after identifier \"%s\".",
+            fprintf(stderr, "2wconf syntax error: expected number after identifier \"%s\".",
                     identifier);
         }
     }
@@ -278,6 +279,7 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
     tokenizer.at = confbuf;
     char stringbuf[PATH_MAX];
     char fontsize_set = 0,
+            fontpath_set = 0,
             vis_status_set = 0,
             volume_set = 0;
 
@@ -288,31 +290,31 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
 
         case TOKEN_UNKNOWN: {
             fprintf(stderr, 
-                    "2wfile warning: unknown token encountered: %s\n",
+                    "2wconf warning: unknown token encountered: %s\n",
                     tok.text);
         } break;
 
         //check and handle tokens here
         case TOKEN_IDENTIFIER: {
-            if (token_equals(tok, CONF_STARTUP_PATH_TOKEN)) {
+            if (token_equals(tok, CONF_STARTUP_PATH)) {
                 stringbuf[0] = 0;
                 Token ret_tok = get_string_entry(&tokenizer,
                                     stringbuf,
                                     sizeof(stringbuf),
-                                    CONF_STARTUP_PATH_TOKEN);
+                                    CONF_STARTUP_PATH);
                 if (stringbuf[0] && ret_tok.length) {
                     platform_dbg_log("loading startup path %s\n", stringbuf);
                     add_to_music_list(stringbuf, rtvars->mdata_ptr, rtvars);
                 }
-            } else if (token_equals(tok, CONF_FONTSIZE_TOKEN)) {
+            } else if (token_equals(tok, CONF_FONTSIZE)) {
                 if (!fontsize_set) {
-                    float value = get_float_entry(&tokenizer, CONF_FONTSIZE_TOKEN);
+                    float value = get_float_entry(&tokenizer, CONF_FONTSIZE);
                     if (value > 0.0f) {
                         sargs->font_size = value;
                         ++fontsize_set;
                     }
                 } else if (1 == fontsize_set) {
-                    report_duplicate(CONF_FONTSIZE_TOKEN);
+                    report_duplicate(CONF_FONTSIZE);
                     ++fontsize_set;
                 }
             } else if (token_equals(tok, CONF_VISUALIZER_STATUS)) {
@@ -338,9 +340,34 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                     report_duplicate(CONF_STARTUP_VOLUME);
                     ++volume_set;
                 }
+            } else if (token_equals(tok, CONF_FONT_PATH)) {
+                if (!fontpath_set) {
+                    stringbuf[0] = 0;
+                    char *buf = (char *)rtvars->bufgroup_ptr->scratch_space;
+                    Token ret_tok = get_string_entry(&tokenizer,
+                                        stringbuf,
+                                        sizeof(stringbuf),
+                                        CONF_STARTUP_PATH);
+
+                    if (stringbuf[0] &&
+                        ret_tok.length &&
+                        (ret_tok.length + 1 < PATH_MAX)) {
+                        if (platform_file_exists(stringbuf)) {
+                            snprintf(buf, ret_tok.length + 1, "%s", ret_tok.text);
+                            ++fontpath_set;
+                        } else {
+                            fprintf(stderr, "2wconf error: specified font path doesn't exist on the system.\n");
+                        }
+                    } else {
+                        fprintf(stderr, "2wconf error: failed setting font path.\n");
+                    }
+                } else if (1 == fontpath_set) {
+                    report_duplicate(CONF_FONT_PATH);
+                    ++fontpath_set;
+                }
             } else {
                 snprintf(stringbuf, tok.length + 1, "%s", tok.text);
-                fprintf(stderr, "2wfile warning: unknown identifier or variable \"%s\". ignoring.\n",
+                fprintf(stderr, "2wconf warning: unknown identifier or variable \"%s\". ignoring.\n",
                         stringbuf);
             }
         } break;
@@ -348,5 +375,11 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
         default: {
         } break;
         }
+    }
+
+    if (!fontpath_set) {
+        platform_get_font_path(rtvars,
+                (char *)rtvars->bufgroup_ptr->scratch_space,
+                PATH_MAX);
     }
 }

@@ -86,10 +86,11 @@ PAC_INTERNAL void show_help(char longhelp)
                 "similar to C, meaning that '//' and /* */ denote comments and lines end in semicolons.\n"
                 "Below is a complete list of variables that can be set and some information about them.\n"
                 "---\n"
-                "startup_path = \"path/to/file\";  //Sets a path to a file or folder that will be added to the list on startup.\n"
+                "startup_path = \"/path/to/file\";  //Sets a path to a file or folder that will be added to the list on startup.\n"
                 "                                //Multiple instances of this are allowed.\n"
                 "volume = value;  //Sets the volume level on startup. The value is clamped to 0-128\n"
                 "                 //The -vol command option overrides this\n"
+                "font_path = \"/path/to/font/file\"; //Path to the desired font file (TrueType or OpenType)\n" 
                 "font_size = value; //Sets point size for the font. (default: %g)\n"
                 "visualizer = 0 or 1(any nonzero); //Disables visualizer if value is 0 and enables it otherwise,\n"
                 "                                  //including when this variable isn't set.\n"
@@ -278,7 +279,6 @@ PAC_INTERNAL char pac_imgui_load_font(char *font_path,
 #if 0
     snprintf(latin_path, PATH_MAX - 1, "%s/%s", 
             rtvars->resource_directory, font_name);
-#else
 #endif
     snprintf(cjk_path, PATH_MAX - 1, "%s/%s", 
             rtvars->resource_directory, PAC_CJK_FONT_STRING);
@@ -313,9 +313,9 @@ PAC_INTERNAL char pac_imgui_load_font(char *font_path,
         ranges_builder.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
         ranges_builder.BuildRanges(&cjk_ranges_buffer);
         rtvars->main_font = io.Fonts->AddFontFromFileTTF(cjk_path,
-                                                        cjk_font_size, 
-                                                        &cjk_conf, 
-                                                        cjk_ranges_buffer.Data);
+                                                    cjk_font_size, 
+                                                    &cjk_conf, 
+                                                    cjk_ranges_buffer.Data);
 
         status = 1;
     }
@@ -418,10 +418,7 @@ PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     Audio_Stream *astream = &rtvars->mdata_ptr->astream;
     Pacmxr_Context *pac_ctx = pacmxr_get_context();
     astream->stream = pac_ctx->aqueue.sdl_stream;
-    //astream->stream = pac_ctx->aqueue.read_ptr;
     astream->stream_size = pac_ctx->aqueue.sdl_stream_len;
-    //printf("stream=%p, stream_len=%d\n", astream->stream, astream->stream_size);
-    //astream->stream_size = stream_len;
 
     if ((rtvars->sflags.viewstate == CENTER_VIEW_STATE_CURRENT_INFO) &&
         (rtvars->sflags.visualizer_enabled))
@@ -510,7 +507,8 @@ PAC_INTERNAL char *separate_file_and_dir_name(char *dir_in_out,
                 snprintf(name_out, chars, "%s", temp_in + 1);
                 break;
             }
-            --temp_in; ++chars;
+            --temp_in;
+            ++chars;
         }
     } else {
         snprintf(name_out, dirlen + 1, "%s", dir_in_out);
@@ -853,7 +851,6 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
     ImGui::SetCursorPos(ImVec2(((float)sdldata->win_width/2.0f) - (tdims.x/2.0f), 
             sdldata->win_height - 200.0f));
     ImGui::Text("%s", taginfo_buffer);
-
 }
 
 PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars,
@@ -1048,15 +1045,24 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
     ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.0, 0.5f));
     char btntext[NAME_MAX];
     char *filename;
+    const uint8_t *kbd = rtvars->kbd_state;
+    char ctrl, shift;
 
     for (int loop_index = 0; loop_index < (int)mlist->entry_count; ++loop_index) {
         if (!mlist->match_flags[loop_index]) {
             filename = mlist->filenames_string_loclist[loop_index];
-            //2 or more buttons with the same name wont work properly
+
             snprintf(btntext, NAME_MAX - 1, "%s##%d", filename, loop_index);
             if (ImGui::Button(btntext, ImVec2(ImGui::GetColumnWidth(-1), 0))) { 
                 file_list_play_file(filename, loop_index, mdata); 
-            } if (ImGui::BeginPopupContextItem(btntext)) {
+            }
+            //ctrl = kbd[SDL_SCANCODE_LCTRL];
+            //shift = kbd[SDL_SCANCODE_LSHIFT];
+            //if (ctrl && shift && pac_btn_press(SDL_SCANCODE_M, &sflags->m_wasdown, kbd)) {
+            //    printf("%d\n", ImGui::GetCurrentContext()->NavId);
+            //}
+
+            if (ImGui::BeginPopupContextItem(btntext)) {
                 mlist->context_index = loop_index;
                 if (ImGui::Button("edit metadata")) {
                     sflags->viewstate = CENTER_VIEW_STATE_METADATA_EDITOR;

@@ -19,6 +19,7 @@ PAC_INTERNAL void platform_log(char *fmt_string, ...);
 PAC_INTERNAL void platform_dbg_log(char *fmt_string, ...);
 PAC_INTERNAL char platform_file_exists(char *path);
 PAC_INTERNAL char platform_directory_exists(char *path);
+PAC_INTERNAL void platform_get_font_path(Runtime_Vars *rtvars, char *dest, int dest_size);
 PAC_INTERNAL char platform_path_exists(char *path);
 PAC_INTERNAL int platform_list_files_simple(char *path, File_List *out_flist, char sort);
 PAC_INTERNAL int platform_list_files_mlist(char *path, File_List *out_flist);
