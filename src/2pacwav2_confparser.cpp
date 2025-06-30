@@ -15,6 +15,7 @@ This means that comments are C & C++ style and lines end on semicolons;
 #define CONF_FONTSIZE                   "font_size"
 #define CONF_FONT_PATH                  "font_path"
 #define CONF_VISUALIZER_STATUS          "visualizer"
+#define CONF_VISUALIZER_COLOR           "visualizer_color"
 #define CONF_STARTUP_VOLUME             "volume"
 
 typedef enum Token_Type
@@ -24,6 +25,7 @@ typedef enum Token_Type
     TOKEN_CLOSED_PARENTHESIS,
     TOKEN_EQUALSIGN,
     TOKEN_COLON,
+    TOKEN_COMMA,
     TOKEN_SEMICOLON,
     TOKEN_STRING,
     TOKEN_NUMBER,
@@ -108,6 +110,12 @@ PAC_INTERNAL void report_missing_semicolon(char *identifier)
             identifier);
 }
 
+PAC_INTERNAL void report_missing_equalsign(char *identifier)
+{
+    fprintf(stderr, "2wconf syntax error: missing equal sign (=) after identifier \"%s\"\n",
+            identifier);
+}
+
 PAC_INTERNAL void report_duplicate(char *identifier)
 {
     fprintf(stderr, 
@@ -166,6 +174,7 @@ PAC_INTERNAL Token get_token(Tokenizer *tokenizer)
     case ')': { tok.type = TOKEN_CLOSED_PARENTHESIS; } break;
     case ';': { tok.type = TOKEN_SEMICOLON; } break;
     case ':': { tok.type = TOKEN_COLON; } break;
+    case ',': { tok.type = TOKEN_COMMA; } break;
     case '*': { tok.type = TOKEN_ASTERISK; } break;
     case '[': { tok.type = TOKEN_OPEN_BRACKET; } break;
     case ']': { tok.type = TOKEN_CLOSED_BRACKET; } break;
@@ -239,7 +248,7 @@ PAC_INTERNAL Token get_string_entry(Tokenizer *tokenizer,
                     identifier);
         }
     } else {
-        fprintf(stderr, "2wconf syntax error: missing = after identifier\n");
+        report_missing_equalsign(identifier);
     }
     return tok;
 }
@@ -265,6 +274,8 @@ PAC_INTERNAL float get_float_entry(Tokenizer *tokenizer, char *identifier)
             fprintf(stderr, "2wconf syntax error: expected number after identifier \"%s\".",
                     identifier);
         }
+    } else {
+        report_missing_equalsign(identifier);
     }
     return ret;
 }
@@ -281,7 +292,8 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
     char fontsize_set = 0,
             fontpath_set = 0,
             vis_status_set = 0,
-            volume_set = 0;
+            volume_set = 0,
+            vis_color_set = 0;
 
     while (parsing) {
         Token tok = get_token(&tokenizer);
@@ -364,6 +376,59 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                 } else if (1 == fontpath_set) {
                     report_duplicate(CONF_FONT_PATH);
                     ++fontpath_set;
+                }
+            } else if (token_equals(tok, CONF_VISUALIZER_COLOR)) {
+                if (!vis_color_set) {
+                    if (require_token(&tokenizer, TOKEN_EQUALSIGN)) {
+                        if (require_token(&tokenizer, TOKEN_OPEN_BRACE)) {
+                            const int num_components = 4;
+                            float values[num_components] = {};
+                            Token tok = {};
+
+                            int i, warning = 0;
+                            for (i = 0; i < num_components; ++i) {
+                                tok = get_token(&tokenizer);
+                                if (TOKEN_NUMBER == tok.type) {
+                                    char *endptr = tok.text + tok.length;
+                                    float value = strtof(tok.text, &endptr);
+                                    values[i] = pacmxr_clamp_float(value, 0.0f, 1.0f);
+                                    if ((!warning) && ((value < 0.0f) || (value > 1.0f))) {
+                                        fprintf(stderr, "2wconf warning: values in definition of %s should be between 0.0 and 1.0.\n"
+                                                "Note: value of %g was clamped to %g\n",
+                                                CONF_VISUALIZER_COLOR, value, values[i]);
+                                        ++warning;
+                                    }
+                                    if ((i != num_components - 1) &&
+                                        !require_token(&tokenizer, TOKEN_COMMA)) {
+                                        fprintf(stderr, "2wconf syntax error: missing comma after array member in definition of variable %s.\n"
+                                                "This variable expects a 4-component array of numerical values between 0.0 and 1.0.\n",
+                                                CONF_VISUALIZER_COLOR);
+                                        break;
+                                    }
+                                } else {
+                                    fprintf(stderr, "2wconf syntax error: invalid value (or no value) in definition of variable %s.\n"
+                                            "This variable expects a 4-component array of numerical values between 0.0 and 1.0.\n",
+                                            CONF_VISUALIZER_COLOR);
+                                    break;
+                                }
+                            }
+
+                            if (i == num_components) {
+                                memcpy(rtvars->vis_color, values, sizeof(float)*4);
+                                ++vis_color_set;
+                            } else {
+                                fprintf(stderr, "2wconf error: could not set visualizer color.\n");
+                            }
+                        } else {
+                            fprintf(stderr, "2wconf syntax error: missing open brace in definition of variable %s.\n",
+                                    CONF_VISUALIZER_COLOR);
+                        }
+                    } else {
+                        report_missing_equalsign(CONF_VISUALIZER_COLOR);
+                    }
+                } else if (1 == vis_color_set) {
+                    report_duplicate(CONF_VISUALIZER_COLOR);
+                    ++vis_color_set;
                 }
             } else {
                 snprintf(stringbuf, tok.length + 1, "%s", tok.text);
