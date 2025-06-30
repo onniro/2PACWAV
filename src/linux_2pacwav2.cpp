@@ -258,6 +258,10 @@ int main(int arg_count, char **args)
 {
     Runtime_Vars rtvars = {};
     rtvars.sflags.visualizer_enabled = 1;
+    rtvars.vis_color[0] = 1.0f;
+    rtvars.vis_color[1] = 0.1f;
+    rtvars.vis_color[2] = 0.1f;
+    rtvars.vis_color[3] = 1.0f;
     General_Buffer_Group bufgroup = {};
     if (ro_posix_make_heap_buffer(&rtvars.main_storage, 
             PAC_MAIN_STORAGE_SIZE)) { 

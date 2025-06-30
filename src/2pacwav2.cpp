@@ -1423,6 +1423,11 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
                 reptoggle_was_pressed = 1;
             }
             ImGui::EndMenu();
+        } if (ImGui::BeginMenu("settings")) {
+            if (ImGui::MenuItem("visualizer color")) {
+                sflags->colorpicker_open = !sflags->colorpicker_open;
+            }
+            ImGui::EndMenu();
         }
 
         set_userinfo_color(rtvars);
@@ -1461,6 +1466,35 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
     ImGui::PopStyleColor();
 }
 
+PAC_INTERNAL void menu_do_colorpicker(Runtime_Vars *rtvars)
+{
+    Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
+    State_Flags *sflags = &rtvars->sflags;
+    ImVec2 wdim = ImVec2(400, 400);
+    ImVec2 wpos = ImVec2((sdldata->win_width/2) - (wdim.x/2), 100.0f);
+    ImGui::SetNextWindowSize(wdim);
+    ImGui::SetNextWindowPos(wpos);
+
+    if (ImGui::Begin("visualizer color", 0,
+        ImGuiWindowFlags_NoScrollbar
+        |ImGuiWindowFlags_NoResize)) {
+        if ((!ImGui::IsWindowHovered() &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left)) ||
+            pac_btn_press(SDL_SCANCODE_ESCAPE,
+                    &sflags->esc_wasdown,
+                    rtvars->kbd_state))
+        { sflags->colorpicker_open = 0; }
+
+        ImGui::ColorPicker4("##visualizer_color",
+                rtvars->vis_color,
+                ImGuiColorEditFlags_Float
+                |ImGuiColorEditFlags_DisplayHex
+                |ImGuiColorEditFlags_NoLabel
+                |ImGuiColorEditFlags_AlphaBar);
+        ImGui::End();
+    }
+}
+
 PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars, 
                             Sdl_Apidata *sdldata, 
                             General_Buffer_Group *bufgroup,
@@ -1481,6 +1515,9 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
 
     pac_begin_frame(rtvars, sdldata);
     menu_do_menubar(rtvars, mdata);
+    if (sflags->colorpicker_open) {
+        menu_do_colorpicker(rtvars);
+    }
 
     ImGui::PushItemWidth(ImGui::GetColumnWidth(-1) - add_width);
     char d_was_pressed = pac_btn_press(SDL_SCANCODE_D, 

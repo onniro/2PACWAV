@@ -252,6 +252,7 @@ typedef struct State_Flags
     char mlist_ctxmenu_active;
     char sort_reversed;
     char searchwindow_open;
+    char colorpicker_open;
     Mouse_State mouse;
     Center_View_State viewstate;
     Userinfo_Type last_userinfo_type;
@@ -351,6 +352,7 @@ typedef struct Runtime_Vars
     Startup_Args *sargs_ptr;
     General_Buffer_Group *bufgroup_ptr;
     File_List autocomp_list;
+    float vis_color[4]; //strange place for this but aight
     Ro_Heap_Buffer main_storage;
     Sdl_Apidata *sdldata_ptr;
     Music_Data *mdata_ptr;

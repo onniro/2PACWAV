@@ -259,7 +259,7 @@ PAC_INTERNAL void do_visualizer(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
 {
     PAC_LOCAL_STATIC const char _shdr_vert_src[] = 
 R"(
-#version 120
+#version 330
 attribute vec3 position;
 void main()
 {
@@ -267,15 +267,22 @@ void main()
     //gl_PointSize = 3.0;
 }
 )";
+    const char *shdr_vert_src = _shdr_vert_src;
 
     PAC_LOCAL_STATIC const char _shdr_frag_src[] = 
 R"(
-#version 120
+#version 330
+
+uniform vec4 px_color;
+out vec4 out_color;
+
 void main()
 {
-    gl_FragColor = vec4(1.0, 0.1, 0.1, 1.0);
+    out_color = px_color;
+    //gl_FragColor = vec4(1.0, 0.1, 0.1, 1.0);
 }
 )";
+    const char *shdr_frag_src = _shdr_frag_src;
 
     PAC_LOCAL_STATIC char _opengl_err[4096];
     //PAC_LOCAL_STATIC float verts[4*PAC_SPECTRUM_FREQ_BIN_COUNT];
@@ -296,17 +303,14 @@ void main()
 #endif
     }
 
-    const char *shdr_vert_src = _shdr_vert_src;
-    const char *shdr_frag_src = _shdr_frag_src;
     char *opengl_err = (char *)_opengl_err;
 
     PAC_LOCAL_STATIC GLuint vert_buf_id, 
                             vert_arr_id, 
                             shdr_frag, 
                             shdr_vert, 
-                            program, 
-                            projmat_uni_loc,
-                            model_uni_loc;
+                            program;
+    PAC_LOCAL_STATIC GLint px_color_loc;
     PAC_LOCAL_STATIC char opengl_prep_done = 0;
 
     glEnableClientState(GL_VERTEX_ARRAY);
@@ -355,6 +359,11 @@ void main()
         glDeleteShader(shdr_vert);
         glDeleteShader(shdr_frag);
 
+        px_color_loc = glGetUniformLocation(program, "px_color");
+        if (-1 == px_color_loc) {
+            platform_dbg_log("failed to get uniform location\n");
+        }
+
         opengl_prep_done = 1;
     }
 
@@ -366,9 +375,15 @@ void main()
     glBindVertexArray(vert_arr_id);
     glBindBuffer(GL_ARRAY_BUFFER, vert_buf_id);
 
+#if !PAC_SPECTRUM_ENABLED || 1
+    glLineWidth(2.0f);
+    glUniform4f(px_color_loc,
+           rtvars->vis_color[0],
+           rtvars->vis_color[1],
+           rtvars->vis_color[2],
+           rtvars->vis_color[3]);
+
     //idk if this glBufferSubData call is really good
-#if !PAC_SPECTRUM_ENABLED
-    glLineWidth(2.5f);
     glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(2*PAC_OSCILLOSCOPE_POINT_COUNT)), &verts[0]);
     glDrawArrays(GL_LINE_STRIP, 0, PAC_OSCILLOSCOPE_POINT_COUNT);
 #else
