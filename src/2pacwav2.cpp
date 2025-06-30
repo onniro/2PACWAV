@@ -97,8 +97,9 @@ font_size = value; //Sets point size for the font. (default: %g)
 visualizer = 0 or 1(any nonzero); //Disables visualizer if value is 0 and enables it otherwise,
                                   //including when this variable isn't set.
                                   //Note that this can be re-enabled from the view menu at any time.
-visualizer_color = {x, y, z, w}; //Sets the initial color for the visualizer.
-                                 //Values inside {} must be floats between 1.0 and 0.0
+visualizer_color = {r, g, b, a}; //Sets the color that the visualizer is set to at startup.
+                                 //Values inside {} must be floats between 0.0 and 1.0
+                                 //Note: the visualizer color can be changed at any time from the settings menu.
 )"
                 , PAC_LATIN_FONTSIZE);
     }
