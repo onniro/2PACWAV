@@ -89,7 +89,7 @@ similar to C, meaning that '//' and /* */ denote comments and lines end in semic
 Below is a complete list of variables that can be set and some information about them.
 ---
 startup_path = "/path/to/file"; //Sets a path to a file or folder that will be added to the list on startup.
-                                  //Multiple instances of this are allowed.
+                                //Multiple instances of this are allowed.
 volume = value; //Sets the volume level on startup. The value is clamped to 0-128
                 //The -vol command option overrides this
 font_path = "/path/to/font/file"; //Path to the desired font file (TrueType or OpenType)
