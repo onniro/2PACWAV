@@ -8,13 +8,13 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #include <GL/gl.h>
 #include <limits.h>
-#include <libavcodec/avfft.h>
+//#include <libavcodec/avfft.h>
 
 #include "2pacmixer.h"
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (11)
-#define _2PACWAV_VER_PATCH      (19)
+#define _2PACWAV_VER_PATCH      (20)
 
 #define PAC_INLINE static inline
 #define PAC_INTERNAL static

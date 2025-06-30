@@ -274,12 +274,12 @@ R"(
 #version 330
 
 uniform vec4 px_color;
-out vec4 out_color;
+//out vec4 out_color;
 
 void main()
 {
-    out_color = px_color;
-    //gl_FragColor = vec4(1.0, 0.1, 0.1, 1.0);
+    //out_color = px_color;
+    gl_FragColor = px_color;
 }
 )";
     const char *shdr_frag_src = _shdr_frag_src;

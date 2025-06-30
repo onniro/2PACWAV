@@ -3,7 +3,7 @@
 File: 2pacwav2.cpp
 Date: Thu 24 Apr 2025 04:24:08 PM EEST
 
-TODO: figure out how to make the search dialog not block input
+TODO: fix bug with searches and metadata when file list gets rearranged
 */
 
 #include <stdio.h>
@@ -11,7 +11,6 @@ TODO: figure out how to make the search dialog not block input
 #include <stdint.h>
 
 #include "SDL.h"
-//#include "SDL_mixer.h"
 #define GL_GLEXT_PROTOTYPES 1
 #include <GL/gl.h>
 #include <GL/glu.h>
@@ -22,8 +21,6 @@ TODO: figure out how to make the search dialog not block input
     #define STB_IMAGE_IMPLEMENTATION 1
     #define STBI_FAILURE_USERMSG 1
     #include "stb/stb_image.h"
-    //#define STB_IMAGE_RESIZE_IMPLEMENTATION 1
-    //#include "stb/stb_image_resize2.h"
 #endif
 
 #include "2pacwav2.h"
@@ -34,7 +31,6 @@ TODO: figure out how to make the search dialog not block input
 #endif
 
 #include "2pacwav2_visualizer.cpp"
-//#include "2pacwav2_tagging.cpp"
 #include "2pacwav2_confparser.cpp"
 
 //#include "2pacmixer.h"
@@ -1494,6 +1490,7 @@ PAC_INTERNAL void menu_do_colorpicker(Runtime_Vars *rtvars)
                 rtvars->vis_color,
                 ImGuiColorEditFlags_Float
                 |ImGuiColorEditFlags_DisplayHex
+                |ImGuiColorEditFlags_DisplayRGB
                 |ImGuiColorEditFlags_NoLabel
                 |ImGuiColorEditFlags_AlphaBar);
         ImGui::End();
