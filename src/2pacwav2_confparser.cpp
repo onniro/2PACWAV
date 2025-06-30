@@ -361,8 +361,7 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                                         sizeof(stringbuf),
                                         CONF_STARTUP_PATH);
 
-                    if (stringbuf[0] &&
-                        ret_tok.length &&
+                    if (stringbuf[0] && ret_tok.length &&
                         (ret_tok.length + 1 < PATH_MAX)) {
                         if (platform_file_exists(stringbuf)) {
                             snprintf(buf, PATH_MAX, "%s", stringbuf);
@@ -398,6 +397,7 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                                                 CONF_VISUALIZER_COLOR, value, values[i]);
                                         ++warning;
                                     }
+
                                     if ((i != num_components - 1) &&
                                         !require_token(&tokenizer, TOKEN_COMMA)) {
                                         fprintf(stderr, "2wconf syntax error: missing comma after array member in definition of variable %s.\n"

@@ -83,16 +83,16 @@ PAC_INTERNAL void show_help(char longhelp)
     if (longhelp) {
         platform_log(
 R"(-- CONFIGURATION --
-The configuration file named \"2wconf\" should be placed either in $HOME/.config/2pacwav/
+The configuration file named "2wconf" should be placed either in $HOME/.config/2pacwav/
 or in the same directory as the executable. The syntax of the configuration file is sort of
 similar to C, meaning that '//' and /* */ denote comments and lines end in semicolons.
 Below is a complete list of variables that can be set and some information about them.
 ---
-startup_path = \"/path/to/file\"; //Sets a path to a file or folder that will be added to the list on startup.
+startup_path = "/path/to/file"; //Sets a path to a file or folder that will be added to the list on startup.
                                   //Multiple instances of this are allowed.
 volume = value; //Sets the volume level on startup. The value is clamped to 0-128
                 //The -vol command option overrides this
-font_path = \"/path/to/font/file\"; //Path to the desired font file (TrueType or OpenType)
+font_path = "/path/to/font/file"; //Path to the desired font file (TrueType or OpenType)
 font_size = value; //Sets point size for the font. (default: %g)
 visualizer = 0 or 1(any nonzero); //Disables visualizer if value is 0 and enables it otherwise,
                                   //including when this variable isn't set.
