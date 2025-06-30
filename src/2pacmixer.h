@@ -447,6 +447,7 @@ PACMXR_DEF uint8_t *pacmxr_meta_get_cover(Pacmxr_Metadata *pac_meta, int *out_si
 pacmxr_meta_set_title
 pacmxr_meta_set_artist
 pacmxr_meta_set_album
+pacmxr_meta_set_genre
 
 Set new metadata information for the currently open file.
 These functions merely prepare the new metadata
@@ -461,6 +462,7 @@ Pointer to a null-terminated string to which you want to set the metadata.
 PACMXR_DEF void pacmxr_meta_set_title(Pacmxr_Metadata *pac_meta, char *value);
 PACMXR_DEF void pacmxr_meta_set_artist(Pacmxr_Metadata *pac_meta, char *value);
 PACMXR_DEF void pacmxr_meta_set_album(Pacmxr_Metadata *pac_meta, char *value);
+PACMXR_DEF void pacmxr_meta_set_genre(Pacmxr_Metadata *pac_meta, char *value);
 
 /*
 pacmxr_meta_set_year 
