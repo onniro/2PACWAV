@@ -156,7 +156,7 @@ PAC_INTERNAL int platform_list_files_mlist(char *path, File_List *out_flist)
     return result;
 }
 
-PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf, 
+PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
                                     General_Buffer_Group *bufgroup) 
 {
 #define MEM_INIT_ASSERT(main_buffer, buf2init, size)                                \
@@ -364,7 +364,6 @@ int main(int arg_count, char **args)
 #if _2PACWAV_DEBUG
     {
         int gl_maj, gl_min;
-        //const SDL_version *sdlver = Mix_Linked_Version();
         SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &gl_maj);
         SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &gl_min);            
         platform_dbg_log("OpenGL vendor: %s\n"

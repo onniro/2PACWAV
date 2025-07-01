@@ -106,20 +106,20 @@ PAC_INLINE char token_equals(Token tok, char *match)
 PAC_INTERNAL void report_missing_semicolon(char *identifier)
 {
     fprintf(stderr, 
-            "2wconf syntax error: semicolon (;) required after definition of variable \"%s\"\n",
+            "2wconf syntax error: semicolon (;) required after definition of variable %s\n",
             identifier);
 }
 
 PAC_INTERNAL void report_missing_equalsign(char *identifier)
 {
-    fprintf(stderr, "2wconf syntax error: missing equal sign (=) after identifier \"%s\"\n",
+    fprintf(stderr, "2wconf syntax error: missing equal sign (=) after identifier %s\n",
             identifier);
 }
 
 PAC_INTERNAL void report_duplicate(char *identifier)
 {
     fprintf(stderr, 
-            "2wconf warning: variable \"%s\" set more than once. ignoring all but the first value.\n",
+            "2wconf warning: variable %s set more than once. ignoring all but the first value.\n",
             identifier);
 }
 
@@ -239,12 +239,12 @@ PAC_INTERNAL Token get_string_entry(Tokenizer *tokenizer,
                 }
             } else {
                 fprintf(stderr, 
-                        "2wconf syntax error: invalid path in definition of variable \"%s\"\n",
+                        "2wconf syntax error: invalid path in definition of variable %s\n",
                         identifier);
             }
         } else {
             fprintf(stderr, 
-                    "2wconf syntax error: identifier \"%s\" must be followed by a string\n",
+                    "2wconf syntax error: identifier %s must be followed by a string\n",
                     identifier);
         }
     } else {
@@ -264,19 +264,68 @@ PAC_INTERNAL float get_float_entry(Tokenizer *tokenizer, char *identifier)
             errno = 0;
             ret = strtof(tok.text, &endptr);
             if ((0.0f == ret) && (errno == ERANGE)) {
-                fprintf(stderr, "2wconf error: could not set variable \"%s\" to specified value because it might be invalid.\n",
+                fprintf(stderr, "2wconf error: could not set variable %s to specified value because it might be invalid.\n",
                         identifier);
             } if (!require_token(tokenizer, TOKEN_SEMICOLON)) {
                 ret = 0.0f;
                 report_missing_semicolon(identifier);
             }
         } else {
-            fprintf(stderr, "2wconf syntax error: expected number after identifier \"%s\".",
+            fprintf(stderr, "2wconf syntax error: expected number after identifier %s.",
                     identifier);
         }
     } else {
         report_missing_equalsign(identifier);
     }
+    return ret;
+}
+
+PAC_INTERNAL int get_num_array_entry(Tokenizer *tokenizer,
+                                    float *array,
+                                    int array_count,
+                                    char *identifier)
+{
+    int ret = 0;
+    if (require_token(tokenizer, TOKEN_EQUALSIGN)) {
+        if (require_token(tokenizer, TOKEN_OPEN_BRACE)) {
+            float *temp_values = (float *)alloca(array_count*sizeof(float));
+            //memset((void *)temp_values, 0, array_count*sizeof(float));
+            Token tok = {};
+
+            int i;
+            for (i = 0; i < array_count; ++i) {
+                tok = get_token(tokenizer);
+                if (TOKEN_NUMBER == tok.type) {
+                    char *endptr = tok.text + tok.length;
+                    temp_values[i] = strtof(tok.text, &endptr);
+
+                    if ((i != array_count - 1) &&
+                        !require_token(tokenizer, TOKEN_COMMA)) {
+                        fprintf(stderr, "2wconf syntax error: missing comma after array member in definition of variable %s.\n"
+                                "This variable expects a %d-component array of numerical values.\n",
+                                identifier, array_count);
+                        break;
+                    }
+                } else {
+                    fprintf(stderr, "2wconf syntax error: invalid value (or no value) in definition of variable %s.\n"
+                            "This variable expects a %d-component array of numerical values.\n",
+                            identifier, array_count);
+                    break;
+                }
+            }
+
+            if (i == array_count) {
+                memcpy(array, temp_values, sizeof(float)*array_count);
+                ret = 1;
+            }
+        } else {
+            fprintf(stderr, "2wconf syntax error: missing open brace in definition of variable %s.\n",
+                    identifier);
+        }
+    } else {
+        report_missing_equalsign(identifier);
+    }
+
     return ret;
 }
 
@@ -378,53 +427,26 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                 }
             } else if (token_equals(tok, CONF_VISUALIZER_COLOR)) {
                 if (!vis_color_set) {
-                    if (require_token(&tokenizer, TOKEN_EQUALSIGN)) {
-                        if (require_token(&tokenizer, TOKEN_OPEN_BRACE)) {
-                            const int num_components = 4;
-                            float values[num_components] = {};
-                            Token tok = {};
-
-                            int i, warning = 0;
-                            for (i = 0; i < num_components; ++i) {
-                                tok = get_token(&tokenizer);
-                                if (TOKEN_NUMBER == tok.type) {
-                                    char *endptr = tok.text + tok.length;
-                                    float value = strtof(tok.text, &endptr);
-                                    values[i] = pacmxr_clamp_float(value, 0.0f, 1.0f);
-                                    if ((!warning) && ((value < 0.0f) || (value > 1.0f))) {
-                                        fprintf(stderr, "2wconf warning: values in definition of %s should be between 0.0 and 1.0.\n"
-                                                "Note: value of %g was clamped to %g\n",
-                                                CONF_VISUALIZER_COLOR, value, values[i]);
-                                        ++warning;
-                                    }
-
-                                    if ((i != num_components - 1) &&
-                                        !require_token(&tokenizer, TOKEN_COMMA)) {
-                                        fprintf(stderr, "2wconf syntax error: missing comma after array member in definition of variable %s.\n"
-                                                "This variable expects a 4-component array of numerical values between 0.0 and 1.0.\n",
-                                                CONF_VISUALIZER_COLOR);
-                                        break;
-                                    }
-                                } else {
-                                    fprintf(stderr, "2wconf syntax error: invalid value (or no value) in definition of variable %s.\n"
-                                            "This variable expects a 4-component array of numerical values between 0.0 and 1.0.\n",
-                                            CONF_VISUALIZER_COLOR);
-                                    break;
-                                }
+                    if (get_num_array_entry(&tokenizer,
+                                rtvars->vis_color, 4,
+                                CONF_VISUALIZER_COLOR)) {
+                        char warning = 0;
+                        float val;
+                        for (int i = 0; i < 4; ++i) {
+                            val = rtvars->vis_color[i];
+                            if (((val < 0.0f) || (val > 1.0f)) && !warning) {
+                                rtvars->vis_color[i] = pacmxr_clamp_float(val, 0.0f, 1.0f);
+                                fprintf(stderr,
+                                        "2wconf warning: values in definition of variable %s should be between 0.0 and 1.0.\n"
+                                        "For instance: value %g clamped to %g.\n",
+                                        CONF_VISUALIZER_COLOR, val, rtvars->vis_color[i]);
+                                ++warning;
                             }
-
-                            if (i == num_components) {
-                                memcpy(rtvars->vis_color, values, sizeof(float)*4);
-                                ++vis_color_set;
-                            } else {
-                                fprintf(stderr, "2wconf error: could not set visualizer color.\n");
-                            }
-                        } else {
-                            fprintf(stderr, "2wconf syntax error: missing open brace in definition of variable %s.\n",
-                                    CONF_VISUALIZER_COLOR);
                         }
+
+                        ++vis_color_set;
                     } else {
-                        report_missing_equalsign(CONF_VISUALIZER_COLOR);
+                        fprintf(stderr, "2wconf error: could not set visualizer color.\n");
                     }
                 } else if (1 == vis_color_set) {
                     report_duplicate(CONF_VISUALIZER_COLOR);
@@ -432,7 +454,7 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                 }
             } else {
                 snprintf(stringbuf, tok.length + 1, "%s", tok.text);
-                fprintf(stderr, "2wconf warning: unknown identifier or variable \"%s\". ignoring.\n",
+                fprintf(stderr, "2wconf warning: unknown identifier or variable %s. ignoring.\n",
                         stringbuf);
             }
         } break;
@@ -446,5 +468,12 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
         platform_get_font_path(rtvars,
                 (char *)rtvars->bufgroup_ptr->scratch_space,
                 PATH_MAX);
+    }
+    
+    if (!vis_color_set) {
+        rtvars->vis_color[0] = 1.0f;
+        rtvars->vis_color[1] = 0.1f;
+        rtvars->vis_color[2] = 0.1f;
+        rtvars->vis_color[3] = 1.0f;
     }
 }

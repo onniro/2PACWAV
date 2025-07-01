@@ -76,8 +76,10 @@ PAC_INTERNAL void show_help(char longhelp)
             "-conf <path> : specify config file\n"
             "-noconf : do not look for a configuration file\n"
             "-fontsize <value> : set point size for font\n");
-    if (longhelp) {
-        platform_log(
+
+    if (!longhelp) { return; }
+
+    platform_log(
 R"(-- CONFIGURATION --
 The configuration file named "2wconf" should be placed either in $HOME/.config/2pacwav/
 or in the same directory as the executable. The syntax of the configuration file is sort of
@@ -98,7 +100,6 @@ visualizer_color = {r, g, b, a}; //Sets the color that the visualizer is set to 
                                  //Note: the visualizer color can be changed at any time from the settings menu.
 )"
                 , PAC_LATIN_FONTSIZE);
-    }
 }
 
 PAC_INTERNAL void startup_push_path(Startup_Args *sargs, char *path)
