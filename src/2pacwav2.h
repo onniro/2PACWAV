@@ -14,7 +14,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (11)
-#define _2PACWAV_VER_PATCH      (21)
+#define _2PACWAV_VER_PATCH      (22)
 
 #define PAC_INLINE static inline
 #define PAC_INTERNAL static
@@ -152,6 +152,7 @@ typedef struct Startup_Args_Paths
 typedef struct Startup_Args
 {
     char no_load_conf;
+    char no_load_startup_paths;
     General_Buffer_Group *bufgroup_ptr;
     Startup_Args_Paths paths;
     float font_size;
@@ -171,7 +172,7 @@ typedef struct File_List
     char *filenames_buf;                //buffer containing file names, delimited by null
     char **filenames_string_loclist;    //array of pointers which specify the beginnings of strings in the filename array
     char **dirnames_string_loclist;     //array of pointers which specify the beginnings of strings in the dirname array
-    char *match_flags;                  //buffer whose indices map to indices of filenames_buf, set to 1 if the index should *NOT* be rendered
+    char *match_flags;                  //buffer whose indices map to indices of filenames_buf, set to 1 if the index should *NOT* be shown in the list
 } File_List;
 
 typedef struct Frametime_Vars

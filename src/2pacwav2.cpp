@@ -75,6 +75,7 @@ PAC_INTERNAL void show_help(char longhelp)
             "-vol <value> : set the volume\n"
             "-conf <path> : specify config file\n"
             "-noconf : do not look for a configuration file\n"
+            "-nosup : if the configuration file has instances of startup_path, skip adding them to the playlist on startup\n"
             "-fontsize <value> : set point size for font\n");
 
     if (!longhelp) { return; }
@@ -147,6 +148,8 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
             break;
         } else if (!sargs->no_load_conf && !strcmp("-noconf", arg)) {
             sargs->no_load_conf = 1;
+        } else if (!sargs->no_load_startup_paths && !strcmp("-nosup", arg)) {
+            sargs->no_load_startup_paths = 1;
         } else if ((sargs->font_size == PAC_LATIN_FONTSIZE) &&
             !strcmp("-fontsize", arg)) {
             if (args[arg_index + 1]) {
@@ -1518,9 +1521,8 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
 
     pac_begin_frame(rtvars, sdldata);
     menu_do_menubar(rtvars, mdata);
-    if (sflags->colorpicker_open) {
-        menu_do_colorpicker(rtvars);
-    }
+    if (sflags->colorpicker_open)
+    { menu_do_colorpicker(rtvars); }
 
     ImGui::PushItemWidth(ImGui::GetColumnWidth(-1) - add_width);
     char d_was_pressed = pac_btn_press(SDL_SCANCODE_D, 

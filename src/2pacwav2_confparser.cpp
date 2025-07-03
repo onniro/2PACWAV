@@ -363,7 +363,8 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                                     stringbuf,
                                     sizeof(stringbuf),
                                     CONF_STARTUP_PATH);
-                if (stringbuf[0] && ret_tok.length) {
+                if (stringbuf[0] && ret_tok.length &&
+                    !rtvars->sargs_ptr->no_load_startup_paths) {
                     platform_dbg_log("loading startup path %s\n", stringbuf);
                     add_to_music_list(stringbuf, rtvars->mdata_ptr, rtvars);
                 }
