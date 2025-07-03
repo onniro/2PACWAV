@@ -405,7 +405,7 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
             } else if (token_equals(tok, CONF_FONT_PATH)) {
                 if (!fontpath_set) {
                     stringbuf[0] = 0;
-                    char *buf = (char *)rtvars->bufgroup_ptr->scratch_space;
+                    char *buf = (char *)rtvars->bufgroup_ptr->fontpath_ptr;
                     Token ret_tok = get_string_entry(&tokenizer,
                                         stringbuf,
                                         sizeof(stringbuf),
@@ -467,7 +467,7 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
 
     if (!fontpath_set) {
         platform_get_font_path(rtvars,
-                (char *)rtvars->bufgroup_ptr->scratch_space,
+                (char *)rtvars->bufgroup_ptr->fontpath_ptr,
                 PATH_MAX);
     }
     

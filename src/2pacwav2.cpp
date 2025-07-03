@@ -1300,7 +1300,7 @@ PAC_INTERNAL void do_path_autocomplete(char *current, Runtime_Vars *rtvars)
             printf("%s\n", alist->filenames_string_loclist[i]);
         }
 #endif
-        printf("dir %s exists. it has %d things\n", tempbuf, alist->entry_count);
+        //printf("dir %s exists. it has %d things\n", tempbuf, alist->entry_count);
         char *pattern = current;
         int pattern_len = strlen(pattern);
         while (temp_len--) {
@@ -1335,20 +1335,20 @@ PAC_INTERNAL void do_path_autocomplete(char *current, Runtime_Vars *rtvars)
             } while (++temp_len);
         }
 
-        printf("whole:%s pattern: %s idx=%d fname=%s templ=%d patl=%d\n", 
-                current, 
-                pattern, 
-                suggest_index, 
-                alist->filenames_string_loclist[suggest_index],
-                temp_len, 
-                pattern_len); 
+        //printf("whole:%s pattern: %s idx=%d fname=%s templ=%d patl=%d\n", 
+        //        current, 
+        //        pattern, 
+        //        suggest_index, 
+        //        alist->filenames_string_loclist[suggest_index],
+        //        temp_len, 
+        //        pattern_len); 
 
         //lmao
         if (suggest_index != -1) {
             strncpy(tempbuf, current, PATH_MAX - 1);
             strncat(tempbuf, alist->filenames_string_loclist[suggest_index], PATH_MAX - 1);
             strncpy(current, tempbuf, PATH_MAX - 1);
-            printf("tempbuf: %s\n", tempbuf);
+            //printf("tempbuf: %s\n", tempbuf);
         }
         //snprintf(current, PATH_MAX - 1, "%s/%s", 
         //        tempbuf, alist->filenames_string_loclist[suggestion_index]);
@@ -1416,8 +1416,8 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
                     //pacmxr_pause(mdata->paused);
                 }
             } if (ImGui::MenuItem("halt")) {
-                tupacmixer_stop_music(mdata);
-                mdata->current_filename[0] = 0x0;
+                if (pacmxr_file_is_open())
+                { pacmxr_close_file(); }
             } if (ImGui::MenuItem("previous", "ctrl-p")) {
                 goto_prev_file(mdata);
             } if (ImGui::MenuItem("next", "ctrl-n")) {
@@ -1628,9 +1628,10 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
             p_was_pressed)) 
     { goto_prev_file(mdata); }
 
+    //halt
     if (ImGui::Button((char *)_stop_btn_glyph, ImVec2(btn_side_len, btn_side_len))) {
-        tupacmixer_stop_music(mdata);
-        mdata->current_filename[0] = 0x0;
+        if (pacmxr_file_is_open())
+        { pacmxr_close_file(); }
     }
 
     if (rtvars->pacmxr_ctx->paused) { 

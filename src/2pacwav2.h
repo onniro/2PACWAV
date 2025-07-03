@@ -14,7 +14,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (11)
-#define _2PACWAV_VER_PATCH      (22)
+#define _2PACWAV_VER_PATCH      (25)
 
 #define PAC_INLINE static inline
 #define PAC_INTERNAL static
@@ -133,6 +133,7 @@ typedef struct General_Buffer_Group
     void *autocomp_buffer;
     void *scratch_space;
     uint64_t scratch_bytes;
+    char *fontpath_ptr;
     void *fft_complex32_buffer;
     char sort_text[16] = "sort (a-z)";
     char ls_toggle_text[16] = "hide list";

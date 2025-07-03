@@ -321,6 +321,7 @@ int main(int arg_count, char **args)
     rtvars.frametime_info_ptr = &frametime;
     rtvars.mdata_ptr = &mdata;
 
+    bufgroup.fontpath_ptr = (char *)bufgroup.scratch_space + (bufgroup.scratch_bytes - (PATH_MAX + 1));
     if (!sargs.no_load_conf) {
         size_t conf_len = startup_load_conf(&rtvars,
                             (char *)bufgroup.conf_file_buffer, 
@@ -330,10 +331,10 @@ int main(int arg_count, char **args)
                     (char *)bufgroup.conf_file_buffer,
                     CONFBUFFER_SIZE);
         } else {
-            platform_get_font_path(&rtvars, (char *)bufgroup.scratch_space, PATH_MAX);
+            platform_get_font_path(&rtvars, bufgroup.fontpath_ptr, PATH_MAX);
         }
     } else {
-        platform_get_font_path(&rtvars, (char *)bufgroup.scratch_space, PATH_MAX);
+        platform_get_font_path(&rtvars, bufgroup.fontpath_ptr, PATH_MAX);
     }
 
     if (sargs.volume != -1) {
@@ -351,13 +352,12 @@ int main(int arg_count, char **args)
     ImGui_ImplSDL2_InitForOpenGL(sdldata.window_ptr, sdldata.ogl_context);
     ImGui_ImplOpenGL3_Init("#version 130");
 
-    if (!pac_imgui_load_font((char *)bufgroup.scratch_space,
-        sargs.font_size,
-        &rtvars)) {
+    if (!pac_imgui_load_font(bufgroup.fontpath_ptr,
+            sargs.font_size,
+            &rtvars)) {
         platform_log("[error]: loading fonts failed\n");
         return -1;
     }
-    *(char *)bufgroup.scratch_space = 0;
 
     useconds_t us2sleep;
 

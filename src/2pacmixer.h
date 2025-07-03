@@ -1269,6 +1269,9 @@ PACMXR_INLINE size_t pacmxr_estimate_decode_size(void)
 
 PACMXR_DEF void pacmxr_close_file(void)
 {
+    //NOTE: idk if this breaks shit but it seems 2 fix an infinite loop in 2pacwav
+    if (!global_pacmxr_ctx.fctx.is_open)
+    { return; }
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     SDL_LockAudioDevice(ctx->au_dev);
     //SDL_PauseAudioDevice(ctx->au_dev, 1);
