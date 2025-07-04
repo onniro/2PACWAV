@@ -1367,6 +1367,7 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
     char *shuf_toggle_text = bufgroup->shuf_toggle_text;
     char *repeat_toggle_text = bufgroup->loop_toggle_text;
     char *vis_toggle_text = bufgroup->vis_toggle_text;
+    char *searchbuf = (char *)bufgroup->inbuf_search;
     char ctrl = kbd[SDL_SCANCODE_LCTRL];
     char shift = kbd[SDL_SCANCODE_LSHIFT];
     Center_View_State *vs = &rtvars->sflags.viewstate;
@@ -1448,10 +1449,16 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
             sort_file_list_alpha(&mdata->music_list, 0); 
             strcpy(sort_text, "sort (z-a)");
             sflags->sort_reversed = 1;
+            if (searchbuf[0]) {
+                set_match_flags((char *)rtvars->bufgroup_ptr->inbuf_search, mdata);
+            }
         } else {
             sort_file_list_alpha(&mdata->music_list, 1); 
             strcpy(sort_text, "sort (a-z)");
             sflags->sort_reversed = 0;
+            if (searchbuf[0]) {
+                set_match_flags((char *)rtvars->bufgroup_ptr->inbuf_search, mdata);
+            }
         }
     } if (clear_was_pressed) {
         clear_file_list(mdata);
