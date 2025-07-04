@@ -1013,7 +1013,7 @@ PACMXR_DEF void pacmxr_seek(float percent)
         //printf("seeking by %g seconds from %g (%g)\n",
         //        secs2skip, chunk_start, chunk_start + secs2skip);
 
-        assert(target_time > chunk_start);
+        assert(target_time >= chunk_start);
 
         int frames2skip = pacmxr_seconds_to_bytes(secs2skip)/sizeof(Stereo16_Frame);
         Stereo16_Frame *buffer = (Stereo16_Frame *)aq->front_buffer; 
