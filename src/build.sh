@@ -22,8 +22,9 @@ LINK_FLAGS="-o $EXE_NAME"
 #SDL_DIR="$BASEDIR/3rd_party/SDL2"
 #CODEC_DIR="$BASEDIR/3rd_party/codecs"
 
-LIB_DIRS="-L$BASEDIR/3rd_party/SDL2/lib"
-#        "-L$BASEDIR/3rd_party/taglib/lib \
+LIB_DIRS=""
+#-L$BASEDIR/3rd_party/SDL2/lib \
+#        -L$BASEDIR/3rd_party/taglib/lib \
 #        -L$BASEDIR/3d_party/codecs/lib"
 
 LINK_LIBS="-lm \

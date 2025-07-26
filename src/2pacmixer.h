@@ -121,8 +121,7 @@ STRUCTS AND TYPEDEFS
 typedef int16_t Pcm16_Sample;
 typedef int32_t Stereo16_Frame;
 
-typedef struct Audio_Queue
-{
+typedef struct Audio_Queue {
     uint8_t *front_buffer; //will point to buffer1 or buffer2 depending on which one is currently being read from
     uint8_t *buffer1;
     uint8_t *buffer2;
@@ -142,8 +141,7 @@ typedef struct Audio_Queue
     char buf_was_swapped; //gets set when front buffer runs out to signal us to prepare the next chunk
 } Audio_Queue;
 
-typedef struct File_Context
-{
+typedef struct File_Context {
     AVCodecContext *avc_ctx;
     AVFormatContext *avf_ctx;
     AVStream *astream;
@@ -156,8 +154,7 @@ typedef struct File_Context
     char is_open;
 } File_Context;
 
-typedef struct Pacmxr_Context
-{
+typedef struct Pacmxr_Context {
     char paused;
     File_Context fctx;
     int decode_buffer_bytes;
@@ -169,8 +166,7 @@ typedef struct Pacmxr_Context
     uint8_t decode_buffer[PACMXR_DECODE_BUFFER_SIZE];
 } Pacmxr_Context;
 
-typedef struct Pacmxr_Init_Options
-{
+typedef struct Pacmxr_Init_Options {
     int sample_rate; //ignored as of june 4 2025
     /*
     Set below (no_init_sdl) to nonzero if pacmxr_init should not call out to SDL in any way.
@@ -362,8 +358,7 @@ PACMXR_INLINE void pacmxr__swap_buffers(void);
 METADATA
 */
 
-typedef struct Pacmxr_Metadata
-{
+typedef struct Pacmxr_Metadata {
     AVFormatContext *in_avf_ctx;
     AVFormatContext *out_avf_ctx;
     AVDictionary *out_metadata;

@@ -25,9 +25,10 @@ SOURCES="$SRCDIR/linux_2pacwav2.cpp"
 INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2 \
         -I$BASEDIR/3rd_party/SDL2/include \
         -I$BASEDIR/3rd_party/imgui \
-        -I$BASEDIR/3rd_party \
-        -I$BASEDIR/3rd_party/id3v2lib/include"
+        -I$BASEDIR/3rd_party"
 
+#         \
+#
 #        -I$BASEDIR/3rd_party/taglib/include \
 #        -I$BASEDIR/3rd_party/taglib/include/mpeg/id3v2/ \
 #        -I$BASEDIR/3rd_party/taglib/include/mpeg/" 
@@ -39,7 +40,7 @@ LINK_FLAGS="-o $EXE_NAME"
 SDL_DIR="$BASEDIR/3rd_party/SDL2"
 CODEC_DIR="$BASEDIR/3rd_party/codecs"
 
-LIB_DIRS="-L$BASEDIR/3rd_party/SDL2/lib -L$BASEDIR/3rd_party/taglib/lib"
+LIB_DIRS=""
 OBJ_FILES="$BASEDIR/build/lib/imgui*.o"
 
 LINK_LIBS="-lm \

@@ -116,8 +116,7 @@ struct Audio_Stream;
 
 #define PAC_CONFNAME_STRING         "2wconf"
 
-typedef struct General_Buffer_Group 
-{
+typedef struct General_Buffer_Group {
     void *inbuf_filename;
     void *inbuf_search;
     void *music_current_filename;
@@ -143,15 +142,13 @@ typedef struct General_Buffer_Group
     char vis_toggle_text[24] = "disable visualizer";
 } General_Buffer_Group;
 
-typedef struct Startup_Args_Paths
-{
+typedef struct Startup_Args_Paths {
     int count;
     char *ptrs[PAC_MAX_DIRS];
     char *buffer;
 } Startup_Args_Paths;
 
-typedef struct Startup_Args
-{
+typedef struct Startup_Args {
     char no_load_conf;
     char no_load_startup_paths;
     General_Buffer_Group *bufgroup_ptr;
@@ -161,8 +158,7 @@ typedef struct Startup_Args
     char *conf_path;
 } Startup_Args;
 
-typedef struct File_List
-{
+typedef struct File_List {
     int entry_count;
     int dirs_added;
     int current_index; //why is this here
@@ -176,23 +172,20 @@ typedef struct File_List
     char *match_flags;                  //buffer whose indices map to indices of filenames_buf, set to 1 if the index should *NOT* be shown in the list
 } File_List;
 
-typedef struct Frametime_Vars
-{
+typedef struct Frametime_Vars {
     uint64_t start;
     uint64_t end;
     uint64_t delta;
 } Frametime_Vars;
 
-typedef enum Userinfo_Type
-{
+typedef enum Userinfo_Type {
     USERINFO_TYPE_ERROR = 0,
     USERINFO_TYPE_WARNING,
     USERINFO_TYPE_NOTE,
     USERINFO_TYPE__LAST
 } Userinfo_Type;
 
-typedef enum Center_View_State
-{
+typedef enum Center_View_State {
     CENTER_VIEW_STATE_MUSIC_LIST = 0,
     CENTER_VIEW_STATE_CURRENT_INFO,
     CENTER_VIEW_STATE_METADATA_EDITOR,
@@ -214,12 +207,10 @@ PAC_INLINE void cycle_center_view_state(Center_View_State *value)
 #define PAC_SDL_MOUSEMIDDLE (2)
 #define PAC_SDL_MOUSERIGHT  (3)
 
-typedef struct Mouse_State
-{
+typedef struct Mouse_State {
     char down;
     char wasdown_flags[4];
-    struct
-    {
+    struct {
         int x;
         int y;
     } pos;
@@ -262,8 +253,7 @@ typedef struct State_Flags
 
 #define META_EDITOR_BUFSIZE 256
 
-typedef struct Metadata_Editor
-{
+typedef struct Metadata_Editor {
     char inbuf_title[META_EDITOR_BUFSIZE];
     char inbuf_artist[META_EDITOR_BUFSIZE];
     char inbuf_album[META_EDITOR_BUFSIZE];
@@ -274,13 +264,11 @@ typedef struct Metadata_Editor
     Pacmxr_Metadata meta_struct;
 } Metadata_Editor;
 
-typedef struct Audio_Metadata_Group
-{
+typedef struct Audio_Metadata_Group {
     char tagbuffer[1024];
 } Audio_Metadata_Group;
 
-typedef struct Bitmap_Info
-{
+typedef struct Bitmap_Info {
     uint8_t *img_data;
     int img_data_bytes;
     int width;
@@ -289,8 +277,7 @@ typedef struct Bitmap_Info
     GLuint ogl_tex_id;
 } Bitmap_Info;
 
-typedef struct Audio_Stream
-{
+typedef struct Audio_Stream {
     int stream_size; 
     uint8_t *stream;
     //(unused (((((for now at least))))))
@@ -303,8 +290,7 @@ typedef struct Audio_Stream
     float real32_buffer_in[FFT_FLOAT_COUNT];
 } Audio_Stream;
 
-typedef struct Music_Data
-{
+typedef struct Music_Data {
     //char paused;
     char shuffle_enabled;
     char loop_enabled;
@@ -336,8 +322,7 @@ typedef struct Music_Data
     char music_type_buf[32];
 } Music_Data;
 
-typedef struct Sdl_Apidata
-{
+typedef struct Sdl_Apidata {
     int win_width;
     int win_height;
     SDL_Window *window_ptr;
@@ -345,8 +330,7 @@ typedef struct Sdl_Apidata
     Music_Data *mdata_ptr;
 } Sdl_Apidata;
 
-typedef struct Runtime_Vars 
-{
+typedef struct Runtime_Vars {
     char keep_running;
     const uint8_t *kbd_state;
     State_Flags sflags;

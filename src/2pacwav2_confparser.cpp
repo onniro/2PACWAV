@@ -18,8 +18,7 @@ This means that comments are C & C++ style and lines end on semicolons;
 #define CONF_VISUALIZER_COLOR           "visualizer_color"
 #define CONF_STARTUP_VOLUME             "volume"
 
-typedef enum Token_Type
-{
+typedef enum Token_Type {
     TOKEN_IDENTIFIER,
     TOKEN_OPEN_PARENTHESIS,
     TOKEN_CLOSED_PARENTHESIS,
@@ -38,15 +37,13 @@ typedef enum Token_Type
     TOKEN_STREAM_END,
 } Token_Type;
 
-typedef struct Token
-{
+typedef struct Token {
     Token_Type type;
     int length;
     char *text;
 } Token;
 
-typedef struct Tokenizer
-{
+typedef struct Tokenizer {
     char *at;
 } Tokenizer;
 
