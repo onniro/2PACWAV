@@ -254,6 +254,7 @@ PACMXR_INLINE Audio_Queue *pacmxr_get_audioq(void);
 /*
 pacmxr_pause & pacmxr_toggle_playback:
 Hopefully self-explanatory
+(pause argument in pacmxr_pause just means 1 = pause, 0 = unpause)
 */
 PACMXR_INLINE void pacmxr_pause(char pause);
 PACMXR_INLINE void pacmxr_toggle_playback(void);
@@ -1237,7 +1238,7 @@ PACMXR_DEF int pacmxr_open_file(char *filename)
     pacmxr_pause(0);
     SDL_UnlockAudioDevice(ctx->au_dev);
     /*
-    HACK: this delay seems to prevent a bug in 2pacwav where only the first time this function
+    HACK: this (below) delay seems to prevent a bug in 2pacwav where only the first time this function
     gets called after pacmxr_init, the file is actually opened properly and everything works but something
     in 2pacwav decides to immediately call this function again with the next file, thus skipping
     the file the user wanted to play. this is probably due to inconsistencies in state after

@@ -95,7 +95,7 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 #define PAC_DEFAULT_SEEK_INCREMENT (5.0f) //(seconds)
 #define PAC_DEFAULT_VOLUME_INCREMENT (5) //(seconds)
 
-typedef float _Complex Complex32;
+//typedef _Complex float Complex32;
 //typedef FFTComplex Complex32;
 
 struct Runtime_Vars;

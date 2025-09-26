@@ -2,8 +2,6 @@
 /*
 File: 2pacwav2.cpp
 Date: Thu 24 Apr 2025 04:24:08 PM EEST
-
-TODO: fix bug with searches and metadata when file list gets rearranged
 */
 
 #include <stdio.h>
@@ -856,12 +854,13 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
         //NOTE: apparently this overload of ImGui::Image is deprecated/obsolete or some shit
         //but it works on our imgui version and is the easiest way i found to change the alpha.
         //so if imgui is updated some day for whatever reason then this might no longer compile
-        ImGui::Image(mdata->cover.ogl_tex_id,
+
+        ImGui::ImageWithBg(mdata->cover.ogl_tex_id,
                 cover_dims,
                 ImVec2(0, 0),
                 ImVec2(1, 1),
-                ImVec4(1, 1, 1, alpha),
-                ImVec4(0, 0, 0, 0));
+                ImVec4(0, 0, 0, 0),
+                ImVec4(1, 1, 1, alpha));
     }
 
     char *taginfo_buffer = mdata->current_metadata.tagbuffer;
@@ -1066,21 +1065,20 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
     const uint8_t *kbd = rtvars->kbd_state;
     char ctrl, shift;
 
+    ImVec2 width;
+    width.x = ImGui::GetColumnWidth(-1);
+    width.y = 0;
+    //ImGui::SetCurrentContext(GImGui);
     for (int loop_index = 0; loop_index < (int)mlist->entry_count; ++loop_index) {
         if (!mlist->match_flags[loop_index]) {
             filename = mlist->filenames_string_loclist[loop_index];
 
-            snprintf(btntext, NAME_MAX - 1, "%s##%d", filename, loop_index);
-            if (ImGui::Button(btntext, ImVec2(ImGui::GetColumnWidth(-1), 0))) { 
+            snprintf(btntext, NAME_MAX, "%s##%d", filename, loop_index);
+            if (ImGui::Button(btntext, width)) { 
                 file_list_play_file(filename, loop_index, mdata); 
             }
-            //ctrl = kbd[SDL_SCANCODE_LCTRL];
-            //shift = kbd[SDL_SCANCODE_LSHIFT];
-            //if (ctrl && shift && pac_btn_press(SDL_SCANCODE_M, &sflags->m_wasdown, kbd)) {
-            //    printf("%d\n", ImGui::GetCurrentContext()->NavId);
-            //}
 
-            if (ImGui::BeginPopupContextItem(btntext)) {
+            if (ImGui::BeginPopupContextItem(0 /*btntext*/)) {
                 mlist->context_index = loop_index;
                 if (ImGui::Button("edit metadata")) {
                     sflags->viewstate = CENTER_VIEW_STATE_METADATA_EDITOR;
@@ -1091,7 +1089,6 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
         }
     }
     ImGui::PopStyleVar();
-    //ImGui::EndChild();
 }
 
 PAC_INTERNAL void str2lowercase(char *string, int len) 
@@ -1439,7 +1436,7 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
         set_userinfo_color(rtvars);
         ImGui::SetCursorPosX(rtvars->sdldata_ptr->win_width - 
                 (ImGui::CalcTextSize((char *)bufgroup->userinfo_buffer).x) - 5);
-        ImGui::Text((char *)bufgroup->userinfo_buffer);
+        ImGui::Text("%s", (char *)bufgroup->userinfo_buffer);
         ImGui::PopStyleColor();
         ImGui::EndMenuBar();
     } 

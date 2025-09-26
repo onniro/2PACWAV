@@ -344,13 +344,14 @@ int main(int arg_count, char **args)
     }
 
     IMGUI_CHECKVERSION();
-    ImGuiContext *imgui_context = ImGui::CreateContext();
+    ImGui::CreateContext();
+    //ImGuiIO &io = ImGui::GetIO();
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     ImGui::GetIO().ConfigFlags |= ImGuiWindowFlags_NoSavedSettings;
     ImGui::GetIO().IniFilename = 0;
     ImGui::StyleColorsDark();
-    ImGui_ImplSDL2_InitForOpenGL(sdldata.window_ptr, sdldata.ogl_context);
     ImGui_ImplOpenGL3_Init("#version 130");
+    ImGui_ImplSDL2_InitForOpenGL(sdldata.window_ptr, sdldata.ogl_context);
 
     if (!pac_imgui_load_font(bufgroup.fontpath_ptr,
             sargs.font_size,
