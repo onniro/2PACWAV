@@ -58,8 +58,8 @@ OBJ_FILES="$BASEDIR/build/lib/imgui*.o"
 WARNINGS="-Wall -Wpedantic -Wextra -Wno-unused-parameter \
         -Wno-pointer-arith -Wno-unused-variable \
         -Wno-unused-function -Wno-unused-but-set-variable \
-        -Wno-write-strings -Wno-stringop-truncation -Wno-format-truncation \
-        -Wno-unused-function"
+        -Wno-write-strings -Wno-string-concatenation \
+        -Wno-unused-function -Wno-strict-aliasing"
 
 DEFINES="-D_2PACWAV_DEBUG=1 \
         -D_2PACWAV_LINUX=1 \
@@ -69,8 +69,8 @@ DEFINES="-D_2PACWAV_DEBUG=1 \
 
 WORKDIR="$BASEDIR/build/linux_x64_debug"
 
-#CMDLINE="clang++ $DEFINES \
-CMDLINE="c++ $DEFINES \
+#NOTE: Optimized builds of this program have very strange bugs when built with gcc, so clang it is
+CMDLINE="clang++ $DEFINES \
         $INCLUDE_DIRS \
         $LIB_DIRS \
         $WARNINGS \

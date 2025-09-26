@@ -33,7 +33,7 @@ INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2 \
 #        -I$BASEDIR/3rd_party/taglib/include/mpeg/id3v2/ \
 #        -I$BASEDIR/3rd_party/taglib/include/mpeg/" 
 
-COMP_FLAGS="-O3 -gdwarf"
+COMP_FLAGS="-O2 -gdwarf"
 EXE_NAME="2w"
 LINK_FLAGS="-o $EXE_NAME"
 
@@ -73,14 +73,14 @@ WARNINGS="-Wall -Wpedantic -Wextra \
         -Wno-unused-parameter -Wno-pointer-arith \
         -Wno-unused-variable -Wno-unused-function \
         -Wno-unused-but-set-variable -Wno-write-strings -Wno-format\
-        -Wno-stringop-truncation"
+        -Wno-string-concatenation"
 
 DEFINES="-D_2PACWAV_RELEASE=1 -D_2PACWAV_LINUX=1 -DPAC_SAMPLE_RATE=48000"
 
 WORKDIR="$BASEDIR/build/linux_x64_release"
 
-#CMDLINE="clang++ $DEFINES \
-CMDLINE="c++ $DEFINES \
+#NOTE: Optimized builds of this program have very strange bugs when built with gcc, so clang it is
+CMDLINE="clang++ $DEFINES \
         $WARNINGS \
         $INCLUDE_DIRS \
         $LIB_DIRS \
