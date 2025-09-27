@@ -360,6 +360,7 @@ METADATA
 */
 
 typedef struct Pacmxr_Metadata {
+    uint32_t stream_index;
     AVFormatContext *in_avf_ctx;
     AVFormatContext *out_avf_ctx;
     AVDictionary *out_metadata;
@@ -1313,9 +1314,25 @@ PACMXR_DEF int pacmxr_meta_open_file(Pacmxr_Metadata *pac_meta, char *filename)
     pac_meta->in_avf_ctx = 0;
     pac_meta->out_avf_ctx = 0;
     pac_meta->out_metadata = 0;
+    pac_meta->stream_index = 0;
+
     if (avformat_open_input(&pac_meta->in_avf_ctx, filename, 0, 0) < 0) 
     { return 0; }
-    av_dict_copy(&pac_meta->out_metadata, pac_meta->in_avf_ctx->metadata, 0);
+    AVFormatContext *in_ctx = pac_meta->in_avf_ctx;
+
+    for (uint32_t i = 0; i < in_ctx->nb_streams; i++) {
+        if (in_ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+            pac_meta->stream_index = i;
+            break;
+        }
+    }
+
+    if (av_dict_count(pac_meta->in_avf_ctx->metadata)) {
+        av_dict_copy(&pac_meta->out_metadata, pac_meta->in_avf_ctx->metadata, 0);
+    } else {
+        av_dict_copy(&pac_meta->out_metadata, in_ctx->streams[pac_meta->stream_index]->metadata, 0);
+    }
+
     return 1;
 }
 
@@ -1337,10 +1354,13 @@ PACMXR_DEF int pacmxr_meta_get_title(Pacmxr_Metadata *pac_meta,
     int ret = 0;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
+    uint32_t stream_index;
     if (!pac_meta) {
         avf_ctx = ctx->fctx.avf_ctx;
+        stream_index = ctx->fctx.stream_index;
     } else {
         avf_ctx = pac_meta->in_avf_ctx;
+        stream_index = pac_meta->stream_index;
     }
 
     if (!(avf_ctx && dest && dest_size)) 
@@ -1350,9 +1370,20 @@ PACMXR_DEF int pacmxr_meta_get_title(Pacmxr_Metadata *pac_meta,
                 "title",
                 tag,
                 AV_DICT_IGNORE_SUFFIX);
+    //prefer tags in avf_ctx->metadata ("container-level")
+    //attempt to fall back to tags in the stream being used ("stream-level")
     if (tag) {
         ret = snprintf(dest, dest_size, "%s", tag->value);
+    } else {
+        tag = av_dict_get(avf_ctx->streams[stream_index]->metadata,
+                    "title",
+                    tag,
+                    AV_DICT_IGNORE_SUFFIX);
+        if (tag) {
+            ret = snprintf(dest, dest_size, "%s", tag->value);
+        }
     }
+
     return ret;
 }
 
@@ -1363,10 +1394,13 @@ PACMXR_DEF int pacmxr_meta_get_artist(Pacmxr_Metadata *pac_meta,
     int ret = 0;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
+    uint32_t stream_index;
     if (!pac_meta) {
         avf_ctx = ctx->fctx.avf_ctx;
+        stream_index = ctx->fctx.stream_index;
     } else {
         avf_ctx = pac_meta->in_avf_ctx;
+        stream_index = pac_meta->stream_index;
     }
 
     if (!(avf_ctx && dest && dest_size)) 
@@ -1378,7 +1412,16 @@ PACMXR_DEF int pacmxr_meta_get_artist(Pacmxr_Metadata *pac_meta,
                 AV_DICT_IGNORE_SUFFIX);
     if (tag) {
         ret = snprintf(dest, dest_size, "%s", tag->value);
+    } else {
+        tag = av_dict_get(avf_ctx->streams[stream_index]->metadata,
+                    "artist",
+                    tag,
+                    AV_DICT_IGNORE_SUFFIX);
+        if (tag) {
+            ret = snprintf(dest, dest_size, "%s", tag->value);
+        }
     }
+
     return ret;
 }
 
@@ -1389,10 +1432,13 @@ PACMXR_DEF int pacmxr_meta_get_album(Pacmxr_Metadata *pac_meta,
     int ret = 0;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
+    uint32_t stream_index;
     if (!pac_meta) {
         avf_ctx = ctx->fctx.avf_ctx;
+        stream_index = ctx->fctx.stream_index;
     } else {
         avf_ctx = pac_meta->in_avf_ctx;
+        stream_index = pac_meta->stream_index;
     }
 
     if (!(avf_ctx && dest && dest_size)) 
@@ -1404,7 +1450,16 @@ PACMXR_DEF int pacmxr_meta_get_album(Pacmxr_Metadata *pac_meta,
                 AV_DICT_IGNORE_SUFFIX);
     if (tag) {
         ret = snprintf(dest, dest_size, "%s", tag->value);
+    } else {
+        tag = av_dict_get(avf_ctx->streams[stream_index]->metadata,
+                    "album",
+                    tag,
+                    AV_DICT_IGNORE_SUFFIX);
+        if (tag) {
+            ret = snprintf(dest, dest_size, "%s", tag->value);
+        }
     }
+
     return ret;
 }
 
@@ -1415,10 +1470,13 @@ PACMXR_DEF int pacmxr_meta_get_genre(Pacmxr_Metadata *pac_meta,
     int ret = 0;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
+    uint32_t stream_index;
     if (!pac_meta) {
         avf_ctx = ctx->fctx.avf_ctx;
+        stream_index = ctx->fctx.stream_index;
     } else {
         avf_ctx = pac_meta->in_avf_ctx;
+        stream_index = pac_meta->stream_index;
     }
 
     if (!(avf_ctx && dest && dest_size)) 
@@ -1430,7 +1488,16 @@ PACMXR_DEF int pacmxr_meta_get_genre(Pacmxr_Metadata *pac_meta,
                 AV_DICT_IGNORE_SUFFIX);
     if (tag) {
         ret = snprintf(dest, dest_size, "%s", tag->value);
+    } else {
+        tag = av_dict_get(avf_ctx->streams[stream_index]->metadata,
+                    "genre",
+                    tag,
+                    AV_DICT_IGNORE_SUFFIX);
+        if (tag) {
+            ret = snprintf(dest, dest_size, "%s", tag->value);
+        }
     }
+
     return ret;
 }
 
@@ -1439,10 +1506,13 @@ PACMXR_DEF int pacmxr_meta_get_year(Pacmxr_Metadata *pac_meta)
     int ret = -1;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
+    uint32_t stream_index;
     if (!pac_meta) {
         avf_ctx = ctx->fctx.avf_ctx;
+        stream_index = ctx->fctx.stream_index;
     } else {
         avf_ctx = pac_meta->in_avf_ctx;
+        stream_index = pac_meta->stream_index;
     }
 
     if (!avf_ctx) 
@@ -1457,7 +1527,19 @@ PACMXR_DEF int pacmxr_meta_get_year(Pacmxr_Metadata *pac_meta)
         int value = strtol(tag->value, 0, 10);
         if (errno != ERANGE)
         { ret = value; }
+    } else {
+        tag = av_dict_get(avf_ctx->streams[stream_index]->metadata,
+                    "date",
+                    tag,
+                    AV_DICT_IGNORE_SUFFIX);
+        if (tag) {
+            errno = 0;
+            int value = strtol(tag->value, 0, 10);
+            if (errno != ERANGE)
+            { ret = value; }
+        }
     }
+
     return ret;
 }
 
@@ -1466,10 +1548,13 @@ PACMXR_DEF int pacmxr_meta_get_track(Pacmxr_Metadata *pac_meta)
     int ret = -1;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
+    uint32_t stream_index;
     if (!pac_meta) {
         avf_ctx = ctx->fctx.avf_ctx;
+        stream_index = ctx->fctx.stream_index;
     } else {
         avf_ctx = pac_meta->in_avf_ctx;
+        stream_index = pac_meta->stream_index;
     }
 
     if (!avf_ctx) 
@@ -1484,6 +1569,17 @@ PACMXR_DEF int pacmxr_meta_get_track(Pacmxr_Metadata *pac_meta)
         int value = strtol(tag->value, 0, 10);
         if (errno != ERANGE)
         { ret = value; }
+    } else {
+        tag = av_dict_get(avf_ctx->streams[stream_index]->metadata,
+                    "track",
+                    tag,
+                    AV_DICT_IGNORE_SUFFIX);
+        if (tag) {
+            errno = 0;
+            int value = strtol(tag->value, 0, 10);
+            if (errno != ERANGE)
+            { ret = value; }
+        }
     }
     return ret;
 }
