@@ -66,7 +66,7 @@ PAC_INTERNAL void show_help(char longhelp)
 {
     show_version();
     platform_log("usage: 2w [options] [files]\n"
-            "-- COMMAND ARGUMENTS --\n"
+            "\n-- COMMAND LINE OPTIONS --\n\n"
             "-h | --help : print this message and exit\n"
             "--longhelp : print output of the above option as well as additional documentation\n"
             "-v | --version : print version and exit\n"
@@ -79,7 +79,9 @@ PAC_INTERNAL void show_help(char longhelp)
     if (!longhelp) { return; }
 
     platform_log(
-R"(-- CONFIGURATION --
+R"(
+-- CONFIGURATION FILE --
+
 The configuration file named "2wconf" should be placed either in $HOME/.config/2pacwav/
 or in the same directory as the executable. The syntax of the configuration file is sort of
 similar to C, meaning that '//' and /* */ denote comments and lines end in semicolons.
