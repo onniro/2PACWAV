@@ -17,6 +17,7 @@ This means that comments are C & C++ style and lines end on semicolons;
 #define CONF_VISUALIZER_STATUS          "visualizer"
 #define CONF_VISUALIZER_COLOR           "visualizer_color"
 #define CONF_STARTUP_VOLUME             "volume"
+#define CONF_VOLUME_STEP                "volume_step"
 
 typedef enum Token_Type {
     TOKEN_IDENTIFIER,
@@ -338,6 +339,7 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
     char fontsize_set = 0,
             fontpath_set = 0,
             vis_status_set = 0,
+            volume_step_set = 0,
             volume_set = 0,
             vis_color_set = 0;
 
@@ -398,6 +400,15 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
                 } else if (1 == volume_set) {
                     report_duplicate(CONF_STARTUP_VOLUME);
                     ++volume_set;
+                }
+            } else if (token_equals(tok, CONF_VOLUME_STEP)) {
+                if (!volume_step_set) {
+                    int value = (int)get_float_entry(&tokenizer, CONF_VOLUME_STEP);
+                    sargs->volume_step = pacmxr_clamp_int(value, 0, SDL_MIX_MAXVOLUME);
+                    ++volume_step_set;
+                } else if (1 == volume_step_set) {
+                    report_duplicate(CONF_VOLUME_STEP);
+                    ++volume_step_set;
                 }
             } else if (token_equals(tok, CONF_FONT_PATH)) {
                 if (!fontpath_set) {
@@ -473,5 +484,9 @@ PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars,
         rtvars->vis_color[1] = 0.1f;
         rtvars->vis_color[2] = 0.1f;
         rtvars->vis_color[3] = 1.0f;
+    }
+
+    if (!volume_step_set) {
+        sargs->volume_step = PAC_DEFAULT_VOLUME_INCREMENT;
     }
 }

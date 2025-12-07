@@ -22,7 +22,9 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #define WINDOW_WIDTH    (1280)
 #define WINDOW_HEIGHT   (800)
-#define MAX_FRAMETIME_MICROSEC ((useconds_t)11111) //90fps
+//#define MAX_FRAMETIME_MICROSEC ((useconds_t)11111) //90fps
+#define MAX_FRAMETIME_MICROSEC ((useconds_t)16667) //60fps
+//#define MAX_FRAMETIME_MICROSEC ((useconds_t)33333) //30fps
 #define PAC_SEEK_VALUE_MAX (1000.0f)
 
 //#define PAC_LATIN_FONT_STRING   "DejaVuSansMono.ttf"
@@ -155,6 +157,7 @@ typedef struct Startup_Args {
     Startup_Args_Paths paths;
     float font_size;
     int volume;
+    int volume_step; //how much the volume changes when adjusted with keybind
     char *conf_path;
 } Startup_Args;
 

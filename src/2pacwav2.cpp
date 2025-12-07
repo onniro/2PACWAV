@@ -398,10 +398,10 @@ PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
     ImGui::SetNextWindowBgAlpha(0);
 
-    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(011, 0x33, 0x3A, 0xFF));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(0x11, 0x33, 0x3A, 0xFF));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(0x0, 0x0, 0x0, 0xFF));
-    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, IM_COL32(0x22, 0x22, 0x22, 0xFF));
+    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(    0x22, 0x22, 0x33, 0xFF));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(   0x22, 0x22, 0x33, 0xFF));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(  0x0,  0x00, 0x00, 0xFF));
+    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, IM_COL32( 0x22, 0x22, 0x33, 0xFF));
 
     ImGui::Begin("2PACWAV", 0, ImGuiWindowFlags_NoTitleBar
                             |ImGuiWindowFlags_NoResize
@@ -1202,18 +1202,19 @@ PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
                                     float vol_width)
 {
     State_Flags *sflags = &rtvars->sflags;
+    int vol_step = rtvars->sargs_ptr->volume_step;
     //if(rtvars->kbd_state[SDL_SCANCODE_LCTRL])
     if (!ImGui::GetIO().WantTextInput) {
         if (pac_btn_press(SDL_SCANCODE_0, &sflags->zero_wasdown, rtvars->kbd_state)) { 
-            if ((mdata->volume + PAC_DEFAULT_VOLUME_INCREMENT) < SDL_MIX_MAXVOLUME) { 
-                mdata->volume += PAC_DEFAULT_VOLUME_INCREMENT; 
+            if ((mdata->volume + vol_step) < SDL_MIX_MAXVOLUME) { 
+                mdata->volume += vol_step; 
             } else {
                 mdata->volume = SDL_MIX_MAXVOLUME;
             }
             pacmxr_set_volume(mdata->volume);
         } if (pac_btn_press(SDL_SCANCODE_9, &sflags->nine_wasdown, rtvars->kbd_state)) { 
-            if (((int)mdata->volume - PAC_DEFAULT_VOLUME_INCREMENT) > 0) {
-                mdata->volume -= PAC_DEFAULT_VOLUME_INCREMENT; 
+            if (((int)mdata->volume - vol_step) > 0) {
+                mdata->volume -= vol_step;
             } else { 
                 mdata->volume = 0;
             }
