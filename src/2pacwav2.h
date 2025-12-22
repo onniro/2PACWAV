@@ -222,6 +222,7 @@ typedef struct Mouse_State {
 typedef struct State_Flags
 {
     char d_wasdown;
+    char q_wasdown;
     char x_wasdown;
     char s_wasdown;
     char l_wasdown;

@@ -481,7 +481,7 @@ PAC_INTERNAL void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bu
 {
     snprintf((char *)bufgroup->music_info_buffer, DEBUG_BUFFER_SIZE,
             "[srate:%dhz][pcm_bits:%d][chan:%d]"
-            "[vol:%d/128][pos:%06.1f/%06.1f][enctype:%s]"
+            "[vol:%d/128][pos:%06.1f/%06.1f][enc:%s]"
             "\n[path:%s]", 
             mdata->sample_rate, mdata->pcm_bits, mdata->channels,
             mdata->volume, mdata->current_position, mdata->current_duration, mdata->music_type_buf,
@@ -1560,6 +1560,11 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
 
     ImGui::Separator();
     ImGui::SetCursorPosX(50);
+    if (rtvars->kbd_state[SDL_SCANCODE_LCTRL] && 
+            pac_btn_press(SDL_SCANCODE_Q, &sflags->q_wasdown, rtvars->kbd_state)) {
+        sflags->searchwindow_open = 0;
+        ImGui::SetKeyboardFocusHere(0);
+    }
     ImGui::BeginChild("##center_thing", 
             ImVec2(ImGui::GetColumnWidth(-1), 
             rtvars->sdldata_ptr->win_height - 
