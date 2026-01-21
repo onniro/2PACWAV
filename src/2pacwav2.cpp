@@ -74,26 +74,30 @@ PAC_INTERNAL void show_help(char longhelp)
             "-conf <path> : specify config file\n"
             "-noconf : do not look for a configuration file\n"
             "-nosup : if the configuration file has instances of startup_path, skip adding them to the playlist on startup\n"
-            "-fontsize <value> : set point size for font\n");
+            "-font_size <value> : set point size for font\n");
 
     if (!longhelp) { return; }
 
     platform_log(
 R"(
--- CONFIGURATION FILE --
+/*
+-- 2PACWAV CONFIGURATION FILE --
 
 The configuration file named "2wconf" should be placed either in $HOME/.config/2pacwav/
 or in the same directory as the executable. The syntax of the configuration file is sort of
-similar to C, meaning that '//' and /* */ denote comments and lines end in semicolons.
+similar to C, meaning that '//' and /* */ are used for comments and lines end in semicolons.
 Below is a complete list of variables that can be set and some information about them.
+You can copy this section in its entirety into your 2wconf, but some of the example
+values must be changed. 
 ---
+*/
 startup_path = "/path/to/file"; //Sets a path to a file or folder that will be added to the list on startup.
-                                //Multiple instances of this are allowed.
+                                //Note that multiple instances of this are perfectly valid.
 volume = value; //Sets the volume level on startup. The value is clamped to 0-128
                 //The -vol command option overrides this
 font_path = "/path/to/font/file"; //Path to the desired font file (TrueType or OpenType)
 font_size = value; //Sets point size for the font. (default: %g)
-visualizer = 0 or 1(any nonzero); //Disables visualizer if value is 0 and enables it otherwise,
+visualizer = 0 or 1; //Disables visualizer if value is 0 and enables it otherwise,
                                   //including when this variable isn't set.
                                   //Note that this can be re-enabled from the view menu at any time.
 visualizer_color = {r, g, b, a}; //Sets the color that the visualizer is set to at startup.
@@ -151,7 +155,7 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
         } else if (!sargs->no_load_startup_paths && !strcmp("-nosup", arg)) {
             sargs->no_load_startup_paths = 1;
         } else if ((sargs->font_size == PAC_LATIN_FONTSIZE) &&
-            !strcmp("-fontsize", arg)) {
+            !strcmp("-font_size", arg)) {
             if (args[arg_index + 1]) {
                 float value = strtof(args[arg_index + 1], 0);
                 if (value != 0.0f) {
@@ -916,6 +920,13 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
     State_Flags *sflags = &rtvars->sflags;
     File_List *mlist = &mdata->music_list;
     char *filename = meta->editor_current;
+
+    if (pac_btn_press(SDL_SCANCODE_ESCAPE,
+        &rtvars->sflags.esc_wasdown,
+        rtvars->kbd_state)) {
+        rtvars->sflags.viewstate = CENTER_VIEW_STATE_MUSIC_LIST;
+        return;
+    }
 
     //ImGui::Separator();
     ImGui::SetCursorPosX(50);
