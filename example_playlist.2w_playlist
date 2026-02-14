@@ -1,0 +1,19 @@
+
+/*
+//example playlist
+
+//full paths to files
+"~/music/zyzz/tevvez_legend.mp3";
+"~/music/nightcore/im_sippin_crush_nightcore_hyperborea_edit.opus";
+
+//path to directory followed by ; (entire directory gets added)
+"~/music/drain_gang/";
+
+//if multiple files are in the same directory, you can specify the directory
+//just once like this
+"~/music/tupac/" {
+    "tupac_all_eyez_on_me.mp3";
+    "tupac_california_love.mp3";
+    "tupac_changes.mp3";
+}
+*/
