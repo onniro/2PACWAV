@@ -13,8 +13,8 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 #include "2pacmixer.h"
 
 #define _2PACWAV_VER_MAJOR      (0)
-#define _2PACWAV_VER_MINOR      (11)
-#define _2PACWAV_VER_PATCH      (31)
+#define _2PACWAV_VER_MINOR      (12)
+#define _2PACWAV_VER_PATCH      (2)
 
 #define PAC_INLINE static inline
 #define PAC_INTERNAL static
@@ -136,7 +136,7 @@ typedef struct General_Buffer_Group {
     uint64_t scratch_bytes;
     char *fontpath_ptr;
     void *fft_complex32_buffer;
-    char sort_text[16] = "sort (a-z)";
+    char sort_text[32] = "sort (a-z)";
     char ls_toggle_text[16] = "hide list";
     char play_toggle_text[24] = "pause";
     char shuf_toggle_text[24] = "enable shuffle";
@@ -219,8 +219,26 @@ typedef struct Mouse_State {
     } pos;
 } Mouse_State;
 
-typedef struct State_Flags
+typedef enum Sort_State {
+    SORT_STATE_ALPHA_ASCENDING = 0,
+    SORT_STATE_ALPHA_DESCENDING,
+    SORT_STATE_MOD_DATE_ASCENDING,
+    SORT_STATE_MOD_DATE_DESCENDING,
+    SORT_STATE__LAST
+} Sort_State;
+
+PAC_INLINE void cycle_sort_state(Sort_State *value)
 {
+    if (!value) { return; }
+    uint8_t new_value = 1 + (uint8_t)(*value);
+    if (new_value != SORT_STATE__LAST) {
+        *value = (Sort_State)new_value;
+    } else {
+        *value = (Sort_State)0;
+    }
+}
+
+typedef struct State_Flags {
     char d_wasdown;
     char q_wasdown;
     char x_wasdown;
@@ -247,12 +265,12 @@ typedef struct State_Flags
     char text_field_focused;
     char visualizer_enabled;
     char mlist_ctxmenu_active;
-    char sort_reversed;
     char searchwindow_open;
     char colorpicker_open;
     Mouse_State mouse;
     Center_View_State viewstate;
     Userinfo_Type last_userinfo_type;
+    Sort_State sort_state;
 } State_Flags;
 
 #define META_EDITOR_BUFSIZE 256
@@ -399,6 +417,7 @@ PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
 PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
 PAC_INTERNAL void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type);
 PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars);
+PAC_INTERNAL char file_is_playlist(char *path);
 PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars, General_Buffer_Group *bufgroup, Music_Data *mdata);
 PAC_INTERNAL void file_list_push_dirname(char *dirname, File_List *flist);
 PAC_INTERNAL void goto_next_file(Music_Data *mdata);

@@ -30,6 +30,7 @@ Date: Thu 24 Apr 2025 04:24:08 PM EEST
 
 #include "2pacwav2_visualizer.cpp"
 #include "2pacwav2_confparser.cpp"
+#include "2pacwav2_playlist.cpp"
 
 //#include "2pacmixer.h"
 
@@ -481,7 +482,7 @@ PAC_INTERNAL void sort_file_list_alpha(File_List *flist, char reversed)
     qsort(strings, sort_count, sizeof(char **), cmpf);
 }
 
-PAC_INTERNAL void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bufgroup) 
+PAC_INTERNAL void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bufgroup)
 {
     snprintf((char *)bufgroup->music_info_buffer, DEBUG_BUFFER_SIZE,
             "[srate:%dhz][pcm_bits:%d][chan:%d]"
@@ -617,6 +618,15 @@ PAC_INTERNAL char add_single_file_to_music_list(char *path, Music_Data *mdata)
     return cont_dir_already_added;
 }
 
+PAC_INLINE char file_is_playlist(char *path)
+{
+    char result = 0;
+    int path_len = strlen(path);
+    char *extension = path + (1 + path_len - sizeof(PLAYLIST_EXTENSION));
+    if (!strcmp(extension, PLAYLIST_EXTENSION)) { result = 1; }
+    return result;
+}
+
 PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars)
 {
     int old_file_count = mdata->music_list.entry_count, 
@@ -624,7 +634,11 @@ PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars 
             added_files;
 
     if (platform_file_exists(path)) {
-        add_single_file_to_music_list(path, mdata); 
+        if (file_is_playlist(path)) {
+            process_playlist(rtvars, path);
+        } else {
+            add_single_file_to_music_list(path, mdata); 
+        }
     } else if (platform_directory_exists(path)) {
         int pathlen = strlen(path);
         
@@ -1135,6 +1149,7 @@ PAC_INTERNAL void set_match_flags(char *searchbuf, Music_Data *mdata)
             file_index < mlist->entry_count;
             ++file_index) {
             string = mlist->filenames_string_loclist[file_index];
+            //NOTE: for some reason i made it so that 0 means this shit IS included in the search results
             if (pac_strcasestr(string, searchbuf)) {
                 mlist->match_flags[file_index] = 0;
                 ++mlist->match_count;
@@ -1456,20 +1471,36 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
     } 
 
     if (sort_was_pressed) {
-        if (!sflags->sort_reversed) {
-            sort_file_list_alpha(&mdata->music_list, 0); 
+        cycle_sort_state(&sflags->sort_state);
+
+        switch(sflags->sort_state) {
+        case SORT_STATE_ALPHA_ASCENDING: {
             strcpy(sort_text, "sort (z-a)");
-            sflags->sort_reversed = 1;
+            sort_file_list_alpha(&mdata->music_list, 0); 
             if (searchbuf[0]) {
                 set_match_flags((char *)rtvars->bufgroup_ptr->inbuf_search, mdata);
             }
-        } else {
+        } break;
+
+        case SORT_STATE_ALPHA_DESCENDING: {
+            strcpy(sort_text, "sort (mod date asc)");
             sort_file_list_alpha(&mdata->music_list, 1); 
-            strcpy(sort_text, "sort (a-z)");
-            sflags->sort_reversed = 0;
             if (searchbuf[0]) {
                 set_match_flags((char *)rtvars->bufgroup_ptr->inbuf_search, mdata);
             }
+        } break;
+
+        case SORT_STATE_MOD_DATE_ASCENDING: {
+            strcpy(sort_text, "sort (mod date desc)");
+            platform_sort_mlist_mod_date_janky(&mdata->music_list, 1, rtvars);
+        } break;
+
+        case SORT_STATE_MOD_DATE_DESCENDING: {
+            strcpy(sort_text, "sort (a-z)");
+            platform_sort_mlist_mod_date_janky(&mdata->music_list, 0, rtvars);
+        } break;
+
+        default: break;
         }
     } if (clear_was_pressed) {
         clear_file_list(mdata);
@@ -1563,7 +1594,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
         //_inpath_len = new_inpath_len;
     }
     ImGui::PopItemWidth();
-            
+
     ImGui::SameLine();
     if (ImGui::Button("add", ImVec2(ImGui::GetColumnWidth(-1), 0))) {
         add_to_music_list((char *)bufgroup->inbuf_filename, mdata, rtvars); 

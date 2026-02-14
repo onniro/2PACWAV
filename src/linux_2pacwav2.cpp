@@ -89,6 +89,75 @@ PAC_INTERNAL void platform_get_font_path(Runtime_Vars *rtvars,
     FcFini();
 }
 
+static void platform_sort_mlist_mod_date_janky(File_List *file_list,
+                                            char ascending,
+                                            Runtime_Vars* rtvars) {
+    //TODO: get rid of this retarded shell command shit and write a function
+    //instead that just puts identical data in the buffer
+    //shouldnt be that hard but im lazy
+    if (!file_list->entry_count) { return; }
+    int out_file_desc;
+    pid_t proc_id;
+    const int command_cap = PATH_MAX*3;
+    char command[command_cap] = "ls -At1p --zero";
+    if (ascending) { strcat(command, " -r"); }
+    int command_length = strlen(command);
+    for (int dir_index = 0;
+         dir_index < file_list->dirs_added;
+         ++dir_index) {
+        char *dirname = file_list->dirnames_string_loclist[dir_index];
+        command_length += snprintf(command + command_length,
+                                command_cap - command_length,
+                                " \"%s\"", dirname);
+    }
+    //exclude directories
+    //(for some reason directories are excluded already without this in most cases?)
+    command_length += snprintf(command + command_length,
+                            command_cap - command_length,
+                            " | grep -vz /");
+
+    int status = ro_posix_get_stdout(command, &out_file_desc, &proc_id, 1);
+    char *scratch_buf = (char *)rtvars->bufgroup_ptr->scratch_space;
+    size_t scratch_bytes = rtvars->bufgroup_ptr->scratch_bytes;
+    size_t bytes_read = 0, bytes_read_total = 0;
+    if (status) {
+        while (1) {
+            bytes_read = read(out_file_desc,
+                            scratch_buf + bytes_read_total,
+                            scratch_bytes - bytes_read_total);
+            bytes_read_total += bytes_read;
+            if (!bytes_read) { break; }
+        }
+        scratch_buf[bytes_read_total] = 0;
+        close(out_file_desc);
+    } else {
+        platform_dbg_log("failed to read shell command output while rebuilding file list\n"
+                        "(ro_posix_get_stdout status: %d, file descriptor: %d)\n",
+                        status, out_file_desc);
+    }
+
+    PAC_ASSERT(FILENAMES_BUFFER_SIZE >= bytes_read_total);
+    char *filenames_buf = file_list->filenames_buf;
+    //ls -1 --zero outputs the same format of data so we can just do this lol
+    memcpy(filenames_buf, scratch_buf, FILENAMES_BUFFER_SIZE);
+    char **string_loclist = file_list->filenames_string_loclist;
+    char *begin_ptr = filenames_buf;
+    string_loclist[0] = begin_ptr;
+    for (int file_index = 1;
+        file_index < file_list->entry_count;
+        ++file_index) {
+        while (1) {
+            if (!begin_ptr[0] && begin_ptr[1]) {
+                ++begin_ptr;
+                string_loclist[file_index] = begin_ptr;
+                break;
+            }
+            ++begin_ptr;
+        }
+    }
+    set_match_flags((char *)rtvars->bufgroup_ptr->inbuf_search, rtvars->mdata_ptr);
+}
+
 PAC_INTERNAL int platform_list_files_simple(char *path, 
                                         File_List *out_flist, 
                                         char sort)
@@ -118,6 +187,7 @@ PAC_INTERNAL int platform_list_files_simple(char *path,
         if (sort) 
         { sort_file_list_alpha(out_flist, 0); }
         result = 1;
+        closedir(dir_struct);
     } else { 
         platform_dbg_log("directory listing failed. reason: failed to initialize directory struct\n"); 
     }
@@ -149,6 +219,7 @@ PAC_INTERNAL int platform_list_files_mlist(char *path, File_List *out_flist)
             }
         }
         result = 1;
+        closedir(dir_struct);
     } else { 
         platform_dbg_log("directory listing failed. reason: failed to initialize directory struct\n"); 
     }
@@ -183,7 +254,7 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
     MEM_INIT_ASSERT(heapbuf, bufgroup->autocomp_string_loclist,         FILENAMEBUF_LOCATION_LIST_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_filenames_buf,             FILENAMES_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_buf,              DIRNAMES_BUFFER_SIZE);
-    MEM_INIT_ASSERT(heapbuf, bufgroup->autocomp_buffer,                 FILENAMES_BUFFER_SIZE);
+    //MEM_INIT_ASSERT(heapbuf, bufgroup->autocomp_buffer,                 FILENAMES_BUFFER_SIZE);
 
     bufgroup->scratch_bytes = ro_buffer_unallocated_bytes(heapbuf);
     if (bufgroup->scratch_bytes) {
@@ -244,6 +315,15 @@ PAC_INTERNAL void platform_dbg_log(char *fmt_string, ...)
     fprintf(stderr, "%s", buf);
     va_end(args);
 #endif
+}
+
+PAC_INTERNAL void platform_dbg_dump_file(char *containing_dir,
+                                    void *buffer,
+                                    size_t buffer_size)
+{
+    char filename[PATH_MAX];
+    snprintf(filename, PATH_MAX, "%s/%ld.2w_dump", containing_dir, time(0));
+    platform_write_file(filename, buffer, buffer_size);
 }
 
 PAC_INTERNAL void platform_get_working_directory(char *buf, int buf_size)

@@ -25,6 +25,8 @@ PAC_INTERNAL int platform_list_files_simple(char *path, File_List *out_flist, ch
 PAC_INTERNAL int platform_list_files_mlist(char *path, File_List *out_flist);
 PAC_INTERNAL uint64_t platform_read_file(char *file_path, char *dest, uint64_t dest_bytes);
 PAC_INTERNAL int platform_write_file(char *file_path, char *dest, uint64_t *dest_bytes);
+PAC_INTERNAL void platform_dbg_dump_file(char *containing_dir, void *buffer, size_t buffer_size);
+static void platform_sort_mlist_mod_date_janky(File_List *, char, Runtime_Vars *);
 
 #ifdef __cplusplus
 }
