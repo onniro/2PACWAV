@@ -1,6 +1,7 @@
 
 /*
 //example playlist
+//note: for now, the only way to manage playlists is through text files such as this
 
 //full paths to files
 "~/music/zyzz/tevvez_legend.mp3";
@@ -9,8 +10,9 @@
 //path to directory followed by ; (entire directory gets added)
 "~/music/drain_gang/";
 
-//if multiple files are in the same directory, you can specify the directory
-//just once like this
+//if you only want to add some files from a specific directory you can specify 
+//the containing directory just once like this and then add the names
+//of the individual files (or subdirectories) inside curly braces
 "~/music/tupac/" {
     "tupac_all_eyez_on_me.mp3";
     "tupac_california_love.mp3";

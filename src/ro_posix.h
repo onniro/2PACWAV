@@ -28,6 +28,7 @@ extern "C"
 #include <pthread.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdbool.h>
 
 int clock_gettime(clockid_t clockid, struct timespec *tp);
 int nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
@@ -50,8 +51,7 @@ int nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
 
 #if !defined(RO_HEAP_BUFFER) && !defined(RO_HEAPBUF_DOT_H)
 
-typedef struct Ro_Heap_Buffer 
-{
+typedef struct Ro_Heap_Buffer {
     void *memory;
     void *write_ptr;
     uint64_t total_bytes;
@@ -63,8 +63,7 @@ typedef struct Ro_Heap_Buffer
 
 #ifndef RO_MATH_DOT_H
 
-RO_DEF uint64_t ro_abs_i64(int64_t number)
-{
+RO_DEF uint64_t ro_abs_i64(int64_t number) {
     uint64_t result = (uint64_t)number;
     uint64_t mask = number >> 63;
     result ^= mask;
@@ -72,8 +71,7 @@ RO_DEF uint64_t ro_abs_i64(int64_t number)
     return result;
 }
 
-RO_DEF uint32_t ro_abs_i32(int32_t number)
-{
+RO_DEF uint32_t ro_abs_i32(int32_t number) {
     uint32_t result = (uint32_t)number;
     uint32_t mask = number >> 31;
     result ^= mask;
@@ -81,8 +79,7 @@ RO_DEF uint32_t ro_abs_i32(int32_t number)
     return result;
 }
 
-RO_DEF float ro_abs_f32(float number)
-{
+RO_DEF float ro_abs_f32(float number) {
     float result = number;
     *(uint32_t *)&result &= (0xFFFFFFFF >> 1);
     return result;
@@ -91,8 +88,7 @@ RO_DEF float ro_abs_f32(float number)
 #define RO_MATH_DOT_H 1
 #endif
 
-RO_DEF void *ro_posix_make_heap_buffer(Ro_Heap_Buffer *target, uint64_t bytes) 
-{
+RO_DEF void *ro_posix_make_heap_buffer(Ro_Heap_Buffer *target, uint64_t bytes) {
     target->memory = mmap(0, bytes, PROT_READ|PROT_WRITE, 
                         MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     target->write_ptr = target->memory;
@@ -100,16 +96,14 @@ RO_DEF void *ro_posix_make_heap_buffer(Ro_Heap_Buffer *target, uint64_t bytes)
     return target->memory;
 }
 
-RO_DEF void ro_posix_free_heap_buffer(Ro_Heap_Buffer *buffer) 
-{
+RO_DEF void ro_posix_free_heap_buffer(Ro_Heap_Buffer *buffer) {
     if (buffer && buffer->memory && buffer->total_bytes)
     { munmap(buffer->memory, buffer->total_bytes); }
 }
 
 //NOTE: neither of these next couple are POSIX-specific
 
-RO_DEF uint64_t ro_buffer_unallocated_bytes(Ro_Heap_Buffer *buffer) 
-{
+RO_DEF uint64_t ro_buffer_unallocated_bytes(Ro_Heap_Buffer *buffer) {
     uint64_t result = 0;
     if (buffer && buffer->memory) {
         result = ((uint64_t)buffer->memory + 
@@ -120,8 +114,7 @@ RO_DEF uint64_t ro_buffer_unallocated_bytes(Ro_Heap_Buffer *buffer)
 }
 
 RO_DEF void *ro_buffer_alloc_region(struct Ro_Heap_Buffer *buffer, 
-                                uint64_t region_bytes) 
-{
+                                uint64_t region_bytes) {
     void *result = 0;
     uint64_t free_bytes = ro_buffer_unallocated_bytes(buffer);
     if (region_bytes <= free_bytes) {
@@ -133,8 +126,7 @@ RO_DEF void *ro_buffer_alloc_region(struct Ro_Heap_Buffer *buffer,
 
 RO_DEF void ro_buffer_move_writeptr(Ro_Heap_Buffer *buffer, 
                                     ssize_t bytes, 
-                                    char write_zeroes) 
-{
+                                    char write_zeroes) {
     if (!(buffer && buffer->memory && bytes))
     { return; }
     uintptr_t buf_begin = (uintptr_t)buffer->memory;
@@ -152,8 +144,7 @@ RO_DEF void ro_buffer_move_writeptr(Ro_Heap_Buffer *buffer,
 }
 
 RO_DEF char *ro_posix_get_working_directory(char *destination, 
-                                        uint64_t buffer_size) 
-{
+                                        uint64_t buffer_size) {
     size_t bytes_read = readlink("/proc/self/exe", 
                             destination, 
                             buffer_size);
@@ -170,8 +161,7 @@ RO_DEF char *ro_posix_get_working_directory(char *destination,
     return destination;
 }
 
-RO_DEF uint64_t ro_posix_get_timestamp(void)
-{
+RO_DEF uint64_t ro_posix_get_timestamp(void) {
     uint64_t result;
     struct timespec tspec = {RO_ZERO_INIT};
     clock_gettime(CLOCK_MONOTONIC, &tspec);
@@ -179,16 +169,14 @@ RO_DEF uint64_t ro_posix_get_timestamp(void)
     return result;
 }
 
-RO_DEF void ro_posix_sleep_usec(uint64_t usec) 
-{
+RO_DEF void ro_posix_sleep_usec(uint64_t usec) {
     uint64_t nanoseconds = usec*1000;
     struct timespec tspec = {RO_ZERO_INIT};
     tspec.tv_nsec = nanoseconds;
     nanosleep(&tspec, 0);
 }
 
-RO_DEF char ro_posix_path_exists(char *path)
-{
+RO_DEF char ro_posix_path_exists(char *path) {
     char result = 0;
     struct stat stat_struct;
     if(!stat(path, &stat_struct))
@@ -196,8 +184,7 @@ RO_DEF char ro_posix_path_exists(char *path)
     return result;
 }
 
-RO_DEF char ro_posix_file_exists(char *file_path) 
-{
+RO_DEF char ro_posix_file_exists(char *file_path) {
     char result = 0;
     struct stat stat_struct;
     if (!stat(file_path, &stat_struct) && 
@@ -206,8 +193,7 @@ RO_DEF char ro_posix_file_exists(char *file_path)
     return result;
 }
 
-RO_DEF char ro_posix_directory_exists(char *directory_name) 
-{
+RO_DEF char ro_posix_directory_exists(char *directory_name) {
     char result = 0;
     struct stat stat_struct;
     if (!stat(directory_name, &stat_struct) && 
@@ -218,8 +204,7 @@ RO_DEF char ro_posix_directory_exists(char *directory_name)
 
 RO_DEF uint64_t ro_posix_read_file(char *file_path, 
                                 char *destination, 
-                                uint64_t dest_size) 
-{
+                                uint64_t dest_size) {
     int file_descriptor = open(file_path, O_RDONLY);
     uint64_t bytes_read = 0;
     if (file_descriptor != -1) {
@@ -235,8 +220,7 @@ RO_DEF uint64_t ro_posix_read_file(char *file_path,
 
 RO_DEF int ro_posix_write_file(char *file_path, 
                             void *in_buffer, 
-                            uint64_t buffer_size) 
-{
+                            uint64_t buffer_size) {
     int result = 0;
     int file_descriptor = open(file_path, 
                             O_CREAT|O_WRONLY|O_TRUNC, 
@@ -251,11 +235,10 @@ RO_DEF int ro_posix_write_file(char *file_path,
     return result;
 }
 
-RO_DEF int ro_posix_get_stdout(char *command, 
+RO_DEF int ro_posix_run_command(char *command, 
                             int *output_fd, 
                             pid_t *proc_id, 
-                            char include_stderr) 
-{
+                            bool include_stderr) {
     int result = 0;
     int pipe_fd[2];
     if (-1 == pipe(pipe_fd)) {
@@ -283,6 +266,26 @@ RO_DEF int ro_posix_get_stdout(char *command,
         result = 1;
     }
     return result;
+}
+
+RO_DEF size_t ro_posix_get_command_output(int file_descriptor,
+                                        char *dest_buffer,
+                                        size_t dest_buffer_size,
+                                        bool close_descriptor) {
+    size_t bytes_read = 0, bytes_read_total = 0;
+    int timeout = 1000;
+    while (timeout--) {
+        if (((ssize_t)dest_buffer_size - (ssize_t)bytes_read_total) < 0)
+        { break; }
+        bytes_read = read(file_descriptor,
+                        dest_buffer + bytes_read_total,
+                        dest_buffer_size - bytes_read_total);
+        bytes_read_total += bytes_read;
+        if (!bytes_read) { break; }
+    }
+    dest_buffer[bytes_read_total] = 0x0;
+    if (close_descriptor) { close(file_descriptor); }
+    return bytes_read_total;
 }
 
 #ifdef __cplusplus

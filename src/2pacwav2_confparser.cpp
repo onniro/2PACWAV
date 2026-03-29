@@ -15,69 +15,24 @@ This means that comments are C & C++ style and lines end on semicolons;
 
 #include "2pacwav2_parser.h"
 
-PAC_INLINE char is_eol(char c)
-{
-    char ret = ((c == '\n') ||
-                (c == '\r'));
-    return ret;
-}
-
-PAC_INLINE char is_whitespace(char c)
-{
-    char ret = ((c == ' ') ||
-                (c == '\t') ||
-                (c == '\v') ||
-                (c == '\f') ||
-                is_eol(c));
-    return ret;
-}
-
-PAC_INLINE char is_alpha(char c)
-{
-    char ret = (((c >= 'a') && (c <= 'z')) ||
-                ((c >= 'A') && (c <= 'Z')));
-	return ret;
-}
-
-PAC_INLINE char is_number(char c)
-{
-    char ret = ((c >= '0') && 
-                (c <= '9'));
-    return ret;
-}
-
-PAC_INLINE char token_equals(Token tok, char *match)
-{
-    char *at = match;
-    for (int i = 0; i < tok.length; ++i, ++at) {
-        if (!*at || (tok.text[i] != *at)) 
-        { return 0; }
-    }
-    return (*at == 0);
-}
-
-PAC_INTERNAL void report_missing_semicolon(char *identifier)
-{
+static inline void report_missing_semicolon(char *identifier) {
     fprintf(stderr, 
             "2wconf syntax error: semicolon (;) required after definition of variable %s\n",
             identifier);
 }
 
-PAC_INTERNAL void report_missing_equalsign(char *identifier)
-{
+static inline void report_missing_equalsign(char *identifier) {
     fprintf(stderr, "2wconf syntax error: missing equal sign (=) after identifier %s\n",
             identifier);
 }
 
-PAC_INTERNAL void report_duplicate(char *identifier)
-{
+static inline void report_duplicate(char *identifier) {
     fprintf(stderr, 
             "2wconf warning: variable %s set more than once. ignoring all but the first value.\n",
             identifier);
 }
 
-PAC_INTERNAL void eat_whitespace(Tokenizer *tokenizer)
-{
+static inline void eat_whitespace(Tokenizer *tokenizer) {
     while (1) {
         if (is_whitespace(tokenizer->at[0])) {
             ++tokenizer->at;
@@ -104,16 +59,14 @@ PAC_INTERNAL void eat_whitespace(Tokenizer *tokenizer)
     }
 }
 
-PAC_INLINE char require_token(Tokenizer *tokenizer,
-                            Token_Type req_tok)
-{
+static inline char require_token(Tokenizer *tokenizer,
+                            Token_Type req_tok) {
     Token tok = get_token(tokenizer);
     char ret = (tok.type == req_tok);
     return ret;
 }
 
-PAC_INTERNAL Token get_token(Tokenizer *tokenizer)
-{
+static Token get_token(Tokenizer *tokenizer) {
     eat_whitespace(tokenizer);
     Token tok = {};
     tok.length = 1;
@@ -175,11 +128,10 @@ PAC_INTERNAL Token get_token(Tokenizer *tokenizer)
     return tok;
 }
 
-PAC_INTERNAL Token get_string_entry(Tokenizer *tokenizer,
-                                char *dest,
-                                int dest_size,
-                                char *identifier)
-{
+static Token get_string_entry(Tokenizer *tokenizer,
+                            char *dest,
+                            int dest_size,
+                            char *identifier) {
     Token tok = {};
     if (require_token(tokenizer, TOKEN_EQUALSIGN)) {
         tok = get_token(tokenizer);
@@ -206,15 +158,13 @@ PAC_INTERNAL Token get_string_entry(Tokenizer *tokenizer,
     return tok;
 }
 
-PAC_INTERNAL void get_string(Token *token, char *dest, int dest_size)
-{
+static void get_string(Token *token, char *dest, int dest_size) {
     if ((token->length + 1) < dest_size) {
         snprintf(dest, token->length + 1, "%s", token->text);
     }
 }
 
-PAC_INTERNAL float get_float_entry(Tokenizer *tokenizer, char *identifier)
-{
+static float get_float_entry(Tokenizer *tokenizer, char *identifier) {
     Token tok = {};
     float ret = 0.0f;
     if (require_token(tokenizer, TOKEN_EQUALSIGN)) {
@@ -240,11 +190,10 @@ PAC_INTERNAL float get_float_entry(Tokenizer *tokenizer, char *identifier)
     return ret;
 }
 
-PAC_INTERNAL int get_num_array_entry(Tokenizer *tokenizer,
+static int get_num_array_entry(Tokenizer *tokenizer,
                                     float *array,
                                     int array_count,
-                                    char *identifier)
-{
+                                    char *identifier) {
     int ret = 0;
     if (require_token(tokenizer, TOKEN_EQUALSIGN)) {
         if (require_token(tokenizer, TOKEN_OPEN_BRACE)) {
@@ -289,10 +238,9 @@ PAC_INTERNAL int get_num_array_entry(Tokenizer *tokenizer,
     return ret;
 }
 
-PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars, 
-                                        char *confbuf, 
-                                        int confbuf_bytes)
-{
+static void parse_and_apply_config(Runtime_Vars *rtvars, 
+                                char *confbuf, 
+                                int confbuf_bytes) {
     char parsing = 1;
     Startup_Args *sargs = rtvars->sargs_ptr;
     Tokenizer tokenizer = {0};

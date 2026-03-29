@@ -6,3 +6,4 @@
 /src/testing
 /res/testdata
 *.bak
+/dump

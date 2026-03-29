@@ -43,17 +43,54 @@ typedef struct Tokenizer {
     char *at;
 } Tokenizer;
 
-PAC_INLINE char is_eol(char c);
-PAC_INLINE char is_whitespace(char c);
-PAC_INLINE char is_alpha(char c);
-PAC_INLINE char is_number(char c);
-PAC_INLINE char token_equals(Token tok, char *match);
-PAC_INTERNAL void eat_whitespace(Tokenizer *tokenizer);
-PAC_INLINE char require_token(Tokenizer *tokenizer, Token_Type req_tok);
-PAC_INTERNAL Token get_token(Tokenizer *tokenizer);
-PAC_INTERNAL Token get_string_entry(Tokenizer *tokenizer, char *dest, int dest_size, char *identifier);
-PAC_INTERNAL float get_float_entry(Tokenizer *tokenizer, char *identifier);
-PAC_INTERNAL void parse_and_apply_config(Runtime_Vars *rtvars, char *confbuf, int confbuf_bytes);
+static inline char is_eol(char c);
+static inline char is_whitespace(char c);
+static inline char is_alpha(char c);
+static inline char is_number(char c);
+static inline char token_equals(Token tok, char *match);
+static void eat_whitespace(Tokenizer *tokenizer);
+static inline char require_token(Tokenizer *tokenizer, Token_Type req_tok);
+static Token get_token(Tokenizer *tokenizer);
+static Token get_string_entry(Tokenizer *tokenizer, char *dest, int dest_size, char *identifier);
+static float get_float_entry(Tokenizer *tokenizer, char *identifier);
+static void parse_and_apply_config(Runtime_Vars *rtvars, char *confbuf, int confbuf_bytes);
+
+
+static inline char is_eol(char c) {
+    char ret = ((c == '\n') ||
+                (c == '\r'));
+    return ret;
+}
+
+static inline char is_whitespace(char c) {
+    char ret = ((c == ' ') ||
+                (c == '\t') ||
+                (c == '\v') ||
+                (c == '\f') ||
+                is_eol(c));
+    return ret;
+}
+
+static inline char is_alpha(char c) {
+    char ret = (((c >= 'a') && (c <= 'z')) ||
+                ((c >= 'A') && (c <= 'Z')));
+	return ret;
+}
+
+static inline char is_number(char c) {
+    char ret = ((c >= '0') && 
+                (c <= '9'));
+    return ret;
+}
+
+static inline char token_equals(Token tok, char *match) {
+    char *at = match;
+    for (int i = 0; i < tok.length; ++i, ++at) {
+        if (!*at || (tok.text[i] != *at)) 
+        { return 0; }
+    }
+    return (*at == 0);
+}
 
 #define _2PACWAV2_PARSER_DOT_H 1
 #endif //_2PACWAV2_PARSER_DOT_H

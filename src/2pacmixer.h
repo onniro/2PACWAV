@@ -7,10 +7,13 @@ Date: Thu 22 May 2025 07:36:19 PM EEST
 for SDL mixer in the 2pacwav music player. The motivation for replacing SDL mixer
 was the desire to be able to support more codecs and containers by utilizing
 the FFmpeg libraries such as avcodec and avformat.
-This code has (mostly) been developed in isolation of the rest of 2pacwav and is being
-used in the present format in order to ease potential reuse of this code in the future.
+This code has mostly been developed in isolation of the rest of 2pacwav and is being
+used and distributed in this format in order to ease potential reuse of this code
+for other software in the future.
+NOTE: seamless functionality in other software without numerous changes and additions
+to this code is NOT guaranteed!
 
-required link options:
+REQUIRED LINK OPTIONS:
 -lSDL2 -lavformat -lavcodec -lavutil -lswresample -lpthread
 */
 
@@ -26,13 +29,13 @@ to 1 and including this stuff elsewhere is to add the containing folders of thes
 if they aren't found automatically with the -I option in your compiler.
 */
 #if !PACMXR_DONT_INCLUDE_3RD_PARTY
-#include <SDL2/SDL.h>
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-#include <libswresample/swresample.h>
-#include <libavutil/opt.h>
-#include <libavutil/samplefmt.h>
-#include <libavutil/dict.h>
+    #include <SDL2/SDL.h>
+    #include <libavformat/avformat.h>
+    #include <libavcodec/avcodec.h>
+    #include <libswresample/swresample.h>
+    #include <libavutil/opt.h>
+    #include <libavutil/samplefmt.h>
+    #include <libavutil/dict.h>
 #endif
 
 #include <stdio.h>
@@ -49,12 +52,12 @@ if they aren't found automatically with the -I option in your compiler.
 #if defined(unix) || defined(__unix) || defined(__unix__)
     #define PACMXR_UNIX 1
 #elif defined(_WIN32)
-    #define PACMXR_WIN32 1 //unused
+    #define PACMXR_WIN32 1 //unused, unsupported
 #endif
 
 #if PACMXR_UNIX
-#include <sys/mman.h>
-#include <sys/select.h>
+    #include <sys/mman.h>
+    #include <sys/select.h>
 #endif
 
 /* 
@@ -134,7 +137,7 @@ typedef struct Audio_Queue {
     size_t backbuffer_bytes;
     size_t bytes_allocated; //how much memory each buffer has (equal to PACMXR_AUDIOQUEUE_BUFFER_SIZE)
     size_t total_decode_bytes; //how many bytes you will end up with if you resample the entire stream
-    int num_chunks; //how many times bigger the whole decoded size is than how much data can fit into the queue (rounded up)
+    int num_chunks; //how many times bigger the whole decoded size is relative to how much data can fit into the queue (rounded up)
     int chunk_index; //which chunk is currently in front_buffer (starts from 0)
     int volume; //only member in this struct that you can write to worry-free as long as the value is between 0 and 128
     //int64_t last_timestamp; //unused. last reading of AVFrame.best_effort_timestamp before the queue was filled up
@@ -499,24 +502,20 @@ PACMXR_GLOBALVAR Pacmxr_Context global_pacmxr_ctx;
 
 #if PACMXR_HEADER_ONLY
 
-PACMXR_INLINE Pacmxr_Context *pacmxr_get_context(void)
-{
+PACMXR_INLINE Pacmxr_Context *pacmxr_get_context(void) {
     return &global_pacmxr_ctx;
 }
 
-PACMXR_INLINE Audio_Queue *pacmxr_get_audioq(void) 
-{
+PACMXR_INLINE Audio_Queue *pacmxr_get_audioq(void)  {
     return &global_pacmxr_ctx.aqueue;
 }
 
-PACMXR_INLINE int pacmxr_align_up(size_t val, size_t multiple)
-{
+PACMXR_INLINE int pacmxr_align_up(size_t val, size_t multiple) {
     int ret = ((val + multiple - 1)/val)*multiple;
     return ret;
 }
 
-PACMXR_INLINE int pacmxr_clamp_int(int val, int min, int max)
-{
+PACMXR_INLINE int pacmxr_clamp_int(int val, int min, int max) {
     int ret = val;
     if (val < min) {
         ret = min; 
@@ -526,8 +525,7 @@ PACMXR_INLINE int pacmxr_clamp_int(int val, int min, int max)
     return ret;
 }
 
-PACMXR_INLINE float pacmxr_clamp_float(float val, float min, float max)
-{
+PACMXR_INLINE float pacmxr_clamp_float(float val, float min, float max) {
     float ret = val;
     if (val < min) {
         ret = min; 
@@ -537,13 +535,11 @@ PACMXR_INLINE float pacmxr_clamp_float(float val, float min, float max)
     return ret;
 }
 
-PACMXR_INLINE float pacmxr_floorf(float val)
-{
+PACMXR_INLINE float pacmxr_floorf(float val) {
     return (float)((int)val);
 }
 
-PACMXR_INLINE float pacmxr_ceilf(float val)
-{
+PACMXR_INLINE float pacmxr_ceilf(float val) {
     float ret = 0;
     if ((val - (int)val) > 0) {
         ret = (float)((int)val + 1); 
@@ -553,47 +549,40 @@ PACMXR_INLINE float pacmxr_ceilf(float val)
     return ret;
 }
 
-PACMXR_INLINE void pacmxr_toggle_playback(void)
-{
+PACMXR_INLINE void pacmxr_toggle_playback(void) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     ctx->paused = !ctx->paused;
     SDL_PauseAudioDevice(ctx->au_dev, ctx->paused);
 }
 
-PACMXR_INLINE void pacmxr_set_volume(int volume) 
-{
+PACMXR_INLINE void pacmxr_set_volume(int volume) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     volume = pacmxr_clamp_int(volume, 0, SDL_MIX_MAXVOLUME);
     ctx->aqueue.volume = volume;
 }
 
-PACMXR_INLINE int pacmxr_get_volume(void) 
-{
+PACMXR_INLINE int pacmxr_get_volume(void) {
     return global_pacmxr_ctx.aqueue.volume;
 }
 
-PACMXR_INLINE char pacmxr_file_is_open(void)
-{
+PACMXR_INLINE char pacmxr_file_is_open(void) {
     return global_pacmxr_ctx.fctx.is_open;
 }
 
-PACMXR_INLINE char pacmxr_is_paused(void)
-{
+PACMXR_INLINE char pacmxr_is_paused(void) {
     return global_pacmxr_ctx.paused;
 }
 
 //#define PACMXR_UNIX 1
 #if defined(PACMXR_UNIX) && PACMXR_UNIX
-PACMXR_INLINE void pacmxr_sleep_ms(int millisec) 
-{
+PACMXR_INLINE void pacmxr_sleep_ms(int millisec) {
     struct timeval tv;
     tv.tv_sec = 0;
     tv.tv_usec = millisec*1000;
     select(0, 0, 0, 0, &tv);
 }
 
-PACMXR_INLINE void pacmxr_sleep_us(int microsec)
-{
+PACMXR_INLINE void pacmxr_sleep_us(int microsec) {
     struct timeval tv;
     tv.tv_sec = 0;
     tv.tv_usec = microsec;
@@ -601,8 +590,7 @@ PACMXR_INLINE void pacmxr_sleep_us(int microsec)
 }
 #endif
 
-PACMXR_DEF void *pacmxr__decode_check_thread_entry(void *udata) 
-{
+PACMXR_DEF void *pacmxr__decode_check_thread_entry(void *udata) {
 #define PACMXR_THREAD_SLEEP_MS (33)
     Pacmxr_Context *ctx = (Pacmxr_Context *)udata;
     volatile Audio_Queue *aq = &ctx->aqueue;
@@ -634,17 +622,16 @@ PACMXR_DEF void *pacmxr__decode_check_thread_entry(void *udata)
     return 0;
 }
 
-PACMXR_INLINE Pacmxr_Init_Options pacmxr_default_init_options(void)
-{
+PACMXR_INLINE Pacmxr_Init_Options pacmxr_default_init_options(void) {
     Pacmxr_Init_Options ret = {PACMXR_ZERO_INIT};
+
     ret.sample_rate = PACMXR_RESAMPLE_SAMPLERATE;
     ret.no_init_sdl = 0;
     ret.av_loglevel = AV_LOG_ERROR;
     return ret;
 }
 
-PACMXR_DEF int pacmxr__init_sdl(Pacmxr_Init_Options *opts)
-{
+PACMXR_DEF int pacmxr__init_sdl(Pacmxr_Init_Options *opts) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     if (SDL_Init(SDL_INIT_AUDIO) < 0) {
         fprintf(stderr, "pacmxr_init could not initialize SDL: %s\n", SDL_GetError());
@@ -670,8 +657,7 @@ PACMXR_DEF int pacmxr__init_sdl(Pacmxr_Init_Options *opts)
     return 1;
 }
 
-PACMXR_DEF int pacmxr_init(Pacmxr_Init_Options *opts)
-{
+PACMXR_DEF int pacmxr_init(Pacmxr_Init_Options *opts) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     memset((void *)ctx, 0, sizeof(Pacmxr_Context));
     Audio_Queue *aq = &ctx->aqueue;
@@ -718,8 +704,7 @@ PACMXR_DEF int pacmxr_init(Pacmxr_Init_Options *opts)
     return 1;
 }
 
-PACMXR_DEF void pacmxr_deinit(void)
-{
+PACMXR_DEF void pacmxr_deinit(void) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     ctx->thread_keep_running = 0;
     Audio_Queue *aq = &ctx->aqueue;
@@ -742,15 +727,13 @@ PACMXR_DEF void pacmxr_deinit(void)
 #endif
 }
 
-PACMXR_DEF void pacmxr_pause(char pause)
-{
+PACMXR_DEF void pacmxr_pause(char pause) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     ctx->paused = pause;
     SDL_PauseAudioDevice(ctx->au_dev, pause);
 }
 
-PACMXR_INLINE float pacmxr_stream_duration(void)
-{
+PACMXR_INLINE float pacmxr_stream_duration(void) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     File_Context *fctx = &ctx->fctx;
     float ret = -1.0f;
@@ -759,8 +742,7 @@ PACMXR_INLINE float pacmxr_stream_duration(void)
     return ret;
 }
 
-PACMXR_INLINE size_t pacmxr_unqueued_bytes(void)
-{
+PACMXR_INLINE size_t pacmxr_unqueued_bytes(void) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     Audio_Queue *aq = &ctx->aqueue;
     //size_t unqueued_bytes = aq->total_decode_bytes - aq->backbuffer_bytes;
@@ -768,8 +750,7 @@ PACMXR_INLINE size_t pacmxr_unqueued_bytes(void)
     return unqueued_bytes;
 }
 
-PACMXR_INLINE float pacmxr_seconds_played(void)
-{
+PACMXR_INLINE float pacmxr_seconds_played(void) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     Audio_Queue *aq = &ctx->aqueue;
     float prev_chunk_secs = PACMXR_AUDIOQUEUE_MAX_SECS*aq->chunk_index;
@@ -787,21 +768,18 @@ PACMXR_INLINE float pacmxr_seconds_played(void)
     return secs_played;
 }
 
-PACMXR_INLINE float pacmxr_entire_stream_seconds_left(void)
-{
+PACMXR_INLINE float pacmxr_entire_stream_seconds_left(void) {
     float seconds_left = pacmxr_stream_duration() -
                         pacmxr_seconds_played();
     return seconds_left;
 }
 
-//this will be wrong for the last chunk but its kinad useless anyway
-PACMXR_INLINE float pacmxr_queue_seconds_total(void)
-{
+//this will be wrong for the last chunk but its kinda useless anyway
+PACMXR_INLINE float pacmxr_queue_seconds_total(void) {
     return PACMXR_AUDIOQUEUE_MAX_SECS;
 }
 
-PACMXR_INLINE float pacmxr_queue_seconds_left(void)
-{
+PACMXR_INLINE float pacmxr_queue_seconds_left(void) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     float bytes_left = (float)ctx->aqueue.bytes_left;
     //int num_chans = ctx->fctx.avc_ctx->ch_layout.nb_channels;
@@ -814,16 +792,14 @@ PACMXR_INLINE float pacmxr_queue_seconds_left(void)
 
 PACMXR_DEF void pacmxr__queue_decoded_chunk(Audio_Queue *aq,
                                         uint8_t *srcbuf,
-                                        int num_bytes)
-{
+                                        int num_bytes) {
     memcpy(aq->write_ptr, srcbuf, num_bytes);
     aq->write_ptr += num_bytes;
     //aq->bytes_left += num_bytes;
     aq->backbuffer_bytes += num_bytes;
 }
 
-PACMXR_DEF int pacmxr__ffmpeg_resample_and_queue(int64_t second_offset)
-{
+PACMXR_DEF int pacmxr__ffmpeg_resample_and_queue(int64_t second_offset) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     uint8_t *decode_buffer = ctx->decode_buffer;
     AVCodecContext *avc_ctx = ctx->fctx.avc_ctx;
@@ -834,7 +810,7 @@ PACMXR_DEF int pacmxr__ffmpeg_resample_and_queue(int64_t second_offset)
     struct SwrContext *swr_ctx = ctx->fctx.swr_ctx;
     //SDL_AudioDeviceID au_dev = ctx->au_dev;
     Audio_Queue *aq = &ctx->aqueue;
-    int dst_nb_samples, buffer_size, samples_converted;
+    int dst_nb_samples, samples_converted;
     size_t decode_size;
     File_Context *fctx = &ctx->fctx;
 
@@ -849,7 +825,7 @@ PACMXR_DEF int pacmxr__ffmpeg_resample_and_queue(int64_t second_offset)
         if (av_seek_frame(avf_ctx, 
             ctx->fctx.stream_index, 
             tstamp, AVSEEK_FLAG_FRAME) < 0) {
-            fprintf(stderr, "seeking to specified frame failed\n");
+            fprintf(stderr, "[pacmxr__ffmpeg_resample_and_queue]: seeking to specified frame failed\n");
         }
         avcodec_flush_buffers(ctx->fctx.avc_ctx);
     }
@@ -876,7 +852,7 @@ PACMXR_DEF int pacmxr__ffmpeg_resample_and_queue(int64_t second_offset)
 
         if (packet->stream_index == ctx->fctx.stream_index) {
             if (avcodec_send_packet(avc_ctx, packet) < 0) {
-                fprintf(stderr, "error sending packet\n");
+                fprintf(stderr, "[pacmxr__ffmpeg_resample_and_queue]: error sending packet\n");
                 return -2;
             }
 
@@ -887,11 +863,15 @@ PACMXR_DEF int pacmxr__ffmpeg_resample_and_queue(int64_t second_offset)
                                         avc_ctx->sample_rate,
                                         AV_ROUND_UP);
 
-                buffer_size = av_samples_get_buffer_size(0,
-                                    avc_ctx->ch_layout.nb_channels,
-                                    dst_nb_samples,
-                                    PACMXR_OUTPUT_AUDIO_SAMPLE_FMT, 1);
-                (void)buffer_size; //fixes warnings
+                //buffer_size = av_samples_get_buffer_size(0,
+                //                    avc_ctx->ch_layout.nb_channels,
+                //                    dst_nb_samples,
+                //                    PACMXR_OUTPUT_AUDIO_SAMPLE_FMT, 1);
+                //(void)buffer_size; //fixes warnings
+                av_samples_get_buffer_size(0,
+                        avc_ctx->ch_layout.nb_channels,
+                        dst_nb_samples,
+                        PACMXR_OUTPUT_AUDIO_SAMPLE_FMT, 1);
 
                 samples_converted = swr_convert(swr_ctx,
                                         &decode_buffer,
@@ -930,8 +910,7 @@ PACMXR_DEF int pacmxr__ffmpeg_resample_and_queue(int64_t second_offset)
 #if 0
 #define PACMXR_NEED_MORE_DATA_SEC_THRESH 5
 //this stuff isn't used anymore
-PACMXR_INLINE size_t pacmxr__need_more_data(void)
-{
+PACMXR_INLINE size_t pacmxr__need_more_data(void) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     size_t ret = 0;
     Audio_Queue *aq = &ctx->aqueue;
@@ -946,8 +925,7 @@ PACMXR_INLINE size_t pacmxr__need_more_data(void)
 }
 #endif
 
-PACMXR_INLINE size_t pacmxr_seconds_to_bytes(float seconds)
-{
+PACMXR_INLINE size_t pacmxr_seconds_to_bytes(float seconds) {
     if (seconds < 0.0f)
     { return 0; }
     size_t ret = PACMXR_RESAMPLE_SAMPLERATE *
@@ -957,8 +935,7 @@ PACMXR_INLINE size_t pacmxr_seconds_to_bytes(float seconds)
     return ret;
 }
 
-PACMXR_INLINE float pacmxr_seconds_to_seek_value(float seconds)
-{
+PACMXR_INLINE float pacmxr_seconds_to_seek_value(float seconds) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     float ret = 0.0f;
     float stream_len = pacmxr_stream_duration();
@@ -971,8 +948,7 @@ PACMXR_INLINE float pacmxr_seconds_to_seek_value(float seconds)
     return ret;
 }
 
-PACMXR_DEF void pacmxr_seek(float percent)
-{
+PACMXR_DEF void pacmxr_seek(float percent) {
     if (!pacmxr_file_is_open())
     { return; }
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
@@ -1042,15 +1018,13 @@ PACMXR_DEF void pacmxr_seek(float percent)
     SDL_UnlockAudioDevice(ctx->au_dev);
 }
 
-PACMXR_INLINE int pacmxr_chunk_sec_offset(int index)
-{
+PACMXR_INLINE int pacmxr_chunk_sec_offset(int index) {
     //Pacmxr_Context *ctx = &global_pacmxr_ctx;
     int64_t ret = index*PACMXR_AUDIOQUEUE_MAX_SECS;
     return ret;
 }
 
-PACMXR_DEF void pacmxr__decode_more(void)
-{
+PACMXR_DEF void pacmxr__decode_more(void) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     Audio_Queue *aq = &ctx->aqueue;
 
@@ -1067,8 +1041,7 @@ PACMXR_DEF void pacmxr__decode_more(void)
     }
 }
 
-PACMXR_INLINE void pacmxr__swap_buffers(void)
-{
+PACMXR_INLINE void pacmxr__swap_buffers(void) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     Audio_Queue *aq = &ctx->aqueue;
     if (aq->front_buffer == aq->buffer1) {
@@ -1079,8 +1052,7 @@ PACMXR_INLINE void pacmxr__swap_buffers(void)
     aq->buf_was_swapped = 1;
 }
 
-PACMXR_DEF void pacmxr__sdl_audio_callback(void *userdata, uint8_t *stream, int len)
-{
+PACMXR_DEF void pacmxr__sdl_audio_callback(void *userdata, uint8_t *stream, int len) {
     Pacmxr_Context *ctx = (Pacmxr_Context *)userdata;
     Audio_Queue *aq = &ctx->aqueue;
     aq->sdl_stream = stream;
@@ -1112,8 +1084,7 @@ PACMXR_DEF void pacmxr__sdl_audio_callback(void *userdata, uint8_t *stream, int 
     aq->bytes_left -= len;
 }
 
-PACMXR_DEF int pacmxr_open_file(char *filename)
-{
+PACMXR_DEF int pacmxr_open_file(char *filename) {
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     const int fail = 0, success = 1; 
     File_Context *fctx = &ctx->fctx;
@@ -1254,8 +1225,7 @@ PACMXR_DEF int pacmxr_open_file(char *filename)
     return success;
 }
 
-PACMXR_INLINE size_t pacmxr_estimate_decode_size(void)
-{
+PACMXR_INLINE size_t pacmxr_estimate_decode_size(void) {
     float seconds = pacmxr_stream_duration();
     size_t estimate = pacmxr_ceilf(seconds) *
                         PACMXR_RESAMPLE_SAMPLERATE *
@@ -1264,8 +1234,7 @@ PACMXR_INLINE size_t pacmxr_estimate_decode_size(void)
     return estimate;
 }
 
-PACMXR_DEF void pacmxr_close_file(void)
-{
+PACMXR_DEF void pacmxr_close_file(void) {
     //NOTE: idk if this breaks shit but it seems 2 fix an infinite loop in 2pacwav
     if (!global_pacmxr_ctx.fctx.is_open)
     { return; }
@@ -1293,8 +1262,7 @@ PACMXR_DEF void pacmxr_close_file(void)
     //SDL_UnlockAudioDevice(ctx->au_dev);
 }
 
-PACMXR_DEF void pacmxr__reset_queue(Audio_Queue *aq, char zero)
-{
+PACMXR_DEF void pacmxr__reset_queue(Audio_Queue *aq, char zero) {
     aq->write_ptr = aq->buffer1;
     aq->read_ptr = aq->buffer1;
     aq->bytes_left = 0;
@@ -1309,8 +1277,7 @@ PACMXR_DEF void pacmxr__reset_queue(Audio_Queue *aq, char zero)
 
 //metadata things
 
-PACMXR_DEF int pacmxr_meta_open_file(Pacmxr_Metadata *pac_meta, char *filename)
-{
+PACMXR_DEF int pacmxr_meta_open_file(Pacmxr_Metadata *pac_meta, char *filename) {
     pac_meta->in_avf_ctx = 0;
     pac_meta->out_avf_ctx = 0;
     pac_meta->out_metadata = 0;
@@ -1336,8 +1303,7 @@ PACMXR_DEF int pacmxr_meta_open_file(Pacmxr_Metadata *pac_meta, char *filename)
     return 1;
 }
 
-PACMXR_DEF void pacmxr_meta_close_file(Pacmxr_Metadata *pac_meta)
-{
+PACMXR_DEF void pacmxr_meta_close_file(Pacmxr_Metadata *pac_meta) {
     if (!(pac_meta && pac_meta->in_avf_ctx)) { return; }
     avformat_close_input(&pac_meta->in_avf_ctx);
     if (pac_meta->out_avf_ctx) {
@@ -1349,8 +1315,7 @@ PACMXR_DEF void pacmxr_meta_close_file(Pacmxr_Metadata *pac_meta)
 
 PACMXR_DEF int pacmxr_meta_get_title(Pacmxr_Metadata *pac_meta, 
                                     char *dest,
-                                    int dest_size)
-{
+                                    int dest_size) {
     int ret = 0;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
@@ -1389,8 +1354,7 @@ PACMXR_DEF int pacmxr_meta_get_title(Pacmxr_Metadata *pac_meta,
 
 PACMXR_DEF int pacmxr_meta_get_artist(Pacmxr_Metadata *pac_meta, 
                                     char *dest,
-                                    int dest_size)
-{
+                                    int dest_size) {
     int ret = 0;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
@@ -1427,8 +1391,7 @@ PACMXR_DEF int pacmxr_meta_get_artist(Pacmxr_Metadata *pac_meta,
 
 PACMXR_DEF int pacmxr_meta_get_album(Pacmxr_Metadata *pac_meta, 
                                     char *dest,
-                                    int dest_size)
-{
+                                    int dest_size) {
     int ret = 0;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
@@ -1465,8 +1428,7 @@ PACMXR_DEF int pacmxr_meta_get_album(Pacmxr_Metadata *pac_meta,
 
 PACMXR_DEF int pacmxr_meta_get_genre(Pacmxr_Metadata *pac_meta, 
                                     char *dest,
-                                    int dest_size)
-{
+                                    int dest_size) {
     int ret = 0;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
@@ -1501,8 +1463,7 @@ PACMXR_DEF int pacmxr_meta_get_genre(Pacmxr_Metadata *pac_meta,
     return ret;
 }
 
-PACMXR_DEF int pacmxr_meta_get_year(Pacmxr_Metadata *pac_meta)
-{
+PACMXR_DEF int pacmxr_meta_get_year(Pacmxr_Metadata *pac_meta) {
     int ret = -1;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
@@ -1543,8 +1504,7 @@ PACMXR_DEF int pacmxr_meta_get_year(Pacmxr_Metadata *pac_meta)
     return ret;
 }
 
-PACMXR_DEF int pacmxr_meta_get_track(Pacmxr_Metadata *pac_meta)
-{
+PACMXR_DEF int pacmxr_meta_get_track(Pacmxr_Metadata *pac_meta) {
     int ret = -1;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
@@ -1584,8 +1544,7 @@ PACMXR_DEF int pacmxr_meta_get_track(Pacmxr_Metadata *pac_meta)
     return ret;
 }
 
-PACMXR_DEF uint8_t *pacmxr_meta_get_cover(Pacmxr_Metadata *pac_meta, int *out_size)
-{
+PACMXR_DEF uint8_t *pacmxr_meta_get_cover(Pacmxr_Metadata *pac_meta, int *out_size) {
     uint8_t *ret = 0;
     Pacmxr_Context *ctx = &global_pacmxr_ctx;
     AVFormatContext *avf_ctx;
@@ -1611,42 +1570,31 @@ PACMXR_DEF uint8_t *pacmxr_meta_get_cover(Pacmxr_Metadata *pac_meta, int *out_si
     return ret;
 }
 
-PACMXR_DEF void pacmxr_meta_set_title(Pacmxr_Metadata *pac_meta, char *value)
-{
+PACMXR_DEF void pacmxr_meta_set_title(Pacmxr_Metadata *pac_meta, char *value) {
     av_dict_set(&pac_meta->out_metadata, "title", value, 0);
 }
 
-PACMXR_DEF void pacmxr_meta_set_artist(Pacmxr_Metadata *pac_meta, char *value)
-{
+PACMXR_DEF void pacmxr_meta_set_artist(Pacmxr_Metadata *pac_meta, char *value) {
     av_dict_set(&pac_meta->out_metadata, "artist", value, 0);
 }
 
-PACMXR_DEF void pacmxr_meta_set_album(Pacmxr_Metadata *pac_meta, char *value)
-{
+PACMXR_DEF void pacmxr_meta_set_album(Pacmxr_Metadata *pac_meta, char *value) {
     av_dict_set(&pac_meta->out_metadata, "album", value, 0);
 }
 
-PACMXR_DEF void pacmxr_meta_set_genre(Pacmxr_Metadata *pac_meta, char *value)
-{
+PACMXR_DEF void pacmxr_meta_set_genre(Pacmxr_Metadata *pac_meta, char *value) {
     av_dict_set(&pac_meta->out_metadata, "genre", value, 0);
 }
 
-PACMXR_DEF void pacmxr_meta_set_year(Pacmxr_Metadata *pac_meta, int value)
-{
+PACMXR_DEF void pacmxr_meta_set_year(Pacmxr_Metadata *pac_meta, int value) {
     av_dict_set_int(&pac_meta->out_metadata, "date", value, 0);
 }
 
-PACMXR_DEF void pacmxr_meta_set_track(Pacmxr_Metadata *pac_meta, int value)
-{
+PACMXR_DEF void pacmxr_meta_set_track(Pacmxr_Metadata *pac_meta, int value) {
     av_dict_set_int(&pac_meta->out_metadata, "track", value, 0);
 }
 
-#ifndef PATH_MAX
-    #define PATH_MAX (4096)
-#endif
-
-PACMXR_DEF int pacmxr_copy_file(char *dst, char *src)
-{
+PACMXR_DEF int pacmxr_copy_file(char *dst, char *src) {
     int ret = 0;
     FILE *dstf = fopen(dst, "wb");
     FILE *srcf = fopen(src, "rb");
@@ -1668,15 +1616,14 @@ PACMXR_DEF int pacmxr_copy_file(char *dst, char *src)
     return ret;
 }
 
-PACMXR_DEF int pacmxr_meta_save(Pacmxr_Metadata *pac_meta)
-{
+PACMXR_DEF int pacmxr_meta_save(Pacmxr_Metadata *pac_meta) {
 #if PACMXR_UNIX
     if (!pac_meta->in_avf_ctx) { return 0; }
     AVFormatContext *inctx = pac_meta->in_avf_ctx;
     AVFormatContext *outctx = pac_meta->out_avf_ctx;
 
     if (avformat_find_stream_info(inctx, 0) < 0) {
-        fprintf(stderr, "failed to find stream information\n");
+        fprintf(stderr, "[pacmxr_meta_save]: failed to find stream information\n");
         return 0;
     }
 
@@ -1703,7 +1650,7 @@ PACMXR_DEF int pacmxr_meta_save(Pacmxr_Metadata *pac_meta)
     snprintf(tempfile, PATH_MAX, "/tmp/%ld-%s", time(0), filename_real);
 
     if (avformat_alloc_output_context2(&outctx, 0, 0, tempfile) < 0) {
-        fprintf(stderr, "avformat failed to allocate output context\n");
+        fprintf(stderr, "[pacmxr_meta_save]: avformat failed to allocate output context\n");
         return 0;
     }
 
@@ -1714,7 +1661,7 @@ PACMXR_DEF int pacmxr_meta_save(Pacmxr_Metadata *pac_meta)
         in_stream = inctx->streams[stream_i];
         out_stream = avformat_new_stream(outctx, 0);
         if (!out_stream) {
-            fprintf(stderr, "avformat failed to allocate output stream\n");
+            fprintf(stderr, "[pacmxr_meta_save]: avformat failed to allocate output stream\n");
             goto error;
         }
         avcodec_parameters_copy(out_stream->codecpar, in_stream->codecpar);
@@ -1724,13 +1671,13 @@ PACMXR_DEF int pacmxr_meta_save(Pacmxr_Metadata *pac_meta)
 
     if (!(outctx->oformat->flags & AVFMT_NOFILE)) {
         if (avio_open(&outctx->pb, tempfile, AVIO_FLAG_WRITE) < 0) {
-            fprintf(stderr, "could not open output file '%s'\n", tempfile);
+            fprintf(stderr, "[pacmxr_meta_save]: could not open output file '%s'\n", tempfile);
             goto error;
         }
     }
 
     if (avformat_write_header(outctx, 0) < 0) {
-        fprintf(stderr, "avformat failed to write header\n");
+        fprintf(stderr, "[pacmxr_meta_save]: avformat failed to write header\n");
         goto error;
     }
 

@@ -20,15 +20,15 @@ Date: Sat 24 Jan 2026 03:34:19 PM EET
     "tupac_changes.mp3";
 }
 
-!!! NOTE !!!
-Although I have confirmed that this code can handle a simple and minimal test
-case, I have every reason to believe it is still riddled with crazy bugs
+note: although I have confirmed that this code can handle a simple and minimal test
+case such as the commented stuff above, this code still probably has crazy bugs!!!
 */
 
 #include "2pacwav2.h"
 #include "2pacwav2_parser.h"
 
-#define LAZY_ERROR() fprintf(stderr, "ERROR %s:%d\n", __FILE__, __LINE__)
+//why is this here
+#define LAZY_ERROR() fprintf(stderr, "ERROR @ %s:%d\n", __FILE__, __LINE__)
 
 #define PLAYLIST_EXTENSION ".2w_playlist"
 
@@ -93,7 +93,7 @@ static void process_playlist(Runtime_Vars *rtvars, char *playlist_path) {
                             continue;
                         } else {
                             if (in_block.type != TOKEN_CLOSED_BRACE) {
-                                fprintf(stderr, "");
+                                fprintf(stderr, "playlist warning: weird token encountered in playlist block\n");
                             }
                             break;
                         }

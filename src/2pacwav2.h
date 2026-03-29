@@ -16,8 +16,8 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 #define _2PACWAV_VER_MINOR      (12)
 #define _2PACWAV_VER_PATCH      (2)
 
-#define PAC_INLINE static inline
-#define PAC_INTERNAL static
+//#define PAC_INLINE static inline
+//#define PAC_INTERNAL static
 #define PAC_LOCAL_STATIC static
 
 #define WINDOW_WIDTH    (1280)
@@ -195,8 +195,7 @@ typedef enum Center_View_State {
     CENTER_VIEW_STATE__LAST
 } Center_View_State;
 
-PAC_INLINE void cycle_center_view_state(Center_View_State *value)
-{
+static inline void cycle_center_view_state(Center_View_State *value) {
     if (!value) { return; }
     uint8_t new_value = 1 + (uint8_t)(*value);
     if (new_value != CENTER_VIEW_STATE__LAST) {
@@ -227,8 +226,7 @@ typedef enum Sort_State {
     SORT_STATE__LAST
 } Sort_State;
 
-PAC_INLINE void cycle_sort_state(Sort_State *value)
-{
+static inline void cycle_sort_state(Sort_State *value) {
     if (!value) { return; }
     uint8_t new_value = 1 + (uint8_t)(*value);
     if (new_value != SORT_STATE__LAST) {
@@ -371,8 +369,7 @@ typedef struct Runtime_Vars {
     char conf_directory[PATH_MAX];
 } Runtime_Vars;
 
-PAC_INLINE char *pac_strnstr(char *haystack, char *needle, int nchars)
-{
+static inline char *pac_strnstr(char *haystack, char *needle, int nchars) {
     char *ret = 0, *tmp_full, *tmp_sub;
     for (int chari = 0;
         (chari < nchars) && haystack[chari];
@@ -390,8 +387,7 @@ PAC_INLINE char *pac_strnstr(char *haystack, char *needle, int nchars)
     return ret;
 }
 
-PAC_INLINE char *pac_strnchr(char *haystack, char needle, int nvalue)
-{
+static inline char *pac_strnchr(char *haystack, char needle, int nvalue) {
     char *ret = 0;
     int index = 0;
     while (haystack[index] && nvalue) {
@@ -406,29 +402,29 @@ PAC_INLINE char *pac_strnchr(char *haystack, char needle, int nvalue)
 }
 
 //(forward declarations)
-PAC_INTERNAL void pac_nop(void);
-PAC_INTERNAL void get_version_string(char *buffer);
-PAC_INTERNAL void show_version(void);
-PAC_INTERNAL void pac_do_command_args(int arg_count, char **args);
-PAC_INTERNAL void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
-PAC_INTERNAL void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata);
-PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars);
-PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
-PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
-PAC_INTERNAL void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type);
-PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars);
-PAC_INTERNAL char file_is_playlist(char *path);
-PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars, General_Buffer_Group *bufgroup, Music_Data *mdata);
-PAC_INTERNAL void file_list_push_dirname(char *dirname, File_List *flist);
-PAC_INTERNAL void goto_next_file(Music_Data *mdata);
-PAC_INTERNAL void goto_prev_file(Music_Data *mdata);
-PAC_INTERNAL void set_match_flags(char *searchbuf, Music_Data *mdata);
-PAC_INTERNAL void update_audio_time(Music_Data *mdata);
-PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars, Sdl_Apidata *sdldata, General_Buffer_Group *bufgroup, Music_Data *mdata);
-PAC_INTERNAL void tupacmixer_start_music(Music_Data *mdata, char *music_path);
-PAC_INTERNAL void tupacmixer_stop_music(Music_Data *mdata);
-PAC_INTERNAL void tupacmixer_get_taginfo(Music_Data *mdata);
-PAC_INTERNAL char pac_init_tupacmixer(Music_Data *mdata);
+static void pac_nop(void);
+static void get_version_string(char *buffer);
+static void show_version(void);
+static void pac_do_command_args(int arg_count, char **args);
+static void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
+static void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata);
+static void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars);
+static void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
+static void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata);
+static void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type);
+static void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars);
+static char file_is_playlist(char *path);
+static void menu_do_search(Runtime_Vars *rtvars, General_Buffer_Group *bufgroup, Music_Data *mdata);
+static void file_list_push_dirname(char *dirname, File_List *flist);
+static void goto_next_file(Music_Data *mdata);
+static void goto_prev_file(Music_Data *mdata);
+static void set_match_flags(char *searchbuf, Music_Data *mdata);
+static void update_audio_time(Music_Data *mdata);
+static void pac_main_loop(Runtime_Vars *rtvars, Sdl_Apidata *sdldata, General_Buffer_Group *bufgroup, Music_Data *mdata);
+static void tupacmixer_start_music(Music_Data *mdata, char *music_path);
+static void tupacmixer_stop_music(Music_Data *mdata);
+static void tupacmixer_get_taginfo(Music_Data *mdata);
+static char pac_init_tupacmixer(Music_Data *mdata);
 
 #define _2PACWAV_DOT_H
 #endif

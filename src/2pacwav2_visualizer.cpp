@@ -23,8 +23,7 @@ TODO: fix spectrum
 PAC_INTERNAL void spectrum_fft(Complex32 *inbuf, 
                             Complex32 *outbuf, 
                             int num_iters, 
-                            int step)
-{
+                            int step) {
     if (step < num_iters) {
         spectrum_fft(outbuf, inbuf, num_iters, step*2);
         spectrum_fft(outbuf + step, inbuf + step, num_iters, step*2);
@@ -46,8 +45,7 @@ PAC_INTERNAL void spectrum_fft(Complex32 *inbuf,
 PAC_INTERNAL void spectrum_fft2(Complex32 *in,
                             Complex32 *out,
                             int num_iters,
-                            int stride)
-{
+                            int stride) {
     if (num_iters > 0)
     { return; }
     if (num_iters == 1)
@@ -66,8 +64,7 @@ PAC_INTERNAL void spectrum_fft2(Complex32 *in,
 
 PAC_INTERNAL void spectrum_apply_window(Complex32 *inbuf_complex, 
                                     float *inbuf_real,
-                                    int num_iters)
-{
+                                    int num_iters) {
     //(again, copied from tsoding's musializer)
     //NOTE: nonzero values end at idx 1024 here every time
     for (int i = 0; i < num_iters; ++i) {
@@ -85,8 +82,7 @@ PAC_INTERNAL void spectrum_squash(Complex32 *post_fft_outbuf,
                                 float *real32_outbuf,
                                 int num_bins,
                                 int bins_per_point,
-                                Squash_Logfunc log_func) 
-{
+                                Squash_Logfunc log_func) {
     float real, imag, i_magnitude,
             max_magnitude = -INFINITY,
             min_magnitude = INFINITY,
@@ -126,8 +122,7 @@ PAC_INTERNAL void spectrum_fill_verts_lineseg(float *verts,
                                             int num_elements,
                                             int num_primitives,
                                             Runtime_Vars *rtvars,
-                                            Sdl_Apidata *sdldata)
-{
+                                            Sdl_Apidata *sdldata) {
     Audio_Stream *astream = &rtvars->mdata_ptr->astream;
     int num_iters = FFT_FLOAT_COUNT/4;
 
@@ -176,8 +171,7 @@ PAC_INTERNAL void spectrum_fill_verts_point(float *verts,
                                         int num_elements,
                                         int num_primitives,
                                         Runtime_Vars *rtvars,
-                                        Sdl_Apidata *sdldata)
-{
+                                        Sdl_Apidata *sdldata) {
     Audio_Stream *astream = &rtvars->mdata_ptr->astream;
     int num_iters = FFT_FLOAT_COUNT/4;
 
@@ -220,12 +214,11 @@ PAC_INTERNAL void spectrum_fill_verts_point(float *verts,
 
 #define TWO_TO_15TH (32768.0f)
 
-PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
+static void oscilloscope_fill_verts_line(float *verts,
                                         int num_elements,
                                         int num_primitives,
                                         Runtime_Vars *rtvars,
-                                        Sdl_Apidata *sdldata)
-{
+                                        Sdl_Apidata *sdldata) {
     Music_Data *mdata = rtvars->mdata_ptr;
     Audio_Stream *astream = &mdata->astream;
     int16_t *pcm_buffer = (int16_t *)astream->stream;
@@ -255,14 +248,12 @@ PAC_INTERNAL void oscilloscope_fill_verts_line(float *verts,
     }
 }
 
-PAC_INTERNAL void do_visualizer(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
-{
+static void do_visualizer(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) {
     PAC_LOCAL_STATIC const char _shdr_vert_src[] = 
 R"(
 #version 330
 attribute vec3 position;
-void main()
-{
+void main() {
     gl_Position = vec4(position, 1.0);
     //gl_PointSize = 3.0;
 }
@@ -276,8 +267,7 @@ R"(
 uniform vec4 px_color;
 //out vec4 out_color;
 
-void main()
-{
+void main() {
     //out_color = px_color;
     gl_FragColor = px_color;
 }

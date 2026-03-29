@@ -34,13 +34,9 @@ Date: Thu 24 Apr 2025 04:24:08 PM EEST
 
 //#include "2pacmixer.h"
 
-PAC_INTERNAL void pac_nop()
-{
-    return; 
-}
+static void pac_nop() { return; }
 
-PAC_INTERNAL void get_version_string(char *buffer)
-{
+static void get_version_string(char *buffer) {
 #if _2PACWAV_DEBUG
     char buildtype[] = "(debug)";
 #else
@@ -53,8 +49,7 @@ PAC_INTERNAL void get_version_string(char *buffer)
             buildtype);
 }
 
-PAC_INTERNAL void show_version()
-{
+static void show_version() {
     char verbuf[128];
     get_version_string(verbuf);
     int len = strlen(verbuf);
@@ -63,8 +58,7 @@ PAC_INTERNAL void show_version()
     platform_log("%s\n", verbuf);
 }
 
-PAC_INTERNAL void show_help(char longhelp)
-{
+static void show_help(char longhelp) {
     show_version();
     platform_log("usage: 2w [options] [files]\n"
             "\n-- COMMAND LINE OPTIONS --\n\n"
@@ -74,7 +68,7 @@ PAC_INTERNAL void show_help(char longhelp)
             "-vol <value> : set the volume\n"
             "-conf <path> : specify config file\n"
             "-noconf : do not look for a configuration file\n"
-            "-nosup : if the configuration file has instances of startup_path, skip adding them to the playlist on startup\n"
+            "-ns : if the configuration file has instances of startup_path, skip adding them to the playlist on startup\n"
             "-font_size <value> : set point size for font\n");
 
     if (!longhelp) { return; }
@@ -108,8 +102,7 @@ visualizer_color = {r, g, b, a}; //Sets the color that the visualizer is set to 
                 , PAC_LATIN_FONTSIZE);
 }
 
-PAC_INTERNAL void startup_push_path(Startup_Args *sargs, char *path)
-{
+static void startup_push_path(Startup_Args *sargs, char *path) {
     Startup_Args_Paths *p = &sargs->paths;
     if (p->count < PAC_MAX_DIRS) {
         int index = p->count;
@@ -125,11 +118,10 @@ PAC_INTERNAL void startup_push_path(Startup_Args *sargs, char *path)
     }
 }
 
-PAC_INTERNAL char pac_do_command_args(int arg_count, 
-                                    char **args, 
-                                    Startup_Args *sargs,
-                                    General_Buffer_Group *bufgroup)
-{
+static char pac_do_command_args(int arg_count, 
+                                char **args, 
+                                Startup_Args *sargs,
+                                General_Buffer_Group *bufgroup) {
     sargs->volume = -1;
     char *arg;
     char exit_after_ret = 0;
@@ -153,7 +145,7 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
             break;
         } else if (!sargs->no_load_conf && !strcmp("-noconf", arg)) {
             sargs->no_load_conf = 1;
-        } else if (!sargs->no_load_startup_paths && !strcmp("-nosup", arg)) {
+        } else if (!sargs->no_load_startup_paths && !strcmp("-ns", arg)) {
             sargs->no_load_startup_paths = 1;
         } else if ((sargs->font_size == PAC_LATIN_FONTSIZE) &&
             !strcmp("-font_size", arg)) {
@@ -201,10 +193,9 @@ PAC_INTERNAL char pac_do_command_args(int arg_count,
     return exit_after_ret;
 }
 
-PAC_INTERNAL size_t startup_load_conf(Runtime_Vars *rtvars, 
-                                    char *confbuf, 
-                                    int confbuf_bytes)
-{
+static size_t startup_load_conf(Runtime_Vars *rtvars, 
+                                char *confbuf, 
+                                int confbuf_bytes) {
     char confpath[PATH_MAX]; confpath[0] = 0;
     const int infosize = PATH_MAX + sizeof("loaded config: ");
     char infobuf[infosize];
@@ -254,10 +245,9 @@ PAC_INTERNAL size_t startup_load_conf(Runtime_Vars *rtvars,
     return bytes_read;
 }
 
-PAC_INTERNAL void startup_add_paths(Startup_Args *sargs,
+static void startup_add_paths(Startup_Args *sargs,
                                 Runtime_Vars *rtvars, 
-                                Music_Data *mdata) 
-{
+                                Music_Data *mdata) {
     char *this_path, *this_end;
     for (int i = 0; i < sargs->paths.count; ++i) {
         this_path = sargs->paths.ptrs[i];
@@ -265,8 +255,7 @@ PAC_INTERNAL void startup_add_paths(Startup_Args *sargs,
     }
 }
 
-PAC_INTERNAL char pac_mousebtn_press(Mouse_State *mouse)
-{
+static char pac_mousebtn_press(Mouse_State *mouse) {
     char result = 0;
     if (mouse->down) {
         if (!mouse->wasdown_flags[mouse->down - 1]) {
@@ -279,10 +268,9 @@ PAC_INTERNAL char pac_mousebtn_press(Mouse_State *mouse)
     return result;
 }
 
-PAC_INTERNAL char pac_btn_press(SDL_Scancode scan, 
+static char pac_btn_press(SDL_Scancode scan, 
                             char *wasdown, 
-                            const uint8_t *kbd_state) 
-{
+                            const uint8_t *kbd_state) {
     char state = 0;
     if (kbd_state[scan]) {
         if (!*wasdown) {
@@ -295,10 +283,9 @@ PAC_INTERNAL char pac_btn_press(SDL_Scancode scan,
     return state;
 }
 
-PAC_INTERNAL char pac_imgui_load_font(char *font_path,
-                                    float font_size,
-                                    Runtime_Vars *rtvars)
-{
+static char pac_imgui_load_font(char *font_path,
+                                float font_size,
+                                Runtime_Vars *rtvars) {
     char status = 0;
     char *latin_path = font_path, cjk_path[PATH_MAX];
 #if 0
@@ -348,8 +335,7 @@ PAC_INTERNAL char pac_imgui_load_font(char *font_path,
     return status;
 }
 
-PAC_INTERNAL void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
-{
+static void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) {
     SDL_Event event;
     rtvars->kbd_state = SDL_GetKeyboardState(0);
     char char_was_pressed = 0;
@@ -383,16 +369,14 @@ PAC_INTERNAL void sdlapi_process_events(Runtime_Vars *rtvars, Sdl_Apidata *sdlda
     }
 }
 
-PAC_INTERNAL void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata)
-{
+static void sdlapi_correct_gl_viewport_and_clear(Sdl_Apidata *sdldata) {
     SDL_GetWindowSize(sdldata->window_ptr, &sdldata->win_width, &sdldata->win_height);
     glViewport(0, 0, sdldata->win_width, sdldata->win_height);
     glClear(GL_COLOR_BUFFER_BIT);
     glClearColor(0, 0, 0, 1.0f);
 }
 
-PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
-{
+static void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) {
     sdlapi_correct_gl_viewport_and_clear(sdldata);
     sdlapi_process_events(rtvars, sdldata);
 
@@ -420,8 +404,7 @@ PAC_INTERNAL void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     ImGui::SetShortcutRouting(ImGuiMod_Ctrl|ImGuiMod_Shift|ImGuiKey_Tab, 0, ImGuiButtonFlags_NoSetKeyOwner);
 }
 
-PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) 
-{
+static void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) {
     State_Flags *sflags = &rtvars->sflags;
     General_Buffer_Group *bufgroup = rtvars->bufgroup_ptr;
     Music_Data *mdata = rtvars->mdata_ptr;
@@ -449,8 +432,7 @@ PAC_INTERNAL void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     SDL_GL_SwapWindow(sdldata->window_ptr);
 }
 
-PAC_INTERNAL void update_audio_time(Music_Data *mdata)
-{
+static void update_audio_time(Music_Data *mdata) {
     mdata->current_duration = pacmxr_stream_duration();
     mdata->current_position = pacmxr_seconds_played();
     Pacmxr_Context *pac_ctx = pacmxr_get_context();
@@ -459,22 +441,19 @@ PAC_INTERNAL void update_audio_time(Music_Data *mdata)
     { goto_next_file(mdata); }
 }
 
-PAC_INTERNAL int pac_qsort_strcmp(const void *a, const void *b)
-{
+static int pac_qsort_strcmp(const void *a, const void *b) {
     int result = strcasecmp(*(const char **)a, *(const char **)b);
     return result;
 }
 
-PAC_INTERNAL int pac_qsort_strcmp_rev(const void *a, const void *b)
-{
+static int pac_qsort_strcmp_rev(const void *a, const void *b) {
     int result = strcasecmp(*(const char **)b, *(const char **)a);
     return result;
 }
 
 typedef int (*Sort_Comp_Func)(const void *a, const void *b);
 
-PAC_INTERNAL void sort_file_list_alpha(File_List *flist, char reversed)
-{
+static void sort_file_list_alpha(File_List *flist, char reversed) {
     char **strings = flist->filenames_string_loclist;
     int sort_count = flist->entry_count;
     Sort_Comp_Func cmpf = pac_qsort_strcmp;
@@ -482,19 +461,17 @@ PAC_INTERNAL void sort_file_list_alpha(File_List *flist, char reversed)
     qsort(strings, sort_count, sizeof(char **), cmpf);
 }
 
-PAC_INTERNAL void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bufgroup)
-{
+static void update_info_buffer(Music_Data *mdata, General_Buffer_Group *bufgroup) {
     snprintf((char *)bufgroup->music_info_buffer, DEBUG_BUFFER_SIZE,
             "[srate:%dhz][pcm_bits:%d][chan:%d]"
-            "[vol:%d/128][pos:%06.1f/%06.1f][enc:%s]"
+            "[vol:%d/128][pos:%06.1f/%06.1f][acodec:%s]"
             "\n[path:%s]", 
             mdata->sample_rate, mdata->pcm_bits, mdata->channels,
             mdata->volume, mdata->current_position, mdata->current_duration, mdata->music_type_buf,
             mdata->current_filename);
 }
 
-PAC_INTERNAL void tupacmixer_get_audio_type(Music_Data *mdata)
-{
+static void tupacmixer_get_audio_type(Music_Data *mdata) {
     Pacmxr_Context *pac_ctx = pacmxr_get_context();
     if (pac_ctx->fctx.codec && pac_ctx->fctx.codec->name) {
         snprintf(mdata->music_type_buf,
@@ -505,8 +482,7 @@ PAC_INTERNAL void tupacmixer_get_audio_type(Music_Data *mdata)
     }
 }
 
-PAC_INTERNAL void load_file_from_path(char *path, Music_Data *mdata)
-{
+static void load_file_from_path(char *path, Music_Data *mdata) {
     if (platform_file_exists(path)) {
         tupacmixer_start_music(mdata, path);
     } else { 
@@ -517,10 +493,9 @@ PAC_INTERNAL void load_file_from_path(char *path, Music_Data *mdata)
     }
 }
 
-PAC_INTERNAL char *separate_file_and_dir_name(char *dir_in_out, 
-                                            char *name_out,
-                                            int dirlen)
-{
+static char *separate_file_and_dir_name(char *dir_in_out, 
+                                        char *name_out,
+                                        int dirlen) {
     char *temp_in = dir_in_out + dirlen;
     int chars = 0;
     if (strchr(dir_in_out, '/')) {
@@ -540,8 +515,7 @@ PAC_INTERNAL char *separate_file_and_dir_name(char *dir_in_out,
     return dir_in_out;
 }
 
-PAC_INTERNAL char check_dir_already_added(char *dir, File_List *flist)
-{
+static char check_dir_already_added(char *dir, File_List *flist) {
     char result = 0, *current_dir;
     char **all_dirs = flist->dirnames_string_loclist;
     int dir_count = flist->dirs_added;
@@ -555,8 +529,7 @@ PAC_INTERNAL char check_dir_already_added(char *dir, File_List *flist)
     return result;
 }
 
-PAC_INTERNAL float conv_slide_value2songpos(Music_Data *mdata) 
-{
+static float conv_slide_value2songpos(Music_Data *mdata) {
     float result = 0;
     if (pacmxr_file_is_open() &&
         mdata->current_position &&
@@ -568,8 +541,7 @@ PAC_INTERNAL float conv_slide_value2songpos(Music_Data *mdata)
     return result;
 }
 
-PAC_INTERNAL float conv_songpos2slide_value(Music_Data *mdata) 
-{
+static float conv_songpos2slide_value(Music_Data *mdata) {
     float result = 0.0f;
     if (mdata->current_position &&
         mdata->current_duration) {
@@ -580,8 +552,7 @@ PAC_INTERNAL float conv_songpos2slide_value(Music_Data *mdata)
     return result;
 }
 
-PAC_INTERNAL void file_list_push_dirname(char *dirname, File_List *flist)
-{
+static void file_list_push_dirname(char *dirname, File_List *flist) {
     int dirlen = strlen(dirname);
     char *write_ptr = flist->dirnames_string_loclist[flist->dirs_added];
 #if _2PACWAV_LINUX
@@ -596,8 +567,7 @@ PAC_INTERNAL void file_list_push_dirname(char *dirname, File_List *flist)
     flist->dirnames_string_loclist[flist->dirs_added] = write_ptr + dirlen + 1;
 }
 
-PAC_INTERNAL char add_single_file_to_music_list(char *path, Music_Data *mdata)
-{
+static char add_single_file_to_music_list(char *path, Music_Data *mdata) {
     char dir[PATH_MAX];
     char name[NAME_MAX];
     snprintf(dir, PATH_MAX, "%s", path);
@@ -618,8 +588,7 @@ PAC_INTERNAL char add_single_file_to_music_list(char *path, Music_Data *mdata)
     return cont_dir_already_added;
 }
 
-PAC_INLINE char file_is_playlist(char *path)
-{
+inline char file_is_playlist(char *path) {
     char result = 0;
     int path_len = strlen(path);
     char *extension = path + (1 + path_len - sizeof(PLAYLIST_EXTENSION));
@@ -627,8 +596,7 @@ PAC_INLINE char file_is_playlist(char *path)
     return result;
 }
 
-PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars)
-{
+static void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars) {
     int old_file_count = mdata->music_list.entry_count, 
             new_file_count, 
             added_files;
@@ -665,8 +633,7 @@ PAC_INTERNAL void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars 
     set_userinfo(rtvars, info_buf, USERINFO_TYPE_NOTE);
 }
 
-PAC_INTERNAL char *find_top_level_path4file(char *filename, File_List *flist) 
-{
+static char *find_top_level_path4file(char *filename, File_List *flist) {
     char *result = 0, *dirname;
     char pathbuf[PATH_MAX];
     for (int dir_index = 0; 
@@ -682,10 +649,9 @@ PAC_INTERNAL char *find_top_level_path4file(char *filename, File_List *flist)
     return result;
 }
 
-PAC_INTERNAL void file_list_play_file(char *selected_file, 
-                                    uint32_t file_index, 
-                                    Music_Data *mdata)
-{
+static void file_list_play_file(char *selected_file, 
+                                uint32_t file_index, 
+                                Music_Data *mdata) {
     char path_buf[PATH_MAX];
     char *toplevel_path = find_top_level_path4file(selected_file, &mdata->music_list);
     if (toplevel_path) {
@@ -709,8 +675,7 @@ PAC_INTERNAL void file_list_play_file(char *selected_file,
     }
 }
 
-PAC_INTERNAL int get_random_file_index(Music_Data *mdata) 
-{
+static int get_random_file_index(Music_Data *mdata) {
     File_List *mlist = &mdata->music_list;
     int cur_index = (int)mlist->current_index;
     int next_index = cur_index;
@@ -719,8 +684,7 @@ PAC_INTERNAL int get_random_file_index(Music_Data *mdata)
     return next_index;
 }
 
-PAC_INTERNAL void goto_next_file(Music_Data *mdata)
-{
+static void goto_next_file(Music_Data *mdata) {
     if (mdata->music_list.entry_count < 1)
     { return; }
 
@@ -750,8 +714,7 @@ PAC_INTERNAL void goto_next_file(Music_Data *mdata)
 }
 
 //for now this is kinda bogus if youre using shuffle
-PAC_INTERNAL void goto_prev_file(Music_Data *mdata)
-{
+static void goto_prev_file(Music_Data *mdata) {
     if (0 == mdata->music_list.current_index) 
     { return; }
     File_List *mlist = &mdata->music_list;
@@ -764,8 +727,7 @@ PAC_INTERNAL void goto_prev_file(Music_Data *mdata)
     file_list_play_file(prev_file, cur_index - 1, mdata);
 }
 
-PAC_INTERNAL void clear_file_list(Music_Data *mdata)
-{
+static void clear_file_list(Music_Data *mdata) {
     if (!mdata->music_list.entry_count)
     { return; }
     File_List *mlist = &mdata->music_list;
@@ -786,15 +748,13 @@ PAC_INTERNAL void clear_file_list(Music_Data *mdata)
     mlist->match_count = 0;
 }
 
-void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type) 
-{
+void set_userinfo(Runtime_Vars *rtvars, char *notice, Userinfo_Type notice_type) {
     rtvars->sflags.last_userinfo_type = notice_type;
     char *note_buf = (char *)rtvars->bufgroup_ptr->userinfo_buffer;
     strncpy(note_buf, notice, USERINFO_BUFFER_SIZE - 1);
 }
 
-PAC_INTERNAL void set_userinfo_color(Runtime_Vars *rtvars)
-{
+static void set_userinfo_color(Runtime_Vars *rtvars) {
     switch (rtvars->sflags.last_userinfo_type) {
     case USERINFO_TYPE_ERROR: { 
         ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0xFF, 0x20, 0x20, 0xFF));
@@ -809,8 +769,7 @@ PAC_INTERNAL void set_userinfo_color(Runtime_Vars *rtvars)
     }
 }
 
-PAC_INTERNAL void tupacmixer_get_cover(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
-{
+static void tupacmixer_get_cover(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars) {
     bmpinfo->img_data = pacmxr_meta_get_cover(0, &bmpinfo->img_data_bytes);
     if (bmpinfo->img_data) {
         pac_init_bitmap(bmpinfo, rtvars);
@@ -818,8 +777,7 @@ PAC_INTERNAL void tupacmixer_get_cover(Bitmap_Info *bmpinfo, Runtime_Vars *rtvar
 }
 
 #if STBIMAGE_ENABLED
-PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
-{
+static void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars) {
     bmpinfo->img_data = stbi_load_from_memory(bmpinfo->img_data,
                             bmpinfo->img_data_bytes,
                             &bmpinfo->width,
@@ -849,10 +807,9 @@ PAC_INTERNAL void pac_init_bitmap(Bitmap_Info *bmpinfo, Runtime_Vars *rtvars)
 }
 #endif
 
-PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars, 
-                                        Music_Data *mdata, 
-                                        General_Buffer_Group *bufgroup)
-{
+static void menu_do_current_file_info(Runtime_Vars *rtvars, 
+                                    Music_Data *mdata, 
+                                    General_Buffer_Group *bufgroup) {
     update_info_buffer(mdata, bufgroup);
     char *infobuf = (char *)bufgroup->music_info_buffer;
     char *path_begin = strchr(infobuf, '\n');
@@ -890,10 +847,9 @@ PAC_INTERNAL void menu_do_current_file_info(Runtime_Vars *rtvars,
     ImGui::Text("%s", taginfo_buffer);
 }
 
-PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars,
-                                General_Buffer_Group *bufgroup,
-                                Music_Data *mdata)
-{
+static void menu_do_search(Runtime_Vars *rtvars,
+                        General_Buffer_Group *bufgroup,
+                        Music_Data *mdata) {
     Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
     ImVec2 winsize = ImVec2(400, 70);
     ImGui::SetNextWindowSize(winsize);
@@ -926,10 +882,9 @@ PAC_INTERNAL void menu_do_search(Runtime_Vars *rtvars,
     }
 }
 
-PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars, 
-                                        Music_Data *mdata, 
-                                        General_Buffer_Group *bufgroup)
-{
+static void menu_do_metadata_editor(Runtime_Vars *rtvars, 
+                                    Music_Data *mdata, 
+                                    General_Buffer_Group *bufgroup) {
     Metadata_Editor *meta = &mdata->metaed;
     State_Flags *sflags = &rtvars->sflags;
     File_List *mlist = &mdata->music_list;
@@ -1025,8 +980,7 @@ PAC_INTERNAL void menu_do_metadata_editor(Runtime_Vars *rtvars,
 }
 
 #if 1
-PAC_INTERNAL void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
-{
+static void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata) {
     File_List *mlist = &mdata->music_list;
     Metadata_Editor *meta = &mdata->metaed;
     char *filename = mlist->filenames_string_loclist[mlist->context_index];
@@ -1081,8 +1035,7 @@ PAC_INTERNAL void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
 }
 #endif
 
-PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
-{
+static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata) {
     File_List *mlist = &mdata->music_list;
     State_Flags *sflags = &rtvars->sflags;
     uint32_t render_index = 0, file_index = 0;
@@ -1118,15 +1071,13 @@ PAC_INTERNAL void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
     ImGui::PopStyleVar();
 }
 
-PAC_INTERNAL void str2lowercase(char *string, int len) 
-{
+static void str2lowercase(char *string, int len) {
     for (int i = 0; i < len; ++i) {
         string[i] = tolower(string[i]);
     }
 }
 
-PAC_INTERNAL char *pac_strcasestr(char *str, char *substr) 
-{
+static char *pac_strcasestr(char *str, char *substr) {
     //WARNING: remember that this returns a pointer to lower_str
     //and not the actual shit you passed in
     PAC_LOCAL_STATIC char lower_str[NAME_MAX + 1], lower_substr[NAME_MAX + 1];
@@ -1138,8 +1089,7 @@ PAC_INTERNAL char *pac_strcasestr(char *str, char *substr)
     return result;
 }
 
-PAC_INTERNAL void set_match_flags(char *searchbuf, Music_Data *mdata)
-{
+static void set_match_flags(char *searchbuf, Music_Data *mdata) {
     File_List *mlist = &mdata->music_list;
     mlist->match_count = 0;
 
@@ -1163,8 +1113,7 @@ PAC_INTERNAL void set_match_flags(char *searchbuf, Music_Data *mdata)
     }
 }
 
-PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars, Music_Data *mdata)
-{
+static void menu_do_list_control(Runtime_Vars *rtvars, Music_Data *mdata) {
     PAC_LOCAL_STATIC char sort_reversed = 0;
     State_Flags *sflags = &rtvars->sflags;
     char *sort_text = rtvars->bufgroup_ptr->sort_text;
@@ -1223,10 +1172,9 @@ PAC_INTERNAL void menu_do_list_control(Runtime_Vars *rtvars, Music_Data *mdata)
 #endif
 }
 
-PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
-                                    Music_Data *mdata,
-                                    float vol_width)
-{
+static void menu_do_volume_bar(Runtime_Vars *rtvars,
+                            Music_Data *mdata,
+                            float vol_width) {
     State_Flags *sflags = &rtvars->sflags;
     int vol_step = rtvars->sargs_ptr->volume_step;
     //if(rtvars->kbd_state[SDL_SCANCODE_LCTRL])
@@ -1257,8 +1205,7 @@ PAC_INTERNAL void menu_do_volume_bar(Runtime_Vars *rtvars,
     { pacmxr_set_volume(mdata->volume); }
 }
 
-PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
-{
+static void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata) {
     State_Flags *sflags = &rtvars->sflags;
     const uint8_t *kbd = rtvars->kbd_state;
     mdata->seek_value = conv_songpos2slide_value(mdata);
@@ -1287,19 +1234,24 @@ PAC_INTERNAL void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
         }
     }
 
+    char current_pos_buf[32];
+    snprintf(current_pos_buf, sizeof(current_pos_buf), "%06.1f/%06.1f",
+                mdata->current_position, mdata->current_duration);
+    float pos_width = ImGui::CalcTextSize(current_pos_buf).x;
     ImGui::SameLine();
-    float width_left = ImGui::GetContentRegionAvail().x;
+    float width_left = ImGui::GetContentRegionAvail().x - pos_width - 10;
     ImGui::SetNextItemWidth(width_left);
-    if (ImGui::SliderInt("##vol_seeker", 
+    if (ImGui::SliderInt("##seeker", 
         &mdata->seek_value, 0, 
         PAC_SEEK_VALUE_MAX, "",
-        ImGuiSliderFlags_NoInput))
+        ImGuiSliderFlags_NoInput|ImGuiSliderFlags_AlwaysClamp))
     { pacmxr_seek(mdata->seek_value/(float)PAC_SEEK_VALUE_MAX); }
+    ImGui::SameLine();
+    ImGui::Text("%s", current_pos_buf);
 }
 
-PAC_INTERNAL void do_path_autocomplete(char *current, Runtime_Vars *rtvars)
-{
-#if 0x0
+static void do_path_autocomplete(char *current, Runtime_Vars *rtvars) {
+#if 0
     File_List *alist = &rtvars->autocomp_list;
     PAC_LOCAL_STATIC int suggest_index = -1;
     char tempbuf[PATH_MAX];
@@ -1382,8 +1334,7 @@ PAC_INTERNAL void do_path_autocomplete(char *current, Runtime_Vars *rtvars)
 #endif
 }
 
-PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
-{
+static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata) {
     State_Flags *sflags = &rtvars->sflags;
     General_Buffer_Group *bufgroup = rtvars->bufgroup_ptr;
     const uint8_t *kbd = rtvars->kbd_state;
@@ -1520,8 +1471,7 @@ PAC_INTERNAL void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
     ImGui::PopStyleColor();
 }
 
-PAC_INTERNAL void menu_do_colorpicker(Runtime_Vars *rtvars)
-{
+static void menu_do_colorpicker(Runtime_Vars *rtvars) {
     Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
     State_Flags *sflags = &rtvars->sflags;
     ImVec2 wdim = ImVec2(400, 400);
@@ -1550,11 +1500,10 @@ PAC_INTERNAL void menu_do_colorpicker(Runtime_Vars *rtvars)
     }
 }
 
-PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars, 
-                            Sdl_Apidata *sdldata, 
-                            General_Buffer_Group *bufgroup,
-                            Music_Data *mdata)
-{
+static void pac_main_loop(Runtime_Vars *rtvars, 
+                        Sdl_Apidata *sdldata, 
+                        General_Buffer_Group *bufgroup,
+                        Music_Data *mdata) {
     PAC_LOCAL_STATIC char playback_btn_text[8] = {0};
     PAC_LOCAL_STATIC char shuffle_btn_text[8] = {0};
     PAC_LOCAL_STATIC char loop_btn_text[8] = {0};
@@ -1731,8 +1680,7 @@ PAC_INTERNAL void pac_main_loop(Runtime_Vars *rtvars,
     pac_end_frame(rtvars, sdldata);
 }
 
-PAC_INTERNAL void tupacmixer_get_taginfo(Music_Data *mdata)
-{
+static void tupacmixer_get_taginfo(Music_Data *mdata) {
     if (!pacmxr_file_is_open()) { return; }
     Audio_Metadata_Group *amg = &mdata->current_metadata;
     int taginfo_len = 0;
@@ -1757,8 +1705,7 @@ PAC_INTERNAL void tupacmixer_get_taginfo(Music_Data *mdata)
     }
 }
 
-PAC_INTERNAL void tupacmixer_start_music(Music_Data *mdata, char *music_path) 
-{
+static void tupacmixer_start_music(Music_Data *mdata, char *music_path) {
     pacmxr_close_file();
     if (pacmxr_open_file(music_path)) {
         pacmxr_pause(0);
@@ -1776,17 +1723,13 @@ PAC_INTERNAL void tupacmixer_start_music(Music_Data *mdata, char *music_path)
     }
 }
 
-PAC_INTERNAL void tupacmixer_stop_music(Music_Data *mdata)
-{
+static void tupacmixer_stop_music(Music_Data *mdata) {
     pacmxr_close_file();
 }
 
-void pac_sdlmixer_music_finished_callback(void)
-{
-}
+void pac_sdlmixer_music_finished_callback(void) {}
 
-PAC_INTERNAL char pac_init_tupacmixer(Music_Data *mdata) 
-{
+static char pac_init_tupacmixer(Music_Data *mdata) {
     Pacmxr_Init_Options init_opts = {};
     init_opts.sample_rate = PACMXR_RESAMPLE_SAMPLERATE;
     init_opts.no_init_sdl = 1;
@@ -1830,8 +1773,7 @@ PAC_INTERNAL char pac_init_tupacmixer(Music_Data *mdata)
     return 1;
 }
 
-PAC_INTERNAL char pac_init_sdl(Sdl_Apidata *sdldata) 
-{
+static char pac_init_sdl(Sdl_Apidata *sdldata) {
     char result = 0;
     if (!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO)) {
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);

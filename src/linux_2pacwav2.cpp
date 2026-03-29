@@ -37,10 +37,9 @@ Linux platform-specific code for 2pacwav
 
 #include "2pacwav2.cpp"
 
-PAC_INTERNAL char *platform_find_res_path(Runtime_Vars *rtvars, 
-                                        char *out_res_path, 
-                                        int bufsize)
-{
+static char *platform_find_res_path(Runtime_Vars *rtvars, 
+                                    char *out_res_path, 
+                                    int bufsize) {
     char *result = 0;
     char try_buf[PATH_MAX];
     strncpy(try_buf, rtvars->working_directory, PATH_MAX - 1);
@@ -60,10 +59,9 @@ PAC_INTERNAL char *platform_find_res_path(Runtime_Vars *rtvars,
     return result;
 }
 
-PAC_INTERNAL void platform_get_font_path(Runtime_Vars *rtvars,
-                                        char *dest,
-                                        int dest_size)
-{
+static void platform_get_font_path(Runtime_Vars *rtvars,
+                                char *dest,
+                                int dest_size) {
     FcInit();
     FcConfig *fc_cfg = FcInitLoadConfigAndFonts();
     FcPattern *pattern = FcNameParse((const FcChar8 *)"Liberation Mono:Regular");
@@ -116,11 +114,13 @@ static void platform_sort_mlist_mod_date_janky(File_List *file_list,
                             command_cap - command_length,
                             " | grep -vz /");
 
-    int status = ro_posix_get_stdout(command, &out_file_desc, &proc_id, 1);
+    //int status = ro_posix_get_stdout(command, &out_file_desc, &proc_id, 1);
+    int status = ro_posix_run_command(command, &out_file_desc, &proc_id, 1);
     char *scratch_buf = (char *)rtvars->bufgroup_ptr->scratch_space;
     size_t scratch_bytes = rtvars->bufgroup_ptr->scratch_bytes;
     size_t bytes_read = 0, bytes_read_total = 0;
     if (status) {
+#if 0
         while (1) {
             bytes_read = read(out_file_desc,
                             scratch_buf + bytes_read_total,
@@ -130,6 +130,9 @@ static void platform_sort_mlist_mod_date_janky(File_List *file_list,
         }
         scratch_buf[bytes_read_total] = 0;
         close(out_file_desc);
+#else
+            ro_posix_get_command_output(out_file_desc, scratch_buf, scratch_bytes, 1);
+#endif
     } else {
         platform_dbg_log("failed to read shell command output while rebuilding file list\n"
                         "(ro_posix_get_stdout status: %d, file descriptor: %d)\n",
@@ -158,10 +161,9 @@ static void platform_sort_mlist_mod_date_janky(File_List *file_list,
     set_match_flags((char *)rtvars->bufgroup_ptr->inbuf_search, rtvars->mdata_ptr);
 }
 
-PAC_INTERNAL int platform_list_files_simple(char *path, 
-                                        File_List *out_flist, 
-                                        char sort)
-{
+static int platform_list_files_simple(char *path, 
+                                    File_List *out_flist, 
+                                    char sort) {
     int result = 0;
     dirent *dir_entry;
     DIR *dir_struct = opendir(path);
@@ -194,8 +196,7 @@ PAC_INTERNAL int platform_list_files_simple(char *path,
     return result;
 }
 
-PAC_INTERNAL int platform_list_files_mlist(char *path, File_List *out_flist)
-{
+static int platform_list_files_mlist(char *path, File_List *out_flist) {
     int result = 0;
     dirent *dir_entry;
     DIR *dir_struct = opendir(path);
@@ -227,9 +228,8 @@ PAC_INTERNAL int platform_list_files_mlist(char *path, File_List *out_flist)
     return result;
 }
 
-PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
-                                    General_Buffer_Group *bufgroup) 
-{
+static void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
+                                General_Buffer_Group *bufgroup) {
 #define MEM_INIT_ASSERT(main_buffer, buf2init, size)                                \
     buf2init = ro_buffer_alloc_region(main_buffer, size);                           \
     if (!buf2init) {                                                                \
@@ -265,38 +265,32 @@ PAC_INTERNAL void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
     platform_dbg_log("scratch: %d bytes\n", bufgroup->scratch_bytes);
 }
 
-PAC_INTERNAL char platform_file_exists(char *path)
-{
+static char platform_file_exists(char *path) {
     return ro_posix_file_exists(path);
 }
 
-PAC_INTERNAL char platform_directory_exists(char *path)
-{
+static char platform_directory_exists(char *path) {
     return ro_posix_directory_exists(path);
 }
 
-PAC_INTERNAL char platform_path_exists(char *path) 
-{
+static char platform_path_exists(char *path) {
     return ro_posix_path_exists(path);
 }
 
-PAC_INTERNAL uint64_t platform_read_file(char *file_path, 
-                                        char *dest, 
-                                        uint64_t dest_bytes)
-{
+static uint64_t platform_read_file(char *file_path, 
+                                char *dest, 
+                                uint64_t dest_bytes) {
     return ro_posix_read_file(file_path, dest, dest_bytes);
 }
 
-PAC_INTERNAL int platform_write_file(char *file_path, 
-                                    void *in_buffer, 
-                                    uint64_t buffer_size)
-{
+static int platform_write_file(char *file_path, 
+                            void *in_buffer, 
+                            uint64_t buffer_size) {
     return ro_posix_write_file(file_path, in_buffer, buffer_size);
 }
 
 
-PAC_INTERNAL void platform_log(char *fmt_string, ...)
-{
+static void platform_log(char *fmt_string, ...) {
     char buf[4096];
     va_list args;
     va_start(args, fmt_string);
@@ -305,8 +299,7 @@ PAC_INTERNAL void platform_log(char *fmt_string, ...)
     va_end(args);
 }
 
-PAC_INTERNAL void platform_dbg_log(char *fmt_string, ...)
-{
+static void platform_dbg_log(char *fmt_string, ...) {
 #if _2PACWAV_DEBUG || (defined(_2PACWAV_ENABLE_LOG) && _2PACWAV_ENABLE_LOG)
     char buf[4096];
     va_list args;
@@ -317,25 +310,22 @@ PAC_INTERNAL void platform_dbg_log(char *fmt_string, ...)
 #endif
 }
 
-PAC_INTERNAL void platform_dbg_dump_file(char *containing_dir,
-                                    void *buffer,
-                                    size_t buffer_size)
-{
+static void platform_dbg_dump_file(char *containing_dir,
+                                void *buffer,
+                                size_t buffer_size) {
     char filename[PATH_MAX];
     snprintf(filename, PATH_MAX, "%s/%ld.2w_dump", containing_dir, time(0));
     platform_write_file(filename, buffer, buffer_size);
 }
 
-PAC_INTERNAL void platform_get_working_directory(char *buf, int buf_size)
-{
+static void platform_get_working_directory(char *buf, int buf_size) {
     ro_posix_get_working_directory(buf, buf_size);
     int len = strlen(buf);
     while (buf[len - 1] == '/') 
     { buf[--len] = 0; }
 }
 
-int main(int arg_count, char **args) 
-{
+int main(int arg_count, char **args) {
     Runtime_Vars rtvars = {};
     rtvars.sflags.visualizer_enabled = 1;
     rtvars.vis_color[0] = 1.0f;
