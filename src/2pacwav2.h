@@ -13,8 +13,8 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 #include "2pacmixer.h"
 
 #define _2PACWAV_VER_MAJOR      (0)
-#define _2PACWAV_VER_MINOR      (12)
-#define _2PACWAV_VER_PATCH      (2)
+#define _2PACWAV_VER_MINOR      (13)
+#define _2PACWAV_VER_PATCH      (1)
 
 //#define PAC_INLINE static inline
 //#define PAC_INTERNAL static
