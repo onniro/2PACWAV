@@ -963,6 +963,8 @@ static void menu_do_metadata_editor(Runtime_Vars *rtvars,
                     set_userinfo(rtvars, 
                             "updated metadata.", 
                             USERINFO_TYPE_NOTE);
+                    rtvars->sflags.viewstate = CENTER_VIEW_STATE_MUSIC_LIST;
+                    return;
                 } else {
                     set_userinfo(rtvars, 
                             "failed to update metadata.", 
