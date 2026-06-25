@@ -350,6 +350,13 @@ typedef struct Sdl_Apidata {
     Music_Data *mdata_ptr;
 } Sdl_Apidata;
 
+typedef struct Ui_Vars {
+    //r, g, b, a
+    float vis_color[4];
+    float text_color[4];
+    float button_bg_color[4];
+} Ui_Vars;
+
 typedef struct Runtime_Vars {
     char keep_running;
     const uint8_t *kbd_state;
@@ -358,7 +365,7 @@ typedef struct Runtime_Vars {
     Startup_Args *sargs_ptr;
     General_Buffer_Group *bufgroup_ptr;
     File_List autocomp_list;
-    float vis_color[4]; //strange place for this but aight
+    Ui_Vars uivars;
     Ro_Heap_Buffer main_storage;
     Sdl_Apidata *sdldata_ptr;
     Music_Data *mdata_ptr;

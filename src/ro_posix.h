@@ -11,11 +11,21 @@ extern "C"
 {
 #endif
 
-#define _DEFAULT_SOURCE 1
-#define D_POSIX_C_SOURCE 200809L
-#define _POSIX_C_SOURCE 200809L
-#define __USE_XOPEN_EXTENDED 1
-#define __USE_XOPEN2K 1
+#ifndef _DEFAULT_SOURCE
+    #define _DEFAULT_SOURCE 1
+#endif
+#ifndef D_POSIX_C_SOURCE
+    #define D_POSIX_C_SOURCE 200809L
+#endif
+#ifndef _POSIX_C_SOURCE
+    #define _POSIX_C_SOURCE 200809L
+#endif
+#ifndef __USE_XOPEN_EXTENDED
+    #define __USE_XOPEN_EXTENDED 1
+#endif
+#ifndef __USE_XOPEN2K
+    #define __USE_XOPEN2K 1
+#endif
 
 #include <stdint.h>
 #include <stdio.h>

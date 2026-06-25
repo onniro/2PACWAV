@@ -238,6 +238,22 @@ static int get_num_array_entry(Tokenizer *tokenizer,
     return ret;
 }
 
+static void apply_num_array_entry(float *array, int array_length, char *variable) {
+    char warning = 0;
+    float value;
+    for (int index = 0; index < array_length; ++index) {
+        value = array[index];
+        if (((value < 0.0f) || (value > 1.0f)) && !warning) {
+            array[index] = pacmxr_clamp_float(value, 0.0f, 1.0f);
+            fprintf(stderr,
+                    "2wconf warning: values in definition of variable %s should be between 0.0 and 1.0.\n"
+                    "For instance: value %g clamped to %g.\n",
+                    variable, value, array[index]);
+            ++warning;
+        }
+    }
+}
+
 static void parse_and_apply_config(Runtime_Vars *rtvars, 
                                 char *confbuf, 
                                 int confbuf_bytes) {
@@ -251,7 +267,10 @@ static void parse_and_apply_config(Runtime_Vars *rtvars,
             vis_status_set = 0,
             volume_step_set = 0,
             volume_set = 0,
-            vis_color_set = 0;
+            vis_color_set = 0,
+            text_ui_color_set = 0,
+            button_bg_color_set = 0;
+    Ui_Vars *uivars = &rtvars->uivars;
 
     while (parsing) {
         Token tok = get_token(&tokenizer);
@@ -347,21 +366,25 @@ static void parse_and_apply_config(Runtime_Vars *rtvars,
             } else if (token_equals(tok, CONF_VISUALIZER_COLOR)) {
                 if (!vis_color_set) {
                     if (get_num_array_entry(&tokenizer,
-                                rtvars->vis_color, 4,
+                                uivars->vis_color, 4,
                                 CONF_VISUALIZER_COLOR)) {
+#if 0
                         char warning = 0;
                         float val;
                         for (int i = 0; i < 4; ++i) {
-                            val = rtvars->vis_color[i];
+                            val = uivars->vis_color[i];
                             if (((val < 0.0f) || (val > 1.0f)) && !warning) {
-                                rtvars->vis_color[i] = pacmxr_clamp_float(val, 0.0f, 1.0f);
+                                uivars->vis_color[i] = pacmxr_clamp_float(val, 0.0f, 1.0f);
                                 fprintf(stderr,
                                         "2wconf warning: values in definition of variable %s should be between 0.0 and 1.0.\n"
                                         "For instance: value %g clamped to %g.\n",
-                                        CONF_VISUALIZER_COLOR, val, rtvars->vis_color[i]);
+                                        CONF_VISUALIZER_COLOR, val, uivars->vis_color[i]);
                                 ++warning;
                             }
                         }
+#else
+                        apply_num_array_entry(uivars->text_color, 4, CONF_UI_TEXT_COLOR);
+#endif
 
                         ++vis_color_set;
                     } else {
@@ -370,6 +393,34 @@ static void parse_and_apply_config(Runtime_Vars *rtvars,
                 } else if (1 == vis_color_set) {
                     report_duplicate(CONF_VISUALIZER_COLOR);
                     ++vis_color_set;
+                }
+            } else if (token_equals(tok, CONF_UI_TEXT_COLOR)) {
+                if (!text_ui_color_set) {
+                    if (get_num_array_entry(&tokenizer,
+                                uivars->text_color, 4,
+                                CONF_UI_TEXT_COLOR)) {
+                        apply_num_array_entry(uivars->text_color, 4, CONF_UI_TEXT_COLOR);
+                        ++text_ui_color_set;
+                    } else {
+                        fprintf(stderr, "2wconf error: could not set text color.\n");
+                    }
+                } else if (1 == text_ui_color_set) {
+                    report_duplicate(CONF_UI_TEXT_COLOR);
+                    ++text_ui_color_set;
+                }
+            } else if (token_equals(tok, CONF_UI_BUTTON_BG_COLOR)) {
+                if (!button_bg_color_set) {
+                    if (get_num_array_entry(&tokenizer,
+                                uivars->button_bg_color, 4,
+                                CONF_UI_BUTTON_BG_COLOR)) {
+                        apply_num_array_entry(uivars->button_bg_color, 4, CONF_UI_BUTTON_BG_COLOR);
+                        ++button_bg_color_set;
+                    } else {
+                        fprintf(stderr, "2wconf error: could not set button background color.\n");
+                    }
+                } else if (1 == button_bg_color_set) {
+                    report_duplicate(CONF_UI_BUTTON_BG_COLOR);
+                    ++button_bg_color_set;
                 }
             } else {
                 snprintf(stringbuf, tok.length + 1, "%s", tok.text);
@@ -390,13 +441,33 @@ static void parse_and_apply_config(Runtime_Vars *rtvars,
     }
     
     if (!vis_color_set) {
-        rtvars->vis_color[0] = 1.0f;
-        rtvars->vis_color[1] = 0.1f;
-        rtvars->vis_color[2] = 0.1f;
-        rtvars->vis_color[3] = 1.0f;
+        uivars->vis_color[0] = 1.0f;
+        uivars->vis_color[1] = 0.1f;
+        uivars->vis_color[2] = 0.1f;
+        uivars->vis_color[3] = 1.0f;
+    }
+
+    if (!text_ui_color_set) {
+        uivars->text_color[0] = 0.8f; 
+        uivars->text_color[1] = 0.8f;
+        uivars->text_color[2] = 0.8f;
+        uivars->text_color[3] = 0.8f;
+    }
+
+    if (!button_bg_color_set) {
+        uivars->button_bg_color[0] = 0.1f; 
+        uivars->button_bg_color[1] = 0.1f;
+        uivars->button_bg_color[2] = 0.1f;
+        uivars->button_bg_color[3] = 0.1f;
     }
 
     if (!volume_step_set) {
         sargs->volume_step = PAC_DEFAULT_VOLUME_INCREMENT;
     }
+
+    printf("%.1f %.1f %.1f %.1f\n",
+        uivars->button_bg_color[0], 
+        uivars->button_bg_color[1],
+        uivars->button_bg_color[2],
+        uivars->button_bg_color[3]);
 }

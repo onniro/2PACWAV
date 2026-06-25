@@ -13,6 +13,8 @@ Date: Sat 24 Jan 2026 03:41:31 PM EET
 #define CONF_VISUALIZER_COLOR           "visualizer_color"
 #define CONF_STARTUP_VOLUME             "volume"
 #define CONF_VOLUME_STEP                "volume_step"
+#define CONF_UI_TEXT_COLOR              "text_color"
+#define CONF_UI_BUTTON_BG_COLOR         "button_bg_color"
 
 typedef enum Token_Type {
     TOKEN_IDENTIFIER,

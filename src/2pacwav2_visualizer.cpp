@@ -368,10 +368,10 @@ void main() {
 #if !PAC_SPECTRUM_ENABLED || 1
     glLineWidth(2.0f);
     glUniform4f(px_color_loc,
-           rtvars->vis_color[0],
-           rtvars->vis_color[1],
-           rtvars->vis_color[2],
-           rtvars->vis_color[3]);
+           rtvars->uivars.vis_color[0],
+           rtvars->uivars.vis_color[1],
+           rtvars->uivars.vis_color[2],
+           rtvars->uivars.vis_color[3]);
 
     //idk if this glBufferSubData call is really good
     glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(2*PAC_OSCILLOSCOPE_POINT_COUNT)), &verts[0]);

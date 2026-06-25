@@ -246,8 +246,8 @@ static size_t startup_load_conf(Runtime_Vars *rtvars,
 }
 
 static void startup_add_paths(Startup_Args *sargs,
-                                Runtime_Vars *rtvars, 
-                                Music_Data *mdata) {
+                            Runtime_Vars *rtvars, 
+                            Music_Data *mdata) {
     char *this_path, *this_end;
     for (int i = 0; i < sargs->paths.count; ++i) {
         this_path = sargs->paths.ptrs[i];
@@ -387,10 +387,20 @@ static void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) {
     ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
     ImGui::SetNextWindowBgAlpha(0);
 
-    ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(    0x22, 0x22, 0x33, 0xFF));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(   0x22, 0x22, 0x33, 0xFF));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(  0x0,  0x00, 0x00, 0xFF));
-    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, IM_COL32( 0x22, 0x22, 0x33, 0xFF));
+    //ImGui::PushStyleColor(ImGuiCol_Button,          IM_COL32(0x22, 0x22, 0x33, 0xFF));
+
+    int button_color = IM_COL32((unsigned char)((float)0xFF*rtvars->uivars.button_bg_color[0]),
+                                                  (unsigned char)((float)0xFF*rtvars->uivars.button_bg_color[1]),
+                                                  (unsigned char)((float)0xFF*rtvars->uivars.button_bg_color[2]),
+                                                  (unsigned char)((float)0xFF*rtvars->uivars.button_bg_color[3]));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32((unsigned char)((float)0xFF*rtvars->uivars.text_color[0]),
+                                                  (unsigned char)((float)0xFF*rtvars->uivars.text_color[1]),
+                                                  (unsigned char)((float)0xFF*rtvars->uivars.text_color[2]),
+                                                  (unsigned char)((float)0xFF*rtvars->uivars.text_color[3])));
+    ImGui::PushStyleColor(ImGuiCol_Button, button_color);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, button_color);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg,        IM_COL32(0x00, 0x00, 0x00, 0xFF));
+    ImGui::PushStyleColor(ImGuiCol_MenuBarBg,       IM_COL32(0x22, 0x22, 0x33, 0xFF));
 
     ImGui::Begin("2PACWAV", 0, ImGuiWindowFlags_NoTitleBar
                             |ImGuiWindowFlags_NoResize
@@ -409,6 +419,8 @@ static void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) {
     General_Buffer_Group *bufgroup = rtvars->bufgroup_ptr;
     Music_Data *mdata = rtvars->mdata_ptr;
 
+    ImGui::PopStyleColor();
+    ImGui::PopStyleColor();
     ImGui::PopStyleColor();
     ImGui::PopStyleColor();
     ImGui::PopStyleColor();
@@ -1470,7 +1482,7 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata) {
             strcpy(repeat_toggle_text, "enable looping");
         }
     }
-    ImGui::PopStyleColor();
+    //ImGui::PopStyleColor();
 }
 
 static void menu_do_colorpicker(Runtime_Vars *rtvars) {
@@ -1492,7 +1504,7 @@ static void menu_do_colorpicker(Runtime_Vars *rtvars) {
         { sflags->colorpicker_open = 0; }
 
         ImGui::ColorPicker4("##visualizer_color",
-                rtvars->vis_color,
+                rtvars->uivars.vis_color,
                 ImGuiColorEditFlags_Float
                 |ImGuiColorEditFlags_DisplayHex
                 |ImGuiColorEditFlags_DisplayRGB
