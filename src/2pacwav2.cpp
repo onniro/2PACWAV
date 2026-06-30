@@ -100,8 +100,8 @@ volume = value; //Sets the volume level on startup. The value is clamped to 0-12
                 //The -vol command option overrides this
 volume_step = value; //Sets the amount by which volume level will be incremented or decremented by
                      //when using the keybinds to change it (0 and 9)
-text_color = {r, g, b, a}; //Sets the text color
-button_bg_color = {r, g, b, a}; //Sets the background color for buttons and text fields 
+text_color = {r, g, b, a}; //Sets the text color. (floats between 0.0 and 1.0)
+button_bg_color = {r, g, b, a}; //Sets the background color for buttons and text fields (floats between 0.0 and 1.0)
 */
 )"
                 , PAC_LATIN_FONTSIZE);
