@@ -389,10 +389,11 @@ static void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) {
 
     //ImGui::PushStyleColor(ImGuiCol_Button,          IM_COL32(0x22, 0x22, 0x33, 0xFF));
 
+    //NOTE: default values are set in the end of 2pacwav2_confparser.cpp
     int button_color = IM_COL32((unsigned char)((float)0xFF*rtvars->uivars.button_bg_color[0]),
-                                                  (unsigned char)((float)0xFF*rtvars->uivars.button_bg_color[1]),
-                                                  (unsigned char)((float)0xFF*rtvars->uivars.button_bg_color[2]),
-                                                  (unsigned char)((float)0xFF*rtvars->uivars.button_bg_color[3]));
+                                (unsigned char)((float)0xFF*rtvars->uivars.button_bg_color[1]),
+                                (unsigned char)((float)0xFF*rtvars->uivars.button_bg_color[2]),
+                                (unsigned char)((float)0xFF*rtvars->uivars.button_bg_color[3]));
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32((unsigned char)((float)0xFF*rtvars->uivars.text_color[0]),
                                                   (unsigned char)((float)0xFF*rtvars->uivars.text_color[1]),
                                                   (unsigned char)((float)0xFF*rtvars->uivars.text_color[2]),

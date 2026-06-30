@@ -448,26 +448,20 @@ static void parse_and_apply_config(Runtime_Vars *rtvars,
     }
 
     if (!text_ui_color_set) {
-        uivars->text_color[0] = 0.8f; 
-        uivars->text_color[1] = 0.8f;
-        uivars->text_color[2] = 0.8f;
-        uivars->text_color[3] = 0.8f;
+        uivars->text_color[0] = 0.9f; 
+        uivars->text_color[1] = 0.9f;
+        uivars->text_color[2] = 0.9f;
+        uivars->text_color[3] = 1.0f;
     }
 
     if (!button_bg_color_set) {
         uivars->button_bg_color[0] = 0.1f; 
         uivars->button_bg_color[1] = 0.1f;
         uivars->button_bg_color[2] = 0.1f;
-        uivars->button_bg_color[3] = 0.1f;
+        uivars->button_bg_color[3] = 1.0f;
     }
 
     if (!volume_step_set) {
         sargs->volume_step = PAC_DEFAULT_VOLUME_INCREMENT;
     }
-
-    printf("%.1f %.1f %.1f %.1f\n",
-        uivars->button_bg_color[0], 
-        uivars->button_bg_color[1],
-        uivars->button_bg_color[2],
-        uivars->button_bg_color[3]);
 }
