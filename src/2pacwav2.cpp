@@ -82,14 +82,12 @@ The configuration file named "2wconf" should be placed either in $HOME/.config/2
 or in the same directory as the executable. The syntax of the configuration file is sort of
 similar to C, meaning that '//' and /* */ are used for comments and lines end in semicolons.
 Below is a complete list of variables that can be set and some information about them.
-You can copy this section in its entirety into your 2wconf, but some of the example
-values must be changed. 
+NOTE: you can copy and paste this output in its entirety to your configuration file.
+Everything here is inside a comment block, so variables you actually intend to set have to be moved outside it.
 ---
-*/
+
 startup_path = "/path/to/file"; //Sets a path to a file or folder that will be added to the list on startup.
                                 //Note that multiple instances of this are perfectly valid.
-volume = value; //Sets the volume level on startup. The value is clamped to 0-128
-                //The -vol command option overrides this
 font_path = "/path/to/font/file"; //Path to the desired font file (TrueType or OpenType)
 font_size = value; //Sets point size for the font. (default: %g)
 visualizer = 0 or 1; //Disables visualizer if value is 0 and enables it otherwise,
@@ -98,6 +96,13 @@ visualizer = 0 or 1; //Disables visualizer if value is 0 and enables it otherwis
 visualizer_color = {r, g, b, a}; //Sets the color that the visualizer is set to at startup.
                                  //Values inside {} must be floats between 0.0 and 1.0
                                  //Note: the visualizer color can be changed at any time from the settings menu.
+volume = value; //Sets the volume level on startup. The value is clamped to 0-128
+                //The -vol command option overrides this
+volume_step = value; //Sets the amount by which volume level will be incremented or decremented by
+                     //when using the keybinds to change it (0 and 9)
+text_color = {r, g, b, a}; //Sets the text color
+button_bg_color = {r, g, b, a}; //Sets the background color for buttons and text fields 
+*/
 )"
                 , PAC_LATIN_FONTSIZE);
 }
