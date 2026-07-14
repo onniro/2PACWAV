@@ -199,6 +199,9 @@ some other functions lack it because it hasn't been added yet or it actually
 wasn't as self-explanatory as I might have initially thought.
 */
 
+//Define this if you only wish to use the metadata features of this header
+#if !defined(PACMXR_ONLY_INCLUDE_METADATA) || !PACMXR_ONLY_INCLUDE_METADATA
+
 /*
 pacmxr_init:
 Should be called once before calling any other function in this header
@@ -358,6 +361,8 @@ PACMXR_DEF void pacmxr__sdl_audio_callback(void *userdata, uint8_t *stream, int 
 PACMXR_DEF void pacmxr__reset_queue(Audio_Queue *aq, char zero);
 PACMXR_INLINE void pacmxr__swap_buffers(void);
 
+#endif //PACMXR_ONLY_INCLUDE_METADATA
+
 /*
 METADATA
 */
@@ -388,9 +393,10 @@ PACMXR_DEF int pacmxr_meta_open_file(Pacmxr_Metadata *pac_meta, char *filename);
 PACMXR_DEF void pacmxr_meta_close_file(Pacmxr_Metadata *pac_meta);
 
 /*
-pacmxr_meta_title
-pacmxr_meta_artist
-pacmxr_meta_album
+pacmxr_meta_get_title
+pacmxr_meta_get_artist
+pacmxr_meta_get_album
+pacmxr_meta_get_genre
 
 Get metadata information from a file.
 These functions do the same thing, the only thing that differs is the data they query. 
@@ -498,15 +504,17 @@ Zero on failure, nonzero on success.
 */
 PACMXR_DEF int pacmxr_copy_file(char *dst_path, char *src_path);
 
+
 PACMXR_GLOBALVAR Pacmxr_Context global_pacmxr_ctx;
 
-#if PACMXR_HEADER_ONLY
+#if !defined(PACMXR_HEADER_ONLY) || !PACMXR_HEADER_ONLY
+#if !defined(PACMXR_ONLY_INCLUDE_METADATA) || !PACMXR_ONLY_INCLUDE_METADATA
 
 PACMXR_INLINE Pacmxr_Context *pacmxr_get_context(void) {
     return &global_pacmxr_ctx;
 }
 
-PACMXR_INLINE Audio_Queue *pacmxr_get_audioq(void)  {
+PACMXR_INLINE Audio_Queue *pacmxr_get_audioq(void) {
     return &global_pacmxr_ctx.aqueue;
 }
 
@@ -1275,6 +1283,8 @@ PACMXR_DEF void pacmxr__reset_queue(Audio_Queue *aq, char zero) {
     aq->frontbuffer_bytes = 0;
 }
 
+#endif //PACMXR_ONLY_INCLUDE_METADATA
+
 //metadata things
 
 PACMXR_DEF int pacmxr_meta_open_file(Pacmxr_Metadata *pac_meta, char *filename) {
@@ -1287,9 +1297,9 @@ PACMXR_DEF int pacmxr_meta_open_file(Pacmxr_Metadata *pac_meta, char *filename) 
     { return 0; }
     AVFormatContext *in_ctx = pac_meta->in_avf_ctx;
 
-    for (uint32_t i = 0; i < in_ctx->nb_streams; i++) {
-        if (in_ctx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
-            pac_meta->stream_index = i;
+    for (uint32_t stream_index = 0; stream_index < in_ctx->nb_streams; stream_index++) {
+        if (in_ctx->streams[stream_index]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+            pac_meta->stream_index = stream_index;
             break;
         }
     }
