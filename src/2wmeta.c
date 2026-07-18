@@ -9,6 +9,9 @@ Simple command line interface for the 2pacmixer metadata features
 #ifndef PACMXR_ONLY_INCLUDE_METADATA
     #define PACMXR_ONLY_INCLUDE_METADATA 1
 #endif
+#ifndef PACMXR_IMPLEMENTATION
+    #define PACMXR_IMPLEMENTATION 1
+#endif
 #include "2pacmixer.h"
 
 typedef struct File_List {
