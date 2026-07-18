@@ -65,7 +65,7 @@ MACROS
 */
 
 #if defined(PACMXR_IMPLEMENTATION) && PACMXR_IMPLEMENTATION
-    #define PACMXR_HEADER_ONLY 1
+    #define PACMXR_HEADER_ONLY 0
     #ifndef PACMXR_DEF
         #define PACMXR_DEF static
     #endif
@@ -73,7 +73,7 @@ MACROS
         #define PACMXR_INLINE static inline
     #endif
 #else
-    #define PACMXR_HEADER_ONLY 0
+    #define PACMXR_HEADER_ONLY 1
     #ifndef PACMXR_INLINE
         #define PACMXR_DEF extern
     #endif
