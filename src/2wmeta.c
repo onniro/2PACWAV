@@ -179,7 +179,7 @@ int main(int arg_count, char **args) {
     state.cmd_opts.args = args;
     state.cmd_opts.arg_count = arg_count;
 
-    //xaxaxaxa
+    //alloca xaxaxaxa
     char **_file_ptr_array = (char **)alloca(arg_count*sizeof(char *));
     state.files.filenames = _file_ptr_array;
     Command_Options *cmd_opts = &state.cmd_opts;
