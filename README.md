@@ -10,7 +10,7 @@ this project started because one day vlc media player crashed while i was trying
 [credits and dependencies](#credits-and-dependencies)  
 [2pacmixer.h](#2pacmixer)
 
-### features <a name=features"></a>
+### features <a name="features"></a>
 - 2pacwav supports many different codecs and containers thanks to FFmpeg, such as WAV, MP3, AAC, Vorbis, Opus, FLAC, AIFF, WavPack, MusePack and more
 - some metadata editing stuff
 - cool oscilloscope audio visualizer
