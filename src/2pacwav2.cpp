@@ -433,8 +433,9 @@ static void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) {
 
     ImGui::End();
 
-    if (sflags->searchwindow_open)
-    { menu_do_search(rtvars, bufgroup, mdata); }
+    if (sflags->searchwindow_open) {
+        menu_do_search(rtvars, bufgroup, mdata);
+    }
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -616,8 +617,8 @@ inline char file_is_playlist(char *path) {
 
 static void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvars) {
     int old_file_count = mdata->music_list.entry_count, 
-            new_file_count, 
-            added_files;
+                            new_file_count, 
+                            added_files;
 
     if (platform_file_exists(path)) {
         if (file_is_playlist(path)) {
@@ -651,6 +652,8 @@ static void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvar
     set_userinfo(rtvars, info_buf, USERINFO_TYPE_NOTE);
 }
 
+//NOTE: this design technically makes it so that if you have two files of identical names
+//added from different directories, only the file that was added first can ever be played
 static char *find_top_level_path4file(char *filename, File_List *flist) {
     char *result = 0, *dirname;
     char pathbuf[PATH_MAX];
@@ -682,6 +685,7 @@ static void file_list_play_file(char *selected_file,
 
         strncpy(mdata->current_filename, path_buf, PATH_MAX - 1);
         mdata->music_list.current_index = file_index;
+        prev_file_list_push(mdata, selected_file);
         load_file_from_path(path_buf, mdata);
     } else {
         platform_dbg_log("could not find containing directory for file %s.\n", selected_file); 
@@ -731,19 +735,90 @@ static void goto_next_file(Music_Data *mdata) {
     }
 }
 
-//for now this is kinda bogus if youre using shuffle
 static void goto_prev_file(Music_Data *mdata) {
     if (0 == mdata->music_list.current_index) 
     { return; }
     File_List *mlist = &mdata->music_list;
     uint32_t cur_index = mlist->current_index;
+    
+    char *prev_file = prev_file_list_get_last(&mdata->music_list.prev_files);
+    int index = file_list_get_index(&mdata->music_list, prev_file);
+    file_list_play_file(prev_file, index, mdata);
+
+#if 0
     int goto_index = cur_index - 1;
     if ((goto_index < 0) || (goto_index >= (int)mlist->entry_count)) 
     { goto_index = get_random_file_index(mdata); }
 
     char *prev_file = mlist->filenames_string_loclist[goto_index];
     file_list_play_file(prev_file, cur_index - 1, mdata);
+#endif
 }
+
+static void debug_print_prev_files(Prev_File_List *pfl) {
+    char c;
+    printf("PREV_FILE_LIST - file_count=%d\n", pfl->file_count);
+    for (int i = 0; i < pfl->file_count; ++i) {
+        c = ' ';
+        if (pfl->current_index == i) { c = '>'; }
+        printf("%c  %s\n", c, pfl->filenames[i]);
+    }
+}
+
+//this is so shit
+static int file_list_get_index(File_List *flist, char *path) {
+    int result = 0;
+    char *file;
+    for (int file_index = 0; file_index < flist->entry_count; ++file_index) {
+        if (!strcmp(flist->filenames_string_loclist[file_index], path)) {
+            result = file_index;
+            break;
+        }
+    }
+    return result;
+}
+
+static char *prev_file_list_get_last(Prev_File_List *pfl) {
+    char *result;
+    if (pfl->current_index > 0) {
+        --pfl->current_index;
+        result = pfl->filenames[pfl->current_index];
+    } else {
+        result = pfl->filenames[PREV_FILES_LIST_MAX_FILES - 1];
+        pfl->current_index = PREV_FILES_LIST_MAX_FILES - 1;
+    }
+#if 1 && _2PACWAV_DEBUG 
+    debug_print_prev_files(pfl);
+#endif
+    return result;
+}
+
+static void prev_file_list_push(Music_Data *mdata, char *path) {
+    Prev_File_List *pfl = &mdata->music_list.prev_files;
+    if (pfl->file_count &&
+        !strcmp(path, pfl->filenames[pfl->current_index]))
+    { return; }
+    if (pfl->current_index >= (PREV_FILES_LIST_MAX_FILES - 1))
+    { pfl->current_index = -1; }
+    ++pfl->current_index;
+    memset(pfl->filenames[pfl->current_index], 0, NAME_MAX);
+    strncpy(pfl->filenames[pfl->current_index], path, NAME_MAX - 1);
+    if (pfl->file_count < PREV_FILES_LIST_MAX_FILES)
+    { ++pfl->file_count; }
+#if 1 && _2PACWAV_DEBUG
+    debug_print_prev_files(&mdata->music_list.prev_files);
+#endif
+}
+
+static void init_prev_file_list(Prev_File_List *pfl) {
+    pfl->filenames[0] = (char *)pfl->buffer;
+    memset(pfl->buffer, 0, PREV_FILES_BUFFER_SIZE);
+    for (int i = 0; i < PREV_FILES_LIST_MAX_FILES; ++i) {
+        pfl->filenames[i] = (char *)(((uintptr_t)pfl->buffer + (NAME_MAX*i)) + 1);
+    }
+    pfl->current_index = -1;
+}
+
 
 static void clear_file_list(Music_Data *mdata) {
     if (!mdata->music_list.entry_count)
@@ -869,14 +944,16 @@ static void menu_do_search(Runtime_Vars *rtvars,
                         General_Buffer_Group *bufgroup,
                         Music_Data *mdata) {
     Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
-    ImVec2 winsize = ImVec2(400, 70);
-    ImGui::SetNextWindowSize(winsize);
-    ImVec2 winpos = ImVec2(sdldata->win_width - winsize.x - 10, winsize.y);
-    ImGui::SetNextWindowPos(winpos);
+    //NOTE: this was moved to the end of the main loop which fixed the window being impossible to move
+    //ImVec2 winsize = ImVec2(400, 70);
+    //ImGui::SetNextWindowSize(winsize);
+    //ImVec2 winpos = ImVec2(sdldata->win_width - winsize.x - 10, winsize.y);
+    //ImGui::SetNextWindowPos(winpos);
 
     if (ImGui::Begin("search list", 0, 
         ImGuiWindowFlags_NoScrollbar
-        |ImGuiWindowFlags_NoResize)) {
+        |ImGuiWindowFlags_NoResize
+        |ImGuiWindowFlags_NoCollapse)) {
         ImGui::SetKeyboardFocusHere(0);
         if (!ImGui::IsWindowHovered() &&
             ImGui::IsMouseClicked(ImGuiMouseButton_Left))
@@ -1068,7 +1145,7 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata) {
     ImVec2 width;
     width.x = ImGui::GetColumnWidth(-1);
     width.y = 0;
-    //ImGui::SetCurrentContext(GImGui);
+
     for (int loop_index = 0; loop_index < (int)mlist->entry_count; ++loop_index) {
         if (!mlist->match_flags[loop_index]) {
             filename = mlist->filenames_string_loclist[loop_index];
@@ -1429,6 +1506,12 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata) {
         } if (ImGui::BeginMenu("settings")) {
             if (ImGui::MenuItem("visualizer color")) {
                 sflags->colorpicker_open = !sflags->colorpicker_open;
+                if (sflags->colorpicker_open) {
+                    ImVec2 wdim = ImVec2(400, 400);
+                    ImVec2 wpos = ImVec2((rtvars->sdldata_ptr->win_width/2) - (wdim.x/2), 100.0f);
+                    ImGui::SetNextWindowSize(wdim);
+                    ImGui::SetNextWindowPos(wpos);
+                }
             }
             ImGui::EndMenu();
         }
@@ -1494,20 +1577,18 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata) {
 static void menu_do_colorpicker(Runtime_Vars *rtvars) {
     Sdl_Apidata *sdldata = rtvars->sdldata_ptr;
     State_Flags *sflags = &rtvars->sflags;
-    ImVec2 wdim = ImVec2(400, 400);
-    ImVec2 wpos = ImVec2((sdldata->win_width/2) - (wdim.x/2), 100.0f);
-    ImGui::SetNextWindowSize(wdim);
-    ImGui::SetNextWindowPos(wpos);
 
     if (ImGui::Begin("visualizer color", 0,
         ImGuiWindowFlags_NoScrollbar
-        |ImGuiWindowFlags_NoResize)) {
+        |ImGuiWindowFlags_NoResize
+        |ImGuiWindowFlags_NoCollapse)) {
         if ((!ImGui::IsWindowHovered() &&
             ImGui::IsMouseClicked(ImGuiMouseButton_Left)) ||
             pac_btn_press(SDL_SCANCODE_ESCAPE,
-                    &sflags->esc_wasdown,
-                    rtvars->kbd_state))
-        { sflags->colorpicker_open = 0; }
+            &sflags->esc_wasdown,
+            rtvars->kbd_state)) {
+            sflags->colorpicker_open = 0;
+        }
 
         ImGui::ColorPicker4("##visualizer_color",
                 rtvars->uivars.vis_color,
@@ -1582,25 +1663,22 @@ static void pac_main_loop(Runtime_Vars *rtvars,
             ImGui::GetTextLineHeight() - 100),
             0);
 
-    //this check probably hasn't been necessary since the imgui port
-    //if ((sdldata->win_height > MLIST_MIN_WIN_WIDTH) && 
-    //    (sdldata->win_width > MLIST_MIN_WIN_HEIGHT)) {
-        switch (rtvars->sflags.viewstate) {
-        case CENTER_VIEW_STATE_MUSIC_LIST: {
-            menu_do_music_list(rtvars, mdata);
-        } break;
+    switch (rtvars->sflags.viewstate) {
+    case CENTER_VIEW_STATE_MUSIC_LIST: {
+        menu_do_music_list(rtvars, mdata);
+    } break;
 
-        case CENTER_VIEW_STATE_CURRENT_INFO: {
-            menu_do_current_file_info(rtvars, mdata, bufgroup);
-        } break;
+    case CENTER_VIEW_STATE_CURRENT_INFO: {
+        menu_do_current_file_info(rtvars, mdata, bufgroup);
+    } break;
 
-        case CENTER_VIEW_STATE_METADATA_EDITOR: {
-            menu_do_metadata_editor(rtvars, mdata, bufgroup);
-        } break;
+    case CENTER_VIEW_STATE_METADATA_EDITOR: {
+        menu_do_metadata_editor(rtvars, mdata, bufgroup);
+    } break;
 
-        default: break;
-        }
-    //}
+    default: break;
+    }
+
     ImGui::EndChild();
     ImGui::SetCursorPosX(50);
     ImGui::Separator();
@@ -1693,6 +1771,10 @@ static void pac_main_loop(Runtime_Vars *rtvars,
                                 rtvars->kbd_state);
     if (searchkey_was_pressed) { 
         sflags->searchwindow_open = !sflags->searchwindow_open; 
+        ImVec2 winsize = ImVec2(400, 70);
+        ImGui::SetNextWindowSize(winsize);
+        ImVec2 winpos = ImVec2(sdldata->win_width - winsize.x - 10, winsize.y);
+        ImGui::SetNextWindowPos(winpos);
     } else if (esc_was_pressed || enter_was_pressed) {
         sflags->searchwindow_open = 0;
     }
@@ -1729,6 +1811,7 @@ static void tupacmixer_start_music(Music_Data *mdata, char *music_path) {
     pacmxr_close_file();
     if (pacmxr_open_file(music_path)) {
         pacmxr_pause(0);
+        //prev_file_list_push(mdata, music_path);
         tupacmixer_get_audio_type(mdata);
         tupacmixer_get_cover(&mdata->cover, mdata->rtvars_ptr);
         //SDL_UnlockAudioDevice(global_pacmxr_ctx.au_dev);

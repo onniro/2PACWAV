@@ -85,14 +85,19 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 #define SEARCH_BUFFER_SIZE                  (NAME_MAX)
 #define MATCH_FLAGS_BUFFER_SIZE             (PAC_MAX_FILES*sizeof(char))
 #define CONFBUFFER_SIZE                     (8192)
+#define PREV_FILES_LIST_MAX_FILES           (50)
+#define PREV_FILES_BUFFER_SIZE              (PREV_FILES_LIST_MAX_FILES*(NAME_MAX))
 
 #define FFT_FLOAT_COUNT                     (8192) //this is way too big
 #define FFT_COMPLEX32_BUFFER_SIZE           ((FFT_FLOAT_COUNT)*sizeof(Complex32))
 #define PAC_SPECTRUM_FREQ_BIN_COUNT         (800)
 #define PAC_OSCILLOSCOPE_POINT_COUNT        (PAC_SDLMIXER_CHUNKSIZE/2)
 
-#define PAC_HOLD_WAIT_FRAMES (25)
-#define PAC_HOLD_INCREMENT_MODULO (3) //controls how fast u scroll
+#define PAC_CONFNAME_STRING                 "2wconf"
+
+//irrelevant since imgui port
+//#define PAC_HOLD_WAIT_FRAMES (25)
+//#define PAC_HOLD_INCREMENT_MODULO (3) //controls how fast u scroll
 
 #define PAC_DEFAULT_SEEK_INCREMENT (5.0f) //(seconds)
 #define PAC_DEFAULT_VOLUME_INCREMENT (5) //(seconds)
@@ -100,7 +105,6 @@ static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 //typedef _Complex float Complex32;
 //typedef FFTComplex Complex32;
 
-struct Runtime_Vars;
 struct General_Buffer_Group;
 struct File_List;
 struct Frametime_Vars;
@@ -112,11 +116,11 @@ struct Sdl_Apidata;
 struct Music_Data;
 struct Startup_Args_Paths;
 struct Startup_Args;
+struct Prev_File_List;
 struct Mouse_State;
 struct Metadata_Editor;
 struct Audio_Stream;
-
-#define PAC_CONFNAME_STRING         "2wconf"
+struct Runtime_Vars;
 
 typedef struct General_Buffer_Group {
     void *inbuf_filename;
@@ -132,8 +136,11 @@ typedef struct General_Buffer_Group {
     void *flist_match_flags;
     void *autocomp_string_loclist;
     void *autocomp_buffer;
+    void *prev_files_buf;
+
     void *scratch_space;
     uint64_t scratch_bytes;
+
     char *fontpath_ptr;
     void *fft_complex32_buffer;
     char sort_text[32] = "sort (a-z)";
@@ -161,6 +168,13 @@ typedef struct Startup_Args {
     char *conf_path;
 } Startup_Args;
 
+typedef struct Prev_File_List {
+    char *buffer;
+    int file_count;
+    int current_index;
+    char *filenames[PREV_FILES_LIST_MAX_FILES];
+} Prev_File_List;
+
 typedef struct File_List {
     int entry_count;
     int dirs_added;
@@ -173,6 +187,7 @@ typedef struct File_List {
     char **filenames_string_loclist;    //array of pointers which specify the beginnings of strings in the filename array
     char **dirnames_string_loclist;     //array of pointers which specify the beginnings of strings in the dirname array
     char *match_flags;                  //buffer whose indices map to indices of filenames_buf, set to 1 if the index should *NOT* be shown in the list
+    Prev_File_List prev_files;
 } File_List;
 
 typedef struct Frametime_Vars {
@@ -319,7 +334,7 @@ typedef struct Music_Data {
     int channels;
     /*
     NOTE: after 2pacmixer port chunk_size is a terrible name since 2pacmixer
-    also uses the same name for something totally different and also it doesn't
+    also uses the same name for something totally different
     and also it doesn't actually mean anything anymore really, it just denotes
     how much data the visualizer needs to copy
     */
@@ -425,6 +440,10 @@ static void menu_do_search(Runtime_Vars *rtvars, General_Buffer_Group *bufgroup,
 static void file_list_push_dirname(char *dirname, File_List *flist);
 static void goto_next_file(Music_Data *mdata);
 static void goto_prev_file(Music_Data *mdata);
+static char *prev_file_list_get_last(Prev_File_List *pfl);
+static int file_list_get_index(File_List *flist, char *path);
+static void init_prev_file_list(Prev_File_List *pfl);
+static void prev_file_list_push(Music_Data *mdata, char *path);
 static void set_match_flags(char *searchbuf, Music_Data *mdata);
 static void update_audio_time(Music_Data *mdata);
 static void pac_main_loop(Runtime_Vars *rtvars, Sdl_Apidata *sdldata, General_Buffer_Group *bufgroup, Music_Data *mdata);

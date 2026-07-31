@@ -131,7 +131,7 @@ static void platform_sort_mlist_mod_date_janky(File_List *file_list,
         scratch_buf[bytes_read_total] = 0;
         close(out_file_desc);
 #else
-            ro_posix_get_command_output(out_file_desc, scratch_buf, scratch_bytes, 1);
+        ro_posix_get_command_output(out_file_desc, scratch_buf, scratch_bytes, 1);
 #endif
     } else {
         platform_dbg_log("failed to read shell command output while rebuilding file list\n"
@@ -254,6 +254,7 @@ static void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
     MEM_INIT_ASSERT(heapbuf, bufgroup->autocomp_string_loclist,         FILENAMEBUF_LOCATION_LIST_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_filenames_buf,             FILENAMES_BUFFER_SIZE);
     MEM_INIT_ASSERT(heapbuf, bufgroup->flist_dirnames_buf,              DIRNAMES_BUFFER_SIZE);
+    MEM_INIT_ASSERT(heapbuf, bufgroup->prev_files_buf,                  PREV_FILES_BUFFER_SIZE);
     //MEM_INIT_ASSERT(heapbuf, bufgroup->autocomp_buffer,                 FILENAMES_BUFFER_SIZE);
 
     bufgroup->scratch_bytes = ro_buffer_unallocated_bytes(heapbuf);
@@ -384,6 +385,9 @@ int main(int arg_count, char **args) {
     mdata.astream.complex32_buffer_in = (Complex32 *)bufgroup.fft_complex32_buffer;
     mdata.astream.complex32_buffer_out = mdata.astream.complex32_buffer_in + (FFT_COMPLEX32_BUFFER_SIZE/2);
 #endif
+    
+    mdata.music_list.prev_files.buffer = (char *)bufgroup.prev_files_buf;
+    init_prev_file_list(&mdata.music_list.prev_files);
 
     rtvars.keep_running = 1;
 
