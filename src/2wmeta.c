@@ -165,7 +165,7 @@ static void set_edit_option(State *state,
         *ptr2set = args[*arg_index + 1];
         *arg_index += 1;
     } else {
-        fprintf(stderr, "%s: expected argument after %s.\n", args[0], option);
+        fprintf(stderr, "%s: expected value after %s.\n", args[0], option);
     }
 }
 
@@ -212,20 +212,21 @@ int main(int arg_count, char **args) {
         }
     }
 
-    if (state.cmd_opts.edit_flags) {
-        if (state.files.num_files > 0)  {
+    if (state.files.num_files > 0) {
+        char something_was_done = 0;
+        if (state.cmd_opts.edit_flags) {
             edit_files(&state);
-        } else {
-            fprintf(stderr, "%s: specified editing options but no files were supplied.\n", state.cmd_opts.args[0]);
-        }
-    }
-
-    if (state.cmd_opts.do_list) {
-        if (state.files.num_files > 0) {
+            something_was_done = 1;
+        } if (state.cmd_opts.do_list) {
             list_files(&state);
-        } else {
-            fprintf(stderr, "%s: used -l but no files were supplied.\n", state.cmd_opts.args[0]);
+            something_was_done = 1;
+        } if (!something_was_done) {
+            fprintf(stderr, "%s: %d file(s) supplied but no flags were given\nrun 2wmeta -h for help\n",
+                    args[0], state.files.num_files);
         }
+    } else if (state.cmd_opts.edit_flags || state.cmd_opts.do_list) {
+        fprintf(stderr, "%s: flags were given but no files were supplied.\nrun 2wmeta -h for help\n",
+                state.cmd_opts.args[0]);
     }
 
     return 0;
