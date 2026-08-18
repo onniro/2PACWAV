@@ -40,26 +40,14 @@ LINK_LIBS="-lm \
         -lpthread \
         -lfontconfig"
 
-#taglib
-        #$BASEDIR/3rd_party/taglib/lib/libtag.a \
-        #-l:libz.a \
-#sdl mixer
-#        $SDL_DIR/lib/libSDL2_mixer.a \
-#        $CODEC_DIR/lib/libopusfile.a \
-#        $CODEC_DIR/lib/libopus.a \
-#        $CODEC_DIR/lib/libvorbisfile.a \
-#        $CODEC_DIR/lib/libvorbis.a \
-#        $CODEC_DIR/lib/libwavpack.a \
-#        $CODEC_DIR/lib/libxmp.a \
-#        $CODEC_DIR/lib/libogg.a \
-
 OBJ_FILES="$BASEDIR/build/lib/imgui*.o"
 
 WARNINGS="-Wall -Wpedantic -Wextra -Wno-unused-parameter \
         -Wno-pointer-arith -Wno-unused-variable \
         -Wno-unused-function -Wno-unused-but-set-variable \
         -Wno-write-strings -Wno-string-concatenation \
-        -Wno-unused-function -Wno-strict-aliasing"
+        -Wno-unused-function -Wno-strict-aliasing \
+        -Wno-c99-extensions"
 
 DEFINES="-D_2PACWAV_DEBUG=1 \
         -D_2PACWAV_LINUX=1 \

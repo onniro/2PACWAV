@@ -73,7 +73,7 @@ WARNINGS="-Wall -Wpedantic -Wextra \
         -Wno-unused-parameter -Wno-pointer-arith \
         -Wno-unused-variable -Wno-unused-function \
         -Wno-unused-but-set-variable -Wno-write-strings -Wno-format\
-        -Wno-string-concatenation"
+        -Wno-string-concatenation -Wno-c99-extensions"
 
 DEFINES="-D_2PACWAV_RELEASE=1 -D_2PACWAV_LINUX=1 -DPAC_SAMPLE_RATE=48000"
 
