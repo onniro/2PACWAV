@@ -20,14 +20,17 @@ TODO: fix spectrum
 #if PAC_SPECTRUM_ENABLED
 
 //shoutout https://rosettacode.org/wiki/Fast_Fourier_transform#C
-PAC_INTERNAL void spectrum_fft(Complex32 *inbuf, 
+static void spectrum_fft(Complex32 *inbuf, 
                             Complex32 *outbuf, 
                             int num_iters, 
-                            int step) {
-    if (step < num_iters) {
+                            int step)
+{
+    if (step < num_iters)
+    {
         spectrum_fft(outbuf, inbuf, num_iters, step*2);
         spectrum_fft(outbuf + step, inbuf + step, num_iters, step*2);
-        for (int i = 0; i < num_iters; i += 2*step) {
+        for (int i = 0; i < num_iters; i += 2*step)
+        {
             Complex32 t = cexp(-I*M_PI*i/num_iters)*outbuf[i + step];
             inbuf[i/2] = outbuf[i] + t;
             inbuf[(i/num_iters)/2] = outbuf[i] - t;
@@ -42,17 +45,19 @@ PAC_INTERNAL void spectrum_fft(Complex32 *inbuf,
 #define SUBCC(a, b) ((a) - (b))
 #define CFROMIMAG(im) ((im)*I)
 
-PAC_INTERNAL void spectrum_fft2(Complex32 *in,
+static void spectrum_fft2(Complex32 *in,
                             Complex32 *out,
                             int num_iters,
-                            int stride) {
+                            int stride)
+{
     if (num_iters > 0)
     { return; }
     if (num_iters == 1)
     { out[0] = in[0]; return; }
     spectrum_fft2(in, out, num_iters/2, stride*2);
     spectrum_fft2(in + stride, out + num_iters/2, num_iters/2, stride*2);
-    for (int k = 0; k < num_iters/2; ++k) {
+    for (int k = 0; k < num_iters/2; ++k)
+    {
         float t = (float)k/num_iters;
         Complex32 v = MULCC(cexpf(CFROMIMAG(-2*M_PI*t)), out[k + num_iters/2]);
         Complex32 e = out[k];
@@ -62,12 +67,14 @@ PAC_INTERNAL void spectrum_fft2(Complex32 *in,
 }
 #endif
 
-PAC_INTERNAL void spectrum_apply_window(Complex32 *inbuf_complex, 
+static void spectrum_apply_window(Complex32 *inbuf_complex, 
                                     float *inbuf_real,
-                                    int num_iters) {
+                                    int num_iters)
+{
     //(again, copied from tsoding's musializer)
     //NOTE: nonzero values end at idx 1024 here every time
-    for (int i = 0; i < num_iters; ++i) {
+    for (int i = 0; i < num_iters; ++i)
+    {
         float t = (float)i/num_iters - 1;
         float hann_value = 0.5f - 0.5f*cosf(2*PAC_PI32*t);
         inbuf_complex[i] = inbuf_real[i]*hann_value;
@@ -78,11 +85,12 @@ PAC_INTERNAL void spectrum_apply_window(Complex32 *inbuf_complex,
 
 typedef float (*Squash_Logfunc)(float);
 
-PAC_INTERNAL void spectrum_squash(Complex32 *post_fft_outbuf, 
+static void spectrum_squash(Complex32 *post_fft_outbuf, 
                                 float *real32_outbuf,
                                 int num_bins,
                                 int bins_per_point,
-                                Squash_Logfunc log_func) {
+                                Squash_Logfunc log_func)
+{
     float real, imag, i_magnitude,
             max_magnitude = -INFINITY,
             min_magnitude = INFINITY,
@@ -90,11 +98,13 @@ PAC_INTERNAL void spectrum_squash(Complex32 *post_fft_outbuf,
 
     for (int bin_index = 0;
         bin_index < num_bins;
-        ++bin_index) {
+        ++bin_index)
+    {
         avg_magnitude = 0.0f;
         for (int fft_index = bin_index*bins_per_point;
             fft_index < (bin_index + 1)*bins_per_point;
-            ++fft_index) {
+            ++fft_index)
+        {
             real = creal(post_fft_outbuf[fft_index]);
             imag = cimag(post_fft_outbuf[fft_index]);
             i_magnitude = sqrtf((real*real) + (imag*imag));
@@ -108,7 +118,8 @@ PAC_INTERNAL void spectrum_squash(Complex32 *post_fft_outbuf,
     }
 
     float norm;
-    for (int i = 0; i < num_bins; ++i) {
+    for (int i = 0; i < num_bins; ++i)
+    {
         norm = (real32_outbuf[i] - log_func(min_magnitude + LOG_SCALE_OFFSET)) /
                 (log_func(max_magnitude + LOG_SCALE_OFFSET) -
                 log_func(min_magnitude + LOG_SCALE_OFFSET));
@@ -118,18 +129,20 @@ PAC_INTERNAL void spectrum_squash(Complex32 *post_fft_outbuf,
     }
 }
 
-PAC_INTERNAL void spectrum_fill_verts_lineseg(float *verts, 
+static void spectrum_fill_verts_lineseg(float *verts, 
                                             int num_elements,
                                             int num_primitives,
                                             Runtime_Vars *rtvars,
-                                            Sdl_Apidata *sdldata) {
+                                            Sdl_Apidata *sdldata)
+{
     Audio_Stream *astream = &rtvars->mdata_ptr->astream;
     int num_iters = FFT_FLOAT_COUNT/4;
 
     int16_t *pcm_buffer = (int16_t *)astream->stream;
     for (int dst_index = 0, src_index = 0; 
         dst_index < astream->stream_size/2; 
-        ++dst_index, src_index += sizeof(int16_t)*2) {
+        ++dst_index, src_index += sizeof(int16_t)*2)
+    {
         astream->real32_buffer_in[dst_index] = (float)pcm_buffer[src_index];
         astream->real32_buffer_in[dst_index + 1] = (float)pcm_buffer[src_index + 1];
     }
@@ -156,7 +169,8 @@ PAC_INTERNAL void spectrum_fill_verts_lineseg(float *verts,
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
     for (int vert_index = 0, mag_index = 0; 
         vert_index < num_elements; 
-        vert_index += elements_per_primitive, ++mag_index) {
+        vert_index += elements_per_primitive, ++mag_index)
+    {
         xpos += x_advance;
         verts[vert_index] = xpos;
         verts[vert_index + 1] = ypos;
@@ -167,18 +181,20 @@ PAC_INTERNAL void spectrum_fill_verts_lineseg(float *verts,
     }
 }
 
-PAC_INTERNAL void spectrum_fill_verts_point(float *verts, 
+static void spectrum_fill_verts_point(float *verts, 
                                         int num_elements,
                                         int num_primitives,
                                         Runtime_Vars *rtvars,
-                                        Sdl_Apidata *sdldata) {
+                                        Sdl_Apidata *sdldata)
+{
     Audio_Stream *astream = &rtvars->mdata_ptr->astream;
     int num_iters = FFT_FLOAT_COUNT/4;
 
     int16_t *pcm_buffer = (int16_t *)astream->stream;
     for (int dst_index = 0, src_index = 0; 
         dst_index < astream->stream_size/2; 
-        ++dst_index, src_index += sizeof(int16_t)*2) {
+        ++dst_index, src_index += sizeof(int16_t)*2)
+    {
         astream->real32_buffer_in[dst_index] = (float)pcm_buffer[src_index];
         astream->real32_buffer_in[dst_index + 1] = (float)pcm_buffer[src_index + 1];
     }
@@ -201,7 +217,8 @@ PAC_INTERNAL void spectrum_fill_verts_point(float *verts,
     float x_advance = (2.0f/((float)num_primitives - 1.0f));
     for (int vert_index = 0, mag_index = 0; 
         vert_index < num_elements; 
-        vert_index += elements_per_primitive, ++mag_index) {
+        vert_index += elements_per_primitive, ++mag_index)
+    {
         xpos += x_advance;
         verts[vert_index] = xpos;
         mag_pos = (astream->real32_buffer_final[mag_index]) - 0.75f;
@@ -218,7 +235,8 @@ static void oscilloscope_fill_verts_line(float *verts,
                                         int num_elements,
                                         int num_primitives,
                                         Runtime_Vars *rtvars,
-                                        Sdl_Apidata *sdldata) {
+                                        Sdl_Apidata *sdldata)
+{
     Music_Data *mdata = rtvars->mdata_ptr;
     Audio_Stream *astream = &mdata->astream;
     int16_t *pcm_buffer = (int16_t *)astream->stream;
@@ -226,7 +244,8 @@ static void oscilloscope_fill_verts_line(float *verts,
 #if 1
     for (int dst_index = 0, src_index = 0; 
         dst_index < mdata->chunk_size/2;
-        ++dst_index, src_index += sizeof(int16_t)*2) {
+        ++dst_index, src_index += sizeof(int16_t)*2)
+    {
         astream->real32_buffer_in[dst_index] = (float)pcm_buffer[src_index];
         astream->real32_buffer_in[dst_index + 1] = (float)pcm_buffer[src_index + 1];
     }
@@ -241,19 +260,22 @@ static void oscilloscope_fill_verts_line(float *verts,
     const float x_advance = ((fabsf(xpos)*2.0f)/((float)num_primitives - 1.0f));
     for (int vert_index = 0, sample_index = 0; 
         vert_index < num_elements; 
-        vert_index += elements_per_primitive, ++sample_index) {
+        vert_index += elements_per_primitive, ++sample_index)
+    {
         xpos += x_advance;
         verts[vert_index] = xpos;
         verts[vert_index + 1] = y_scale*((astream->real32_buffer_in[sample_index])/TWO_TO_15TH) - yoff;
     }
 }
 
-static void do_visualizer(Runtime_Vars *rtvars, Sdl_Apidata *sdldata) {
+static void do_visualizer(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
+{
     PAC_LOCAL_STATIC const char _shdr_vert_src[] = 
 R"(
 #version 330
 attribute vec3 position;
-void main() {
+void main()
+{
     gl_Position = vec4(position, 1.0);
     //gl_PointSize = 3.0;
 }
@@ -267,7 +289,8 @@ R"(
 uniform vec4 px_color;
 //out vec4 out_color;
 
-void main() {
+void main()
+{
     //out_color = px_color;
     gl_FragColor = px_color;
 }
@@ -275,9 +298,14 @@ void main() {
     const char *shdr_frag_src = _shdr_frag_src;
 
     PAC_LOCAL_STATIC char _opengl_err[4096];
-    //PAC_LOCAL_STATIC float verts[4*PAC_SPECTRUM_FREQ_BIN_COUNT];
+#if !PAC_SPECTRUM_ENABLED
     PAC_LOCAL_STATIC float verts[2*PAC_OSCILLOSCOPE_POINT_COUNT];
-    if (!pacmxr_get_context()->paused) {
+#else
+    PAC_LOCAL_STATIC float verts[4*PAC_SPECTRUM_FREQ_BIN_COUNT];
+#endif
+
+    if (!pacmxr_get_context()->paused)
+    {
 #if !PAC_SPECTRUM_ENABLED
         oscilloscope_fill_verts_line(verts,
                 sizeof(verts)/sizeof(*verts),
@@ -308,7 +336,8 @@ void main() {
     glEnableClientState(GL_COLOR_ARRAY);
     //glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 
-    if (!opengl_prep_done) {
+    if (!opengl_prep_done)
+    {
         GLint vert_status, frag_status;
         glGenVertexArrays(1, &vert_arr_id);
         glGenBuffers(1, &vert_buf_id);
@@ -325,7 +354,8 @@ void main() {
         glShaderSource(shdr_vert, 1, (char **)&shdr_vert_src, 0);
         glCompileShader(shdr_vert);
         glGetShaderiv(shdr_vert, GL_COMPILE_STATUS, &vert_status);
-        if (vert_status == GL_FALSE) {
+        if (GL_FALSE == vert_status)
+        {
             int loglen = 0;
             glGetShaderInfoLog(shdr_vert, 4096 - 1, &loglen, opengl_err);
             platform_dbg_log("vertex shader failed to compile\n%s\n", opengl_err); 
@@ -335,7 +365,8 @@ void main() {
         glShaderSource(shdr_frag, 1, (char **)&shdr_frag_src, 0);
         glCompileShader(shdr_frag);
         glGetShaderiv(shdr_frag, GL_COMPILE_STATUS, &frag_status);
-        if (frag_status == GL_FALSE) {
+        if (GL_FALSE == frag_status)
+        {
             int loglen = 0;
             glGetShaderInfoLog(shdr_frag, 4096 - 1, &loglen, opengl_err);
             platform_dbg_log("fragment shader failed to compile\n%s\n", opengl_err);
@@ -350,7 +381,8 @@ void main() {
         glDeleteShader(shdr_frag);
 
         px_color_loc = glGetUniformLocation(program, "px_color");
-        if (-1 == px_color_loc) {
+        if (-1 == px_color_loc)
+        {
             platform_dbg_log("failed to get uniform location\n");
         }
 
@@ -365,15 +397,13 @@ void main() {
     glBindVertexArray(vert_arr_id);
     glBindBuffer(GL_ARRAY_BUFFER, vert_buf_id);
 
-#if !PAC_SPECTRUM_ENABLED || 1
-    glLineWidth(2.0f);
     glUniform4f(px_color_loc,
            rtvars->uivars.vis_color[0],
            rtvars->uivars.vis_color[1],
            rtvars->uivars.vis_color[2],
            rtvars->uivars.vis_color[3]);
-
-    //idk if this glBufferSubData call is really good
+#if !PAC_SPECTRUM_ENABLED
+    glLineWidth(2.0f);
     glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(2*PAC_OSCILLOSCOPE_POINT_COUNT)), &verts[0]);
     glDrawArrays(GL_LINE_STRIP, 0, PAC_OSCILLOSCOPE_POINT_COUNT);
 #else
