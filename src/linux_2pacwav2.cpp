@@ -32,7 +32,11 @@ Linux platform-specific code for 2pacwav
 #define PACMXR_IMPLEMENTATION 1
 #include "2pacmixer.h"
 
-#include "ro_posix.h"
+
+#ifndef RO_UTIL_POSIX
+    #define RO_UTIL_POSIX 1
+#endif
+#include "ro_util.h"
 #include "2pacwav2.h"
 #include "linux_2pacwav2.h"
 
@@ -428,6 +432,11 @@ static char platform_path_exists(char *path)
     return ro_posix_path_exists(path);
 }
 
+static void platform_sleep_ms(int ms)
+{
+    ro_posix_sleep_usec(ms*1000);
+}
+
 static uint64_t platform_read_file(char *file_path, 
                                 char *dest, 
                                 uint64_t dest_bytes)
@@ -643,6 +652,8 @@ int main(int arg_count, char **args)
     //rtvars.autocomp_list.filenames_buf = (char *)bufgroup.autocomp_buffer;
     //rtvars.autocomp_list.filenames_string_loclist = (char **)bufgroup.autocomp_string_loclist;
     //rtvars.autocomp_list.filenames_string_loclist[0] = rtvars.autocomp_list.filenames_buf;
+
+    //memset();
 
     while (rtvars.keep_running)
     {
