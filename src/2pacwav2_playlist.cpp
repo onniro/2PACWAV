@@ -14,7 +14,8 @@ Date: Sat 24 Jan 2026 03:34:19 PM EET
 
 //if multiple files are in the same directory, you can specify the directory
 //just once like this
-"~/music/tupac/" {
+"~/music/tupac/"
+{
     "tupac_all_eyez_on_me.mp3";
     "tupac_california_love.mp3";
     "tupac_changes.mp3";
@@ -35,12 +36,14 @@ case such as the commented stuff above, this code still probably has crazy bugs!
 static uint64_t load_playlist(char *playlist_path,
                             char *dest,
                             uint32_t dest_bytes,
-                            Runtime_Vars *rtvars) {
+                            Runtime_Vars *rtvars)
+{
     uint64_t playlist_size = platform_read_file(playlist_path, dest, dest_bytes);
     return playlist_size;
 }
 
-static void process_playlist(Runtime_Vars *rtvars, char *playlist_path) {
+static void process_playlist(Runtime_Vars *rtvars, char *playlist_path)
+{
     char *playlist_buffer = (char *)rtvars->bufgroup_ptr->scratch_space;
     uint32_t buf_bytes = rtvars->bufgroup_ptr->scratch_bytes;
     uint64_t playlist_bytes = load_playlist(playlist_path,
@@ -56,50 +59,70 @@ static void process_playlist(Runtime_Vars *rtvars, char *playlist_path) {
     char filename[NAME_MAX];
     Tokenizer tokenizer = {0};
     tokenizer.at = playlist_buffer;
-    while (parsing) {
+    while (parsing)
+    {
         Token token = get_token(&tokenizer);
-        switch (token.type) {
+        switch (token.type)
+        {
         case TOKEN_STREAM_END: { parsing = 0; } break;
 
-        case TOKEN_UNKNOWN: {
+        case TOKEN_UNKNOWN:
+        {
             fprintf(stderr, 
                     "playlist warning: unknown token encountered: %s\n",
                     token.text);
             parsing = 0;
         } break;
 
-        case TOKEN_STRING: {
+        case TOKEN_STRING:
+        {
             get_string(&token, stringbuf, sizeof(stringbuf));
-            if (platform_file_exists(stringbuf)) {
+            if (platform_file_exists(stringbuf))
+            {
                 add_to_music_list(stringbuf, rtvars->mdata_ptr, rtvars);
-                if (!require_token(&tokenizer, TOKEN_SEMICOLON)) {
+                if (!require_token(&tokenizer, TOKEN_SEMICOLON))
+                {
                     fprintf(stderr, "error: lines must end on a semicolon\n");
                     break;
                 }
-            } else if (platform_directory_exists(stringbuf)) {
+            }
+            else if (platform_directory_exists(stringbuf))
+            {
                 Token after_string = get_token(&tokenizer);
-                if (after_string.type == TOKEN_SEMICOLON) {
+                if (after_string.type == TOKEN_SEMICOLON)
+                {
                     platform_dbg_log("loading path %s\n", stringbuf);
                     add_to_music_list(stringbuf, rtvars->mdata_ptr, rtvars);
-                } else if (after_string.type == TOKEN_OPEN_BRACE) {
+                }
+                else if (after_string.type == TOKEN_OPEN_BRACE)
+                {
                     snprintf(dirname, PATH_MAX, "%s", stringbuf);
-                    while (1) {
+                    while (1)
+                    {
                         Token in_block = get_token(&tokenizer);
-                        if (in_block.type == TOKEN_STRING) {
+                        if (in_block.type == TOKEN_STRING)
+                        {
                             get_string(&in_block, filename, NAME_MAX);
                             snprintf(stringbuf, PATH_MAX, "%s/%s", dirname, filename);
                             add_to_music_list(stringbuf, rtvars->mdata_ptr, rtvars);
-                        } else if (in_block.type == TOKEN_SEMICOLON) {
+                        }
+                        else if (in_block.type == TOKEN_SEMICOLON)
+                        {
                             continue;
-                        } else {
-                            if (in_block.type != TOKEN_CLOSED_BRACE) {
+                        }
+                        else
+                        {
+                            if (in_block.type != TOKEN_CLOSED_BRACE)
+                            {
                                 fprintf(stderr, "playlist warning: weird token encountered in playlist block\n");
                             }
                             break;
                         }
                     }
                 }
-            } else {
+            }
+            else
+            {
                 fprintf(stderr, "%s: no such file or directory\n", stringbuf);
             }
         } break;

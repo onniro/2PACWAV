@@ -1512,6 +1512,7 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
     char btntext[NAME_MAX];
     char *filename, *title, *artist, *album;
     Audio_File *current;
+    int current_index;
     const uint8_t *kbd = rtvars->kbd_state;
     char ctrl, shift;
 
@@ -1536,11 +1537,29 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
         ImGui::TableSetupColumn("album", ImGuiTableColumnFlags_WidthStretch, 2.0f);
         ImGui::TableHeadersRow();
 
-        ImGuiTableSortSpecs *sort_specs = ImGui::TableGetSortSpecs();
-        if (sort_specs->SpecsDirty)
+        //TODO: this is a band-aid solution to the fact that without this check
+        //while metadata is being retrieved the list can be sorted which causes some files
+        //to be skipped. one option would be to make a copy of the entire list for themetadata
+        //processor and then when its done the copied list can be sorted into the same
+        //order as the actual list and then copied preferably in synchronous fashion
+
+        if (!rtvars->sflags.metadata_getter_thread_working)
         {
-            sort_list_by_column(sort_specs, rtvars);
-            sort_specs->SpecsDirty = false;
+            ImGuiTableSortSpecs *sort_specs = ImGui::TableGetSortSpecs();
+            if (sort_specs->SpecsDirty)
+            {
+                sort_list_by_column(sort_specs, rtvars);
+                sort_specs->SpecsDirty = false;
+            }
+#if 1
+            else
+            {
+                char info[USERINFO_BUFFER_SIZE];
+                snprintf(info, USERINFO_BUFFER_SIZE,
+                        "[sort]: list cannot be sorted during metadata retrieval.");
+                set_userinfo(rtvars, info, USERINFO_TYPE_WARNING);
+            }
+#endif
         }
 
         //ImGuiListClipper is actually gangsta as fuck
@@ -1555,11 +1574,16 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
                 ImGui::TableNextRow();
                 ImGui::PushID(file_index);
 
-                current = &mlist->file_strings[file_index];
+                int current_index = file_index;
                 if (searching)
                 {
-                    current = &mlist->file_strings[mlist->matching_indices[file_index]];
+                    current_index = mlist->matching_indices[file_index];
                 }
+                current = &mlist->file_strings[current_index];
+                //if (searching)
+                //{
+                //    current = &mlist->file_strings[mlist->matching_indices[file_index]];
+                //}
                 filename = current->filename;
                 title = current->metadata.title;
                 artist = current->metadata.artist;
@@ -1598,7 +1622,8 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
                 ImGui::PopStyleVar();
                 if (ImGui::BeginPopupContextItem(0))
                 {
-                    mlist->context_index = file_index;
+                    mlist->context_index = current_index;
+
                     if (ImGui::Button("edit metadata"))
                     {
                         sflags->metadata_editor_open = true;
@@ -1925,13 +1950,13 @@ static void handle_sort_hotkey(Runtime_Vars *rtvars, File_List *list)
     case SORT_STATE_ALBUM_ASCENDING:
     {
         sort_list_by_album(list, 0);
-        snprintf(info, USERINFO_BUFFER_SIZE, "[sort]: album ascending");
+        snprintf(info, USERINFO_BUFFER_SIZE, "[sort]: album name ascending");
     } break;
 
     case SORT_STATE_ALBUM_DESCENDING:
     {
         sort_list_by_album(list, 1);
-        snprintf(info, USERINFO_BUFFER_SIZE, "[sort]: album descending");
+        snprintf(info, USERINFO_BUFFER_SIZE, "[sort]: album name descending");
     } break;
 
     case SORT_STATE_MOD_DATE_ASCENDING:
@@ -1952,7 +1977,7 @@ static void handle_sort_hotkey(Runtime_Vars *rtvars, File_List *list)
     set_userinfo(rtvars, info, USERINFO_TYPE_NOTE);
 }
 
-static void reload_metadata(Runtime_Vars *rtvars)
+static void list_reload_metadata(Runtime_Vars *rtvars)
 {
     File_List *list = &rtvars->mdata_ptr->music_list;
     char **dirs = list->dirnames_string_loclist;
@@ -1974,7 +1999,8 @@ static void reload_metadata(Runtime_Vars *rtvars)
         dir_index < list->dirs_added;
         ++dir_index)
     {
-        while (rtvars->sflags.metadata_getter_thread_lock);
+        while (rtvars->sflags.metadata_getter_thread_working)
+        { platform_sleep_ms(1); }
         platform_get_metadata_bulk(rtvars, dirs[dir_index]);
     }
 }
@@ -2016,6 +2042,7 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
     char lkey = pac_btn_press(SDL_SCANCODE_L, &sflags->l_wasdown, kbd);
     char lstoggle_was_pressed = ((ctrl && lkey) && !shift);
     char reptoggle_was_pressed = (ctrl && shift && lkey);
+    char reload_metadata = ((ctrl && shift) && ImGui::IsKeyPressed(ImGuiKey_M));
 
     if (ImGui::BeginMenuBar())
     {
@@ -2098,12 +2125,7 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
             }
             if (ImGui::MenuItem("reload metadata", "ctrl-shift-m"))
             {
-                //TODO: this is a band-aid solution to the fact that while metadata is being
-                //retrieved the list can be sorted which causes some files to be skipped.
-                //one option would be to make a copy of the entire list for the metadata
-                //processor and then when its done the copied list can be sorted into the same
-                //order as the actual list and then copied preferably in synchronous fashion
-                reload_metadata(rtvars);
+                reload_metadata = true;
             }
 
             ImGui::EndMenu();
@@ -2171,7 +2193,15 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
 
     if (sort_was_pressed)
     {
-        handle_sort_hotkey(rtvars, list);
+        if (!sflags->metadata_getter_thread_working)
+        {
+            handle_sort_hotkey(rtvars, list);
+        }
+        else
+        {
+            char info[USERINFO_BUFFER_SIZE] = "[sort]: list cannot be sorted during metadata retrieval.";
+            set_userinfo(rtvars, info, USERINFO_TYPE_WARNING);
+        }
     }
     if (clear_was_pressed)
     {
@@ -2193,6 +2223,8 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
         else
         { strcpy(repeat_toggle_text, "enable looping"); }
     }
+    if (reload_metadata)
+    { list_reload_metadata(rtvars); }
     //ImGui::PopStyleColor();
 }
 
@@ -2489,9 +2521,9 @@ static char pac_init_tupacmixer(Music_Data *mdata)
     Pacmxr_Init_Options init_opts = {};
     init_opts.sample_rate = PACMXR_RESAMPLE_SAMPLERATE;
     init_opts.no_init_sdl = 1;
-    //init_opts.av_loglevel = AV_LOG_ERROR;
 #if _2PACWAV_DEBUG
-    init_opts.av_loglevel = AV_LOG_DEBUG;
+    //init_opts.av_loglevel = AV_LOG_DEBUG;
+    init_opts.av_loglevel = AV_LOG_ERROR;
 #else
     init_opts.av_loglevel = AV_LOG_ERROR;
 #endif

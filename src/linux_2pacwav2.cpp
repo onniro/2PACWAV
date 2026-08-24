@@ -32,7 +32,6 @@ Linux platform-specific code for 2pacwav
 #define PACMXR_IMPLEMENTATION 1
 #include "2pacmixer.h"
 
-
 #ifndef RO_UTIL_POSIX
     #define RO_UTIL_POSIX 1
 #endif
@@ -41,6 +40,8 @@ Linux platform-specific code for 2pacwav
 #include "linux_2pacwav2.h"
 
 #include "2pacwav2.cpp"
+
+#define _2PACWAV_METADATA_SIMULATE_SLOWNESS 0
 
 static char *platform_find_res_path(Runtime_Vars *rtvars, 
                                     char *out_res_path, 
@@ -84,8 +85,8 @@ static void platform_get_font_path(Runtime_Vars *rtvars,
     {
         font = font_set->fonts[i];
         FcPatternGetString(font, FC_FILE, 0, &file);
-        if (!strcasestr((char *)file, "italic") &&
-            !strcasestr((char *)file, "oblique"))
+        if (!SDL_strcasestr((char *)file, "italic") &&
+            !SDL_strcasestr((char *)file, "oblique"))
         {
             snprintf(dest, dest_size, "%s", (char *)file);
             platform_dbg_log("loading font %s\n", dest);
@@ -128,7 +129,7 @@ static void *metadata_bulk_getter_thread_entry(void *args_voidptr)
 {
     Metadata_Getter_Args *args = (Metadata_Getter_Args *)args_voidptr;
     Runtime_Vars *rtvars = args->rtvars;
-    rtvars->sflags.metadata_getter_thread_lock = true;
+    rtvars->sflags.metadata_getter_thread_working = true;
     Music_Data *mdata = rtvars->mdata_ptr;
     File_List *fl = &mdata->music_list;
     Pacmxr_Metadata pm;
@@ -177,6 +178,10 @@ static void *metadata_bulk_getter_thread_entry(void *args_voidptr)
 
                 pacmxr_meta_close_file(&pm);
                 ++files_processed;
+
+#if _2PACWAV_DEBUG && _2PACWAV_METADATA_SIMULATE_SLOWNESS
+                platform_sleep_ms(5);
+#endif
             }
             else
             {
@@ -190,7 +195,7 @@ static void *metadata_bulk_getter_thread_entry(void *args_voidptr)
     platform_dbg_log("[platform_get_metadata_bulk] retrieved metadata for %d files in %.3f ms\n",
             files_processed, ((float)time.delta/1000.0f));
 
-    rtvars->sflags.metadata_getter_thread_lock = false;
+    rtvars->sflags.metadata_getter_thread_working = false;
     return EXIT_SUCCESS;
 }
 

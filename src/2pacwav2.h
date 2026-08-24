@@ -15,7 +15,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 
 #define _2PACWAV_VER_MAJOR      (0)
 #define _2PACWAV_VER_MINOR      (16)
-#define _2PACWAV_VER_PATCH      (2)
+#define _2PACWAV_VER_PATCH      (3)
 
 #define FILE_MOD_DATE_SORTING_ENABLED 1
 
@@ -30,8 +30,7 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 //#define MAX_FRAMETIME_MICROSEC ((useconds_t)33333)
 #define PAC_SEEK_VALUE_MAX (1000.0f)
 
-#define PAC_LATIN_FONT_STRING   "DejaVu Sans Mono:Regular"
-//#define PAC_LATIN_FONT_STRING   "LiberationMono-Regular.ttf"
+#define PAC_LATIN_FONT_STRING   "Liberation Mono:Regular"
 #define PAC_CJK_FONT_STRING     "NotoSansMonoCJKhk-Regular.otf"
 #define PAC_LATIN_FONTSIZE (17.0f)
 #define PAC_CJK_FONTSIZE (18.0f)
@@ -342,7 +341,7 @@ typedef struct State_Flags
     char searchwindow_open;
     char colorpicker_open;
     char metadata_editor_open;
-    volatile char metadata_getter_thread_lock;
+    volatile char metadata_getter_thread_working;
     Mouse_State mouse;
     Center_View_State viewstate;
     Userinfo_Type last_userinfo_type;

@@ -16,7 +16,8 @@ Date: Sat 24 Jan 2026 03:41:31 PM EET
 #define CONF_UI_TEXT_COLOR              "text_color"
 #define CONF_UI_BUTTON_BG_COLOR         "button_bg_color"
 
-typedef enum Token_Type {
+typedef enum Token_Type
+{
     TOKEN_IDENTIFIER,
     TOKEN_OPEN_PARENTHESIS,
     TOKEN_CLOSED_PARENTHESIS,
@@ -35,13 +36,15 @@ typedef enum Token_Type {
     TOKEN_STREAM_END,
 } Token_Type;
 
-typedef struct Token {
+typedef struct Token
+{
     Token_Type type;
     int length;
     char *text;
 } Token;
 
-typedef struct Tokenizer {
+typedef struct Tokenizer
+{
     char *at;
 } Tokenizer;
 
@@ -58,13 +61,15 @@ static float get_float_entry(Tokenizer *tokenizer, char *identifier);
 static void parse_and_apply_config(Runtime_Vars *rtvars, char *confbuf, int confbuf_bytes);
 
 
-static inline char is_eol(char c) {
+static inline char is_eol(char c)
+{
     char ret = ((c == '\n') ||
                 (c == '\r'));
     return ret;
 }
 
-static inline char is_whitespace(char c) {
+static inline char is_whitespace(char c)
+{
     char ret = ((c == ' ') ||
                 (c == '\t') ||
                 (c == '\v') ||
@@ -73,21 +78,25 @@ static inline char is_whitespace(char c) {
     return ret;
 }
 
-static inline char is_alpha(char c) {
+static inline char is_alpha(char c)
+{
     char ret = (((c >= 'a') && (c <= 'z')) ||
                 ((c >= 'A') && (c <= 'Z')));
 	return ret;
 }
 
-static inline char is_number(char c) {
+static inline char is_number(char c)
+{
     char ret = ((c >= '0') && 
                 (c <= '9'));
     return ret;
 }
 
-static inline char token_equals(Token tok, char *match) {
+static inline char token_equals(Token tok, char *match)
+{
     char *at = match;
-    for (int i = 0; i < tok.length; ++i, ++at) {
+    for (int i = 0; i < tok.length; ++i, ++at)
+    {
         if (!*at || (tok.text[i] != *at)) 
         { return 0; }
     }
