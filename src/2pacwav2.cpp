@@ -29,7 +29,7 @@ Date: Thu 24 Apr 2025 04:24:08 PM EEST
 #endif
 
 #include "2pacwav2_visualizer.cpp"
-#include "2pacwav2_confparser.cpp"
+#include "2pacwav2_config.cpp"
 #include "2pacwav2_playlist.cpp"
 #include "2pacwav2_sort.cpp"
 
@@ -238,68 +238,6 @@ static char pac_do_command_args(int arg_count,
     return exit_after_ret;
 }
 
-static size_t startup_load_conf(Runtime_Vars *rtvars, 
-                                char *confbuf, 
-                                int confbuf_bytes)
-{
-    char confpath[PATH_MAX]; confpath[0] = 0;
-    const int infosize = PATH_MAX + sizeof("loaded config: ");
-    char infobuf[infosize];
-    size_t bytes_read = 0;
-
-#if _2PACWAV_LINUX
-    if (rtvars->sargs_ptr->conf_path)
-    {
-        snprintf(confpath, PATH_MAX, "%s", rtvars->sargs_ptr->conf_path);
-    }
-    else
-    {
-        snprintf(confpath, PATH_MAX, "%s/%s", 
-                rtvars->working_directory, PAC_CONFNAME_STRING);
-    }
-#elif _2PACWAV_WIN32
-    snprintf(confpath, PATH_MAX - 1, "%s\\%s", 
-            rtvars->working_directory, PAC_CONFNAME_STRING);
-#endif
-
-    if (platform_file_exists(confpath))
-    {
-        snprintf(rtvars->conf_directory, PATH_MAX, "%s", confpath);
-        bytes_read = platform_read_file(confpath, confbuf, confbuf_bytes - 1);
-        confbuf[bytes_read] = 0;
-        snprintf(infobuf, infosize, "loaded config: %s", confpath);
-        set_userinfo(rtvars, infobuf, USERINFO_TYPE_NOTE);
-    }
-    else
-    {
-#if _2PACWAV_LINUX
-        char *username = getlogin();
-        if (username)
-        {
-            snprintf(confpath, PATH_MAX,
-                    "/home/%s/.config/2pacwav/%s",
-                    username, PAC_CONFNAME_STRING);
-
-            if (platform_file_exists(confpath))
-            {
-                snprintf(rtvars->conf_directory, PATH_MAX, "%s", confpath);
-                bytes_read = platform_read_file(confpath, confbuf, confbuf_bytes - 1);
-                confbuf[bytes_read] = 0;
-                snprintf(infobuf, infosize, "loaded config: %s", confpath);
-                set_userinfo(rtvars, infobuf, USERINFO_TYPE_NOTE);
-            }
-        }
-#endif
-    }
-
-    if (confpath[0])
-    {
-        platform_dbg_log("config path: %s\n", confpath);
-    }
-
-    return bytes_read;
-}
-
 static void startup_add_paths(Startup_Args *sargs,
                             Runtime_Vars *rtvars, 
                             Music_Data *mdata)
@@ -330,6 +268,7 @@ static char pac_mousebtn_press(Mouse_State *mouse)
     return result;
 }
 
+#if _2PACWAV_DEPRECATED
 static char pac_btn_press(SDL_Scancode scan, 
                         char *wasdown, 
                         const uint8_t *kbd_state)
@@ -349,6 +288,7 @@ static char pac_btn_press(SDL_Scancode scan,
     }
     return state;
 }
+#endif
 
 static char pac_imgui_load_font(char *font_path,
                                 float font_size,
@@ -467,11 +407,6 @@ static void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
     ImGui::SetNextWindowBgAlpha(0);
 
-    //ImGui::PushStyleColor(ImGuiCol_Button,          IM_COL32(0x22, 0x22, 0x33, 0xFF));
-
-    //NOTE: default values are set in 2pacwav2_confparser.cpp:set_default_convars()
-
-
     ImGui::Begin("2PACWAV", 0, ImGuiWindowFlags_NoTitleBar
                             |ImGuiWindowFlags_NoResize
                             |ImGuiWindowFlags_NoMove
@@ -489,12 +424,22 @@ static void pac_begin_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
                               (unsigned char)((float)0xFF*uiv->text_color[1]),
                               (unsigned char)((float)0xFF*uiv->text_color[2]),
                               (unsigned char)((float)0xFF*uiv->text_color[3]));
+    //platform_dbg_log("%X\n", text_color);
 
-    ImGui::PushStyleColor(ImGuiCol_Text, text_color);
-    ImGui::PushStyleColor(ImGuiCol_Button, button_color);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, button_color);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg,  IM_COL32(0x00, 0x00, 0x00, 0xFF));
-    ImGui::PushStyleColor(ImGuiCol_MenuBarBg, IM_COL32(0x22, 0x22, 0x33, 0xFF));
+    auto imgui_frame_start_push_color = [uiv]
+        (ImGuiCol element_type, int color32)
+    {
+        ImGui::PushStyleColor(element_type, color32);
+        ++uiv->frame_start_color_stack_pushes;
+    };
+
+    //NOTE: default values are set in 2pacwav2_config.cpp:set_default_convars
+    uiv->frame_start_color_stack_pushes = 0;
+    imgui_frame_start_push_color(ImGuiCol_Text, text_color);
+    imgui_frame_start_push_color(ImGuiCol_Button, button_color);
+    imgui_frame_start_push_color(ImGuiCol_FrameBg, button_color);
+    imgui_frame_start_push_color(ImGuiCol_WindowBg,  IM_COL32(0x00, 0x00, 0x00, 0xFF));
+    imgui_frame_start_push_color(ImGuiCol_MenuBarBg, IM_COL32(0x22, 0x22, 0x33, 0xFF));
 
     ImGui::SetShortcutRouting(ImGuiMod_Ctrl|ImGuiKey_Tab, 0, ImGuiButtonFlags_NoSetKeyOwner);
     ImGui::SetShortcutRouting(ImGuiMod_Ctrl|ImGuiMod_Shift|ImGuiKey_Tab, 0, ImGuiButtonFlags_NoSetKeyOwner);
@@ -512,11 +457,7 @@ static void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     if (sflags->metadata_editor_open)
     { menu_do_metadata_editor(rtvars, mdata, bufgroup); }
 
-    ImGui::PopStyleColor();
-    ImGui::PopStyleColor();
-    ImGui::PopStyleColor();
-    ImGui::PopStyleColor();
-    ImGui::PopStyleColor();
+    ImGui::PopStyleColor(rtvars->uivars.frame_start_color_stack_pushes);
 
     ImGui::End();
 
@@ -1179,7 +1120,6 @@ static void menu_do_search(Runtime_Vars *rtvars,
             (char *)bufgroup->inbuf_search,
             SEARCH_BUFFER_SIZE - 1))
         {
-            rtvars->sflags.search_changed = 1;
             set_match_flags((char *)bufgroup->inbuf_search, mdata); 
             char info_buf[USERINFO_BUFFER_SIZE];
             snprintf(info_buf, 
@@ -1191,6 +1131,26 @@ static void menu_do_search(Runtime_Vars *rtvars,
 
         ImGui::End();
     }
+}
+
+static void imgui_window_init(float main_win_w,
+                            float main_win_h,
+                            float wanted_win_w,
+                            float wanted_win_h)
+{
+    ImVec2 size = ImVec2(wanted_win_w, wanted_win_h);
+    ImVec2 pos = ImVec2((main_win_w/2) - (size.x/2),
+                        (main_win_h/2) - (size.y/2));
+    ImGui::SetNextWindowSize(size);
+    ImGui::SetNextWindowPos(pos);
+}
+
+static inline bool imgui_window_should_close(void)
+{
+    char result = ((!ImGui::IsWindowHovered() &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left)) ||
+            ImGui::IsKeyPressed(ImGuiKey_Escape));
+    return result;
 }
 
 static void update_in_memory_metadata(char *src_buf,
@@ -1246,11 +1206,8 @@ static void menu_do_metadata_editor(Runtime_Vars *rtvars,
         ImGuiWindowFlags_NoCollapse|
         ImGuiWindowFlags_NoResize))
     {
-        if (ImGui::IsKeyPressed(ImGuiKey_Escape)|| (!ImGui::IsWindowHovered() &&
-            ImGui::IsMouseClicked(ImGuiMouseButton_Left)))
-        {
-            sflags->metadata_editor_open = 0;
-        }
+        if (imgui_window_should_close())
+        { sflags->metadata_editor_open = 0; }
 
         if (file_path[0])
         {
@@ -1551,15 +1508,6 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
                 sort_list_by_column(sort_specs, rtvars);
                 sort_specs->SpecsDirty = false;
             }
-#if 1
-            else
-            {
-                char info[USERINFO_BUFFER_SIZE];
-                snprintf(info, USERINFO_BUFFER_SIZE,
-                        "[sort]: list cannot be sorted during metadata retrieval.");
-                set_userinfo(rtvars, info, USERINFO_TYPE_WARNING);
-            }
-#endif
         }
 
         //ImGuiListClipper is actually gangsta as fuck
@@ -1580,10 +1528,6 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
                     current_index = mlist->matching_indices[file_index];
                 }
                 current = &mlist->file_strings[current_index];
-                //if (searching)
-                //{
-                //    current = &mlist->file_strings[mlist->matching_indices[file_index]];
-                //}
                 filename = current->filename;
                 title = current->metadata.title;
                 artist = current->metadata.artist;
@@ -1721,9 +1665,10 @@ static void menu_do_volume_bar(Runtime_Vars *rtvars,
     State_Flags *sflags = &rtvars->sflags;
     int vol_step = rtvars->sargs_ptr->volume_step;
     //if(rtvars->kbd_state[SDL_SCANCODE_LCTRL])
+    Keybinds *keys = &rtvars->keybinds;
     if (!ImGui::GetIO().WantTextInput)
     {
-        if (pac_btn_press(SDL_SCANCODE_0, &sflags->zero_wasdown, rtvars->kbd_state))
+        if (ImGui::Shortcut(keys->vol_up, ImGuiInputFlags_RouteGlobal))
         { 
             if ((mdata->volume + vol_step) < SDL_MIX_MAXVOLUME)
             { 
@@ -1735,7 +1680,7 @@ static void menu_do_volume_bar(Runtime_Vars *rtvars,
             }
             pacmxr_set_volume(mdata->volume);
         }
-        if (pac_btn_press(SDL_SCANCODE_9, &sflags->nine_wasdown, rtvars->kbd_state))
+        if (ImGui::Shortcut(keys->vol_down, ImGuiInputFlags_RouteGlobal))
         {
             if (((int)mdata->volume - vol_step) > 0)
             {
@@ -1763,12 +1708,13 @@ static void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
     State_Flags *sflags = &rtvars->sflags;
     const uint8_t *kbd = rtvars->kbd_state;
     mdata->seek_value = conv_songpos2slide_value(mdata);
+    Keybinds *keys = &rtvars->keybinds;
 
-    if (!ImGui::GetIO().WantTextInput && 
-        (kbd[SDL_SCANCODE_LCTRL] || kbd[SDL_SCANCODE_RCTRL]))
+    if (!ImGui::GetIO().WantTextInput)
     {
         float new_pos;
-        if (pac_btn_press(SDL_SCANCODE_RIGHT, &sflags->right_wasdown, kbd))
+        //if (pac_btn_press(SDL_SCANCODE_RIGHT, &sflags->right_wasdown, kbd))
+        if (ImGui::Shortcut(keys->seek_forward, ImGuiInputFlags_RouteGlobal))
         {
             new_pos = mdata->current_position + (double)mdata->seek_increment;
             //new_pos = mdata->seek_value + 0.05f;
@@ -1781,7 +1727,7 @@ static void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
                 goto_next_file(mdata); 
             }
         }
-        else if (pac_btn_press(SDL_SCANCODE_LEFT, &sflags->left_wasdown, kbd))
+        else if (ImGui::Shortcut(keys->seek_backward, ImGuiInputFlags_RouteGlobal))
         {
             new_pos = mdata->current_position - (double)mdata->seek_increment;
             //new_pos = mdata->seek_value - 0.05f;
@@ -1794,7 +1740,7 @@ static void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
                 pacmxr_seek(0.0f);
             }
         }
-        else if (pac_btn_press(SDL_SCANCODE_HOME, &sflags->home_wasdown, kbd))
+        else if (ImGui::Shortcut(keys->seek_to_start, ImGuiInputFlags_RouteGlobal))
         {
             //NOTE: this doesn't work for the home key on my laptop keypad for example
             pacmxr_seek(0.0f);
@@ -2021,6 +1967,7 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
     char shift = kbd[SDL_SCANCODE_LSHIFT];
     Center_View_State *vs = &rtvars->sflags.viewstate;
     File_List *list = &mdata->music_list;
+    Keybinds *keys = &rtvars->keybinds;
 
     if (*vs == CENTER_VIEW_STATE_MUSIC_LIST)
     {
@@ -2031,18 +1978,13 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
         strcpy(ls_toggle_text, "show list");
     }
 
-    char sort_was_pressed = (ctrl && shift &&
-                            pac_btn_press(SDL_SCANCODE_S, 
-                            &sflags->s_wasdown, 
-                            kbd));
-    char clear_was_pressed = (ctrl && shift &&
-                            pac_btn_press(SDL_SCANCODE_X,
-                            &sflags->x_wasdown,
-                            kbd));
-    char lkey = pac_btn_press(SDL_SCANCODE_L, &sflags->l_wasdown, kbd);
-    char lstoggle_was_pressed = ((ctrl && lkey) && !shift);
-    char reptoggle_was_pressed = (ctrl && shift && lkey);
-    char reload_metadata = ((ctrl && shift) && ImGui::IsKeyPressed(ImGuiKey_M));
+    char sort_was_pressed = ImGui::Shortcut(keys->cycle_sort, ImGuiInputFlags_RouteGlobal);
+    char clear_was_pressed = ImGui::Shortcut(keys->clear_list, ImGuiInputFlags_RouteGlobal);
+
+    char lstoggle_was_pressed = ImGui::Shortcut(keys->toggle_list_vis, ImGuiInputFlags_RouteGlobal);
+    char reptoggle_was_pressed = ImGui::Shortcut(keys->toggle_repeat, ImGuiInputFlags_RouteGlobal);
+    char reload_metadata = ImGui::Shortcut(keys->reload_metadata, ImGuiInputFlags_RouteGlobal);
+    char reload_config = ImGui::Shortcut(keys->reload_config, ImGuiInputFlags_RouteGlobal);
 
     if (ImGui::BeginMenuBar())
     {
@@ -2113,15 +2055,23 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
 
             if (ImGui::MenuItem("clear", "ctrl-shift-x"))
             {
-                clear_was_pressed = 1;
+                clear_was_pressed = true;
             }
             if (ImGui::MenuItem(ls_toggle_text, "ctrl-l"))
             {
-                lstoggle_was_pressed = 1;
+                lstoggle_was_pressed = true;
             }
             if (ImGui::MenuItem("search", "ctrl-f"))
             {
-                sflags->searchwindow_open = 1;
+                sflags->searchwindow_open = true;
+            }
+            if (ImGui::BeginMenu("information"))
+            {
+                ImGui::Text("files added: %d\n"
+                            "directories added: %d\n",
+                            list->entry_count,
+                            list->dirs_added);
+                ImGui::EndMenu();
             }
             if (ImGui::MenuItem("reload metadata", "ctrl-shift-m"))
             {
@@ -2180,6 +2130,11 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
                     ImGui::SetNextWindowPos(wpos);
                 }
             }
+            if (ImGui::MenuItem("reload configuration", "ctrl-shift-g"))
+            {
+                reload_config = true;
+            }
+
             ImGui::EndMenu();
         }
 
@@ -2203,10 +2158,10 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
             set_userinfo(rtvars, info, USERINFO_TYPE_WARNING);
         }
     }
+
     if (clear_was_pressed)
-    {
-        clear_file_list(mdata);
-    }
+    { clear_file_list(mdata); }
+
     if (lstoggle_was_pressed)
     {
         do
@@ -2215,6 +2170,7 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
         } while ((*vs != CENTER_VIEW_STATE_MUSIC_LIST) &&
                 (*vs != CENTER_VIEW_STATE_CURRENT_INFO));
     }
+
     if (reptoggle_was_pressed)
     {
         mdata->loop_enabled = !mdata->loop_enabled;
@@ -2223,9 +2179,17 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
         else
         { strcpy(repeat_toggle_text, "enable looping"); }
     }
+
     if (reload_metadata)
     { list_reload_metadata(rtvars); }
-    //ImGui::PopStyleColor();
+
+    if (reload_config)
+    {
+        platform_dbg_log("reloading config %s\n", rtvars->conf_directory);
+        parse_and_apply_config(rtvars,
+                (char *)rtvars->bufgroup_ptr->conf_file_buffer,
+                CONFBUFFER_SIZE);
+    }
 }
 
 static void menu_do_colorpicker(Runtime_Vars *rtvars)
@@ -2238,14 +2202,8 @@ static void menu_do_colorpicker(Runtime_Vars *rtvars)
         |ImGuiWindowFlags_NoResize
         |ImGuiWindowFlags_NoCollapse))
     {
-        if ((!ImGui::IsWindowHovered() &&
-            ImGui::IsMouseClicked(ImGuiMouseButton_Left)) ||
-            pac_btn_press(SDL_SCANCODE_ESCAPE,
-            &sflags->esc_wasdown,
-            rtvars->kbd_state))
-        {
-            sflags->colorpicker_open = 0;
-        }
+        if (imgui_window_should_close())
+        { sflags->colorpicker_open = 0; }
 
         ImGui::ColorPicker4("##visualizer_color",
                 rtvars->uivars.vis_color,
@@ -2272,6 +2230,7 @@ static void pac_main_loop(Runtime_Vars *rtvars,
     float add_width = 100.0f + rtvars->sargs_ptr->font_size;
     float vol_width = 200.0f;
     State_Flags *sflags = &rtvars->sflags;
+    Keybinds *keys = &rtvars->keybinds;
 
     if (pacmxr_file_is_open())
     { update_audio_time(mdata); }
@@ -2283,10 +2242,7 @@ static void pac_main_loop(Runtime_Vars *rtvars,
     { menu_do_colorpicker(rtvars); }
 
     ImGui::PushItemWidth(ImGui::GetColumnWidth(-1) - add_width);
-    char d_was_pressed = pac_btn_press(SDL_SCANCODE_D, 
-                            &sflags->d_wasdown, 
-                            rtvars->kbd_state);
-    if (rtvars->kbd_state[SDL_SCANCODE_LALT] && d_was_pressed)
+    if (ImGui::Shortcut(ImGuiMod_Alt|ImGuiKey_D, ImGuiInputFlags_RouteGlobal))
     { ImGui::SetKeyboardFocusHere(0); }
 
     ImGui::Text("path:");
@@ -2313,8 +2269,8 @@ static void pac_main_loop(Runtime_Vars *rtvars,
 
     ImGui::Separator();
     ImGui::SetCursorPosX(50);
-    if (rtvars->kbd_state[SDL_SCANCODE_LCTRL] && 
-            pac_btn_press(SDL_SCANCODE_Q, &sflags->q_wasdown, rtvars->kbd_state))
+    if (ImGui::Shortcut(ImGuiMod_Ctrl|ImGuiMod_Shift|ImGuiKey_Q,
+            ImGuiInputFlags_RouteGlobal))
     {
         sflags->searchwindow_open = 0;
         ImGui::SetKeyboardFocusHere(0);
@@ -2372,28 +2328,21 @@ static void pac_main_loop(Runtime_Vars *rtvars,
     if (ImGui::Button(loop_btn_text, ImVec2(btn_side_len, btn_side_len))) 
     { mdata->loop_enabled = !mdata->loop_enabled; }
 
-    char r_was_pressed = pac_btn_press(SDL_SCANCODE_R, 
-                            &rtvars->sflags.r_wasdown, 
-                            rtvars->kbd_state);
+    char shuf_toggle_pressed = ImGui::Shortcut(keys->toggle_shuffle,
+                                    ImGuiInputFlags_RouteGlobal);
     if (ImGui::Button(shuffle_btn_text, ImVec2(btn_side_len, btn_side_len)) ||
-            ((rtvars->kbd_state[SDL_SCANCODE_LCTRL] && 
-            rtvars->kbd_state[SDL_SCANCODE_LSHIFT]) &&
-            r_was_pressed)) 
+            shuf_toggle_pressed)
     { mdata->shuffle_enabled = !mdata->shuffle_enabled; }
 
-    char n_was_pressed = pac_btn_press(SDL_SCANCODE_N, 
-                            &rtvars->sflags.n_wasdown, 
-                            rtvars->kbd_state);
-    char p_was_pressed = pac_btn_press(SDL_SCANCODE_P, 
-                            &rtvars->sflags.p_wasdown, 
-                            rtvars->kbd_state);
-    if (ImGui::Button(">>", ImVec2(btn_side_len, btn_side_len)) ||
-            (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
-            n_was_pressed)) 
+    //char n_was_pressed = pac_btn_press(SDL_SCANCODE_N, 
+    //                        &rtvars->sflags.n_wasdown, 
+    //                        rtvars->kbd_state);
+    char n_was_pressed = ImGui::Shortcut(keys->go_next, ImGuiInputFlags_RouteGlobal);
+    char p_was_pressed = ImGui::Shortcut(keys->go_prev, ImGuiInputFlags_RouteGlobal);
+
+    if (ImGui::Button(">>", ImVec2(btn_side_len, btn_side_len)) || n_was_pressed) 
     { goto_next_file(mdata); } 
-    if (ImGui::Button("<<", ImVec2(btn_side_len, btn_side_len)) ||
-            (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
-            p_was_pressed)) 
+    if (ImGui::Button("<<", ImVec2(btn_side_len, btn_side_len)) || p_was_pressed)
     { goto_prev_file(mdata); }
 
     //halt
@@ -2417,11 +2366,11 @@ static void pac_main_loop(Runtime_Vars *rtvars,
         strcpy((char *)bufgroup->play_toggle_text, "pause");
     }
 
-    char space_was_pressed = pac_btn_press(SDL_SCANCODE_SPACE, 
-                                &sflags->space_wasdown, 
-                                rtvars->kbd_state);
+    char pause_was_pressed = ImGui::Shortcut(keys->pause) &&
+                            !ImGui::GetIO().WantTextInput;
+
     if (ImGui::Button(playback_btn_text, ImVec2(btn_side_len, btn_side_len)) || 
-        (space_was_pressed && !ImGui::GetIO().WantTextInput))
+        pause_was_pressed)
     {
         if (pacmxr_file_is_open())
         { pacmxr_toggle_playback(); }
@@ -2431,16 +2380,9 @@ static void pac_main_loop(Runtime_Vars *rtvars,
     menu_do_seek_bar(rtvars, mdata);
 
 #if 1
-    char searchkey_was_pressed = (rtvars->kbd_state[SDL_SCANCODE_LCTRL] &&
-                                pac_btn_press(SDL_SCANCODE_F, 
-                                &sflags->f_wasdown, 
-                                rtvars->kbd_state));
-    char esc_was_pressed = pac_btn_press(SDL_SCANCODE_ESCAPE,
-                                &sflags->esc_wasdown,
-                                rtvars->kbd_state);
-    char enter_was_pressed = pac_btn_press(SDL_SCANCODE_RETURN,
-                                &sflags->enter_wasdown,
-                                rtvars->kbd_state);
+    char searchkey_was_pressed = ImGui::Shortcut(keys->search, ImGuiInputFlags_RouteGlobal);
+    char esc_was_pressed = ImGui::IsKeyPressed(ImGuiKey_Escape);
+    char enter_was_pressed = ImGui::IsKeyPressed(ImGuiKey_Enter);
     if (searchkey_was_pressed)
     {
         sflags->searchwindow_open = !sflags->searchwindow_open; 

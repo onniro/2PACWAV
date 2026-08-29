@@ -185,7 +185,7 @@ static void *metadata_bulk_getter_thread_entry(void *args_voidptr)
             }
             else
             {
-                fprintf(stderr, "failed to open file %s\n", file->filename);
+                fprintf(stderr, "[pacmxr_meta_open_file] failed to open file %s\n", file->filename);
             }
         }
     }
@@ -413,6 +413,7 @@ static void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
         MEM_INIT_ASSERT(heapbuf, 
                 bufgroup->scratch_space, 
                 bufgroup->scratch_bytes); 
+        //ro_buffer_move_writeptr(heapbuf, -(bufgroup->scratch_bytes), 0);
     }
     platform_dbg_log("scratch: %d bytes\n", bufgroup->scratch_bytes);
 }
@@ -582,6 +583,7 @@ int main(int arg_count, char **args)
 
     bufgroup.fontpath_ptr = (char *)bufgroup.scratch_space + (bufgroup.scratch_bytes - (PATH_MAX + 1));
     set_default_convars(&rtvars);
+    set_default_keybinds(&rtvars);
     if (!sargs.no_load_conf)
     {
         size_t conf_len = startup_load_conf(&rtvars,
@@ -617,6 +619,7 @@ int main(int arg_count, char **args)
     ImGui::GetIO().ConfigFlags |= ImGuiWindowFlags_NoSavedSettings;
     ImGui::GetIO().IniFilename = 0;
     ImGui::StyleColorsDark();
+    ImGui::GetStyle().ScrollbarRounding = 0.0f;
     ImGui_ImplOpenGL3_Init("#version 130");
     ImGui_ImplSDL2_InitForOpenGL(sdldata.window_ptr, sdldata.ogl_context);
 
@@ -659,6 +662,8 @@ int main(int arg_count, char **args)
     //rtvars.autocomp_list.filenames_string_loclist[0] = rtvars.autocomp_list.filenames_buf;
 
     //memset();
+
+    ro_buffer_move_writeptr(&rtvars.main_storage, -(bufgroup.scratch_bytes), 0);
 
     while (rtvars.keep_running)
     {

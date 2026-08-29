@@ -16,6 +16,12 @@ Date: Sat 24 Jan 2026 03:41:31 PM EET
 #define CONF_UI_TEXT_COLOR              "text_color"
 #define CONF_UI_BUTTON_BG_COLOR         "button_bg_color"
 
+#define CONF_KEYNAME_CTRL               "ctrl"
+#define CONF_KEYNAME_SHIFT              "shift"
+#define CONF_KEYNAME_ALT                "alt"
+#define CONF_KEYNAME_SPACE              "space"
+#define CONF_KEYNAME_TAB                "tab"
+
 typedef enum Token_Type
 {
     TOKEN_IDENTIFIER,
@@ -47,6 +53,19 @@ typedef struct Tokenizer
 {
     char *at;
 } Tokenizer;
+
+typedef struct Config_Vars_State
+{
+    char fontsize_set;
+    char fontpath_set;
+    char vis_status_set;
+    char volume_step_set;
+    char volume_set;
+    char vis_color_set;
+    char text_ui_color_set;
+    char button_bg_color_set;
+    char key_vol_up_set;
+} Config_Vars_State;
 
 static inline char is_eol(char c);
 static inline char is_whitespace(char c);

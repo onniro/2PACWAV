@@ -8,6 +8,7 @@ is a very simple (non-recursive) descent parser that was
 bootlegged off of the introspecter that my GOAT Casey Muratori wrote on
 episode 206 of Handmade Hero (https://www.youtube.com/watch?v=1IwYEJsvdcs)
 This means that comments are C & C++ style and lines end on semicolons;
+//TODO: remove this semicolon shit
 */
 
 #include <string.h>
@@ -53,8 +54,8 @@ static void set_default_keybinds(Runtime_Vars *rtvars)
     keys->toggle_shuffle =      ImGuiMod_Ctrl|ImGuiKey_S;
     keys->reload_metadata =     ImGuiMod_Ctrl|ImGuiMod_Shift|ImGuiKey_M;
     keys->reload_config =       ImGuiMod_Ctrl|ImGuiMod_Shift|ImGuiKey_G;
-    keys->goto_next =           ImGuiMod_Ctrl|ImGuiKey_N;
-    keys->goto_prev =           ImGuiMod_Ctrl|ImGuiKey_P;
+    keys->go_next =             ImGuiMod_Ctrl|ImGuiKey_N;
+    keys->go_prev =             ImGuiMod_Ctrl|ImGuiKey_P;
     keys->pause =               ImGuiKey_Space;
     keys->search =              ImGuiMod_Ctrl|ImGuiKey_F;
 }
@@ -433,32 +434,373 @@ static void apply_num_array_entry(float *array, int array_length, char *variable
     }
 }
 
+static void parse_and_apply_keybind(char *stringbuf,
+                                int *keybind2modify,
+                                char *keybind_name,
+                                Runtime_Vars *rtvars)
+{
+    int len = strlen(stringbuf);
+    char *hyphen = 0, *read_ptr = stringbuf;
+    int keyname_len;
+    int keybind_backup = *keybind2modify;
+    *keybind2modify = 0;
+    int non_modifiers_encountered = 0;
+
+    char *end_ptr = stringbuf + len;
+    char parsing = true;
+    while (parsing && (read_ptr < end_ptr))
+    {
+        len = (end_ptr - read_ptr);
+        hyphen = (char *)memchr(read_ptr, '-', len);
+        keyname_len = len;
+        if (hyphen) { keyname_len = hyphen - read_ptr; }
+        if (1 == keyname_len)
+        {
+            ++non_modifiers_encountered;
+            char keyname = tolower(*read_ptr);
+
+            if ((keyname >= '0') && (keyname <= '9'))
+            { *keybind2modify |= ((keyname - '0') + ImGuiKey_0); }
+            else if ((keyname <= 'z') && (keyname >= 'a'))
+            { *keybind2modify |= ((keyname - 'a') + ImGuiKey_A); }
+            else
+            {
+                fprintf(stderr, "2wconf error: only keys 0-9 and a-z are bindable as non-modifier keys.\n"
+                        "(in definition of variable %s)\n", keybind_name);
+                --non_modifiers_encountered;
+                parsing = false;
+            }
+
+            if (!hyphen) { parsing = false; }
+            else { read_ptr += 2; }
+        }
+        else
+        {
+            if (!strncmp(read_ptr, CONF_KEYNAME_CTRL, keyname_len))
+            { *keybind2modify |= ImGuiMod_Ctrl; }
+            else if (!strncmp(read_ptr, CONF_KEYNAME_SHIFT, keyname_len))
+            { *keybind2modify |= ImGuiMod_Shift; }
+            else if (!strncmp(read_ptr, CONF_KEYNAME_ALT, keyname_len))
+            { *keybind2modify |= ImGuiMod_Alt; }
+            else if (!strncmp(read_ptr, CONF_KEYNAME_SPACE, keyname_len))
+            { *keybind2modify |= ImGuiKey_Space; ++non_modifiers_encountered; }
+            else if (!strncmp(read_ptr, CONF_KEYNAME_TAB, keyname_len))
+            { *keybind2modify |= ImGuiKey_Tab; ++non_modifiers_encountered; }
+            else
+            {
+                fprintf(stderr, "2wconf error: unrecognized key name '%.*s' in definition of variable %s.\n",
+                        keyname_len, read_ptr, keybind_name);
+            }
+
+            if (!hyphen) { parsing = false; }
+            read_ptr += keyname_len + 1;
+        }
+    }
+
+    if (!non_modifiers_encountered)
+    {
+        fprintf(stderr, "2wconf error: keybinds must have at least 1 non-modifier key. ignoring bind.\n"
+                        "(in definition of variable %s)\n", keybind_name);
+        *keybind2modify = keybind_backup;
+    }
+    else if (*keybind2modify < ImGuiKey_NamedKey_BEGIN)
+    {
+        fprintf(stderr, "2wconf error: attempted to assign variable %s an invalid value. reverting it to default.\n",
+                keybind_name);
+        platform_dbg_log("(value in question: %d)\n", *keybind2modify);
+        *keybind2modify = keybind_backup;
+    }
+}
+
+static bool config_handle_keybinds(Tokenizer *tokenizer,
+                                Token tok,
+                                Config_Vars_State *cvs,
+                                char *stringbuf, int stringbuf_size,
+                                Runtime_Vars *rtvars)
+{
+    //NOTE: i know this is pretty janky but these must always be in identical
+    //order to their corresponding bitfields in the Keybinds struct!!!11
+    //otherwise the above function will be subject to modifying the wrong keybinds
+    //(see call to parse_and_apply_keybind below to find out why)
+    static char *key_config_vars[] =
+    {
+        "key_vol_up",
+        "key_vol_down",
+        "key_seek_forward",
+        "key_seek_backward",
+        "key_seek_to_start",
+        "key_cycle_sort",
+        "key_clear_list",
+        "key_toggle_list_vis",
+        "key_toggle_repeat",
+        "key_toggle_shuffle",
+        "key_reload_metadata",
+        "key_reload_config",
+        "key_go_next",
+        "key_go_prev",
+        "key_pause",
+        "key_search",
+    };
+    constexpr int num_vars = sizeof(key_config_vars)/sizeof(key_config_vars[0]);
+    static char keybinds_set[num_vars] = {};
+
+    Keybinds *keys = &rtvars->keybinds;
+    Ui_Vars *uivars = &rtvars->uivars;
+    State_Flags *sflags = &rtvars->sflags;
+    Startup_Args *sargs = rtvars->sargs_ptr;
+    bool result = false;
+
+    for (int keybind_index = 0;
+        keybind_index < num_vars;
+        ++keybind_index)
+    {
+        if (token_equals(tok, key_config_vars[keybind_index]))
+        {
+            if (!keybinds_set[keybind_index])
+            {
+                result = true;
+                stringbuf[0] = 0;
+                Token ret_tok = get_string_entry(tokenizer,
+                                    stringbuf,
+                                    stringbuf_size - 1,
+                                    key_config_vars[keybind_index]);
+
+                if (stringbuf[0] && ret_tok.length)
+                {
+                    parse_and_apply_keybind(stringbuf,
+                            (int *)((uintptr_t)keys + (sizeof(int)*keybind_index)),
+                            key_config_vars[keybind_index],
+                            rtvars);
+                }
+            }
+            else if (1 == keybinds_set[keybind_index])
+            {
+                report_duplicate(key_config_vars[keybind_index]);
+                ++keybinds_set[keybind_index];
+            }
+            break;
+        }
+    }
+
+    return result;
+}
+
+static bool config_handle_general_vars(Tokenizer *tokenizer,
+                                    Token tok,
+                                    Config_Vars_State *cvs,
+                                    char *stringbuf, int stringbuf_size,
+                                    Runtime_Vars *rtvars)
+{
+    Ui_Vars *uivars = &rtvars->uivars;
+    State_Flags *sflags = &rtvars->sflags;
+    Startup_Args *sargs = rtvars->sargs_ptr;
+    bool result = false;
+
+    if (token_equals(tok, CONF_FONTSIZE))
+    {
+        result = true;
+        //TODO: maybe just make this possible to do at runtime
+        if (!sflags->startup_parse_done)
+        {
+            if (!cvs->fontsize_set)
+            {
+                float value = get_float_entry(tokenizer, CONF_FONTSIZE);
+                if (value > 0.0f)
+                {
+                    sargs->font_size = value;
+                    ++cvs->fontsize_set;
+                }
+            }
+            else if (1 == cvs->fontsize_set)
+            {
+                report_duplicate(CONF_FONTSIZE);
+                ++cvs->fontsize_set;
+            }
+        }
+    }
+    else if (token_equals(tok, CONF_VISUALIZER_STATUS))
+    {
+        result = true;
+        if (!cvs->vis_status_set)
+        {
+            float value = get_float_entry(tokenizer, CONF_VISUALIZER_STATUS);
+            if (value == 0.0f)
+            {
+                sflags->visualizer_enabled = 0;
+                strcpy(rtvars->bufgroup_ptr->vis_toggle_text, "enable visualizer");
+            }
+            ++cvs->vis_status_set;
+        }
+        else if (1 == cvs->vis_status_set)
+        {
+            report_duplicate(CONF_VISUALIZER_STATUS);
+            ++cvs->vis_status_set;
+        }
+    }
+    else if (token_equals(tok, CONF_STARTUP_VOLUME))
+    {
+        result = true;
+        if (!cvs->volume_set)
+        {
+            float value = get_float_entry(tokenizer, CONF_STARTUP_VOLUME);
+            value = pacmxr_clamp_float(value, 0.0f, SDL_MIX_MAXVOLUME);
+            rtvars->mdata_ptr->volume = value;
+            pacmxr_set_volume(value);
+            ++cvs->volume_set;
+        }
+        else if (1 == cvs->volume_set)
+        {
+            report_duplicate(CONF_STARTUP_VOLUME);
+            ++cvs->volume_set;
+        }
+    }
+    else if (token_equals(tok, CONF_VOLUME_STEP))
+    {
+        result = true;
+        if (!cvs->volume_step_set)
+        {
+            int value = (int)get_float_entry(tokenizer, CONF_VOLUME_STEP);
+            sargs->volume_step = pacmxr_clamp_int(value, 0, SDL_MIX_MAXVOLUME);
+            ++cvs->volume_step_set;
+        }
+        else if (1 == cvs->volume_step_set)
+        {
+            report_duplicate(CONF_VOLUME_STEP);
+            ++cvs->volume_step_set;
+        }
+    }
+    else if (token_equals(tok, CONF_FONT_PATH))
+    {
+        result = true;
+        if (!sflags->startup_parse_done)
+        {
+            if (!cvs->fontpath_set)
+            {
+                stringbuf[0] = 0;
+                char *buf = (char *)rtvars->bufgroup_ptr->fontpath_ptr;
+                Token ret_tok = get_string_entry(tokenizer,
+                                    stringbuf,
+                                    stringbuf_size - 1,
+                                    CONF_STARTUP_PATH);
+
+                if (stringbuf[0] && ret_tok.length &&
+                    (ret_tok.length + 1 < PATH_MAX))
+                {
+                    if (platform_file_exists(stringbuf))
+                    {
+                        snprintf(buf, PATH_MAX, "%s", stringbuf);
+                        ++cvs->fontpath_set;
+                    }
+                    else
+                    {
+                        fprintf(stderr, "2wconf error: specified font path doesn't exist on the system.\n");
+                    }
+                }
+                else
+                {
+                    fprintf(stderr, "2wconf error: failed setting font path.\n");
+                }
+            }
+            else if (1 == cvs->fontpath_set)
+            {
+                report_duplicate(CONF_FONT_PATH);
+                ++cvs->fontpath_set;
+            }
+        }
+    }
+    else if (token_equals(tok, CONF_VISUALIZER_COLOR))
+    {
+        result = true;
+        if (!cvs->vis_color_set)
+        {
+            if (get_num_array_entry(tokenizer,
+                        uivars->vis_color, 4,
+                        CONF_VISUALIZER_COLOR))
+            {
+                apply_num_array_entry(uivars->vis_color, 4, CONF_VISUALIZER_COLOR);
+                ++cvs->vis_color_set;
+            }
+            else
+            {
+                fprintf(stderr, "2wconf error: could not set visualizer color.\n");
+            }
+        }
+        else if (1 == cvs->vis_color_set)
+        {
+            report_duplicate(CONF_VISUALIZER_COLOR);
+            ++cvs->vis_color_set;
+        }
+    }
+    else if (token_equals(tok, CONF_UI_TEXT_COLOR))
+    {
+        result = true;
+        if (!cvs->text_ui_color_set)
+        {
+            if (get_num_array_entry(tokenizer,
+                        uivars->text_color, 4,
+                        CONF_UI_TEXT_COLOR))
+            {
+                apply_num_array_entry(uivars->text_color, 4, CONF_UI_TEXT_COLOR);
+                float *x = uivars->text_color;
+                ++cvs->text_ui_color_set;
+            }
+            else
+            {
+                fprintf(stderr, "2wconf error: could not set text color.\n");
+            }
+        }
+        else if (1 == cvs->text_ui_color_set)
+        {
+            report_duplicate(CONF_UI_TEXT_COLOR);
+            ++cvs->text_ui_color_set;
+        }
+    }
+    else if (token_equals(tok, CONF_UI_BUTTON_BG_COLOR))
+    {
+        result = true;
+        if (!cvs->button_bg_color_set)
+        {
+            if (get_num_array_entry(tokenizer,
+                        uivars->button_bg_color, 4,
+                        CONF_UI_BUTTON_BG_COLOR))
+            {
+                apply_num_array_entry(uivars->button_bg_color, 4, CONF_UI_BUTTON_BG_COLOR);
+                ++cvs->button_bg_color_set;
+            }
+            else
+            {
+                fprintf(stderr, "2wconf error: could not set button background color.\n");
+            }
+        }
+        else if (1 == cvs->button_bg_color_set)
+        {
+            report_duplicate(CONF_UI_BUTTON_BG_COLOR);
+            ++cvs->button_bg_color_set;
+        }
+    }
+     
+    return result;
+}
+
 static void parse_and_apply_config(Runtime_Vars *rtvars, 
                                 char *confbuf, 
                                 int confbuf_bytes)
 {
-    char parsing = 1;
     Startup_Args *sargs = rtvars->sargs_ptr;
     Tokenizer tokenizer = {0};
     tokenizer.at = confbuf;
     char stringbuf[PATH_MAX];
     //we do this because metadata is retrieved asynchronously and the shit
-    //in "stringbuf" will get changed at the same time
+    //in "stringbuf" will get changed at the same time otherwise
     static char startup_path_buffer[PATH_MAX];
-    char fontsize_set = 0,
-            fontpath_set = 0,
-            vis_status_set = 0,
-            volume_step_set = 0,
-            volume_set = 0,
-            vis_color_set = 0,
-            text_ui_color_set = 0,
-            button_bg_color_set = 0;
+    Config_Vars_State cvs = {};
     Ui_Vars *uivars = &rtvars->uivars;
     State_Flags *sflags = &rtvars->sflags;
 
     if (sflags->startup_parse_done)
     { runtime_reload_conf(rtvars, confbuf); }
 
+    char parsing = 1;
     while (parsing)
     {
         Token tok = get_token(&tokenizer);
@@ -493,185 +835,26 @@ static void parse_and_apply_config(Runtime_Vars *rtvars,
                     }
                 }
             }
-            else if (token_equals(tok, CONF_FONTSIZE))
-            {
-                //TODO: maybe just make this possible to do at runtime
-                if (!sflags->startup_parse_done)
-                {
-                    if (!fontsize_set)
-                    {
-                        float value = get_float_entry(&tokenizer, CONF_FONTSIZE);
-                        if (value > 0.0f)
-                        {
-                            sargs->font_size = value;
-                            ++fontsize_set;
-                        }
-                    }
-                    else if (1 == fontsize_set)
-                    {
-                        report_duplicate(CONF_FONTSIZE);
-                        ++fontsize_set;
-                    }
-                }
-            }
-            else if (token_equals(tok, CONF_VISUALIZER_STATUS))
-            {
-                if (!vis_status_set)
-                {
-                    float value = get_float_entry(&tokenizer, CONF_VISUALIZER_STATUS);
-                    if (value == 0.0f)
-                    {
-                        sflags->visualizer_enabled = 0;
-                        strcpy(rtvars->bufgroup_ptr->vis_toggle_text, "enable visualizer");
-                    }
-                    ++vis_status_set;
-                }
-                else if (1 == vis_status_set)
-                {
-                    report_duplicate(CONF_VISUALIZER_STATUS);
-                    ++vis_status_set;
-                }
-            }
-            else if (token_equals(tok, CONF_STARTUP_VOLUME))
-            {
-                if (!volume_set)
-                {
-                    float value = get_float_entry(&tokenizer, CONF_STARTUP_VOLUME);
-                    value = pacmxr_clamp_float(value, 0.0f, SDL_MIX_MAXVOLUME);
-                    rtvars->mdata_ptr->volume = value;
-                    pacmxr_set_volume(value);
-                    ++volume_set;
-                }
-                else if (1 == volume_set)
-                {
-                    report_duplicate(CONF_STARTUP_VOLUME);
-                    ++volume_set;
-                }
-            }
-            else if (token_equals(tok, CONF_VOLUME_STEP))
-            {
-                if (!volume_step_set)
-                {
-                    int value = (int)get_float_entry(&tokenizer, CONF_VOLUME_STEP);
-                    sargs->volume_step = pacmxr_clamp_int(value, 0, SDL_MIX_MAXVOLUME);
-                    ++volume_step_set;
-                }
-                else if (1 == volume_step_set)
-                {
-                    report_duplicate(CONF_VOLUME_STEP);
-                    ++volume_step_set;
-                }
-            }
-            else if (token_equals(tok, CONF_FONT_PATH))
-            {
-                if (!sflags->startup_parse_done)
-                {
-                    if (!fontpath_set)
-                    {
-                        stringbuf[0] = 0;
-                        char *buf = (char *)rtvars->bufgroup_ptr->fontpath_ptr;
-                        Token ret_tok = get_string_entry(&tokenizer,
-                                            stringbuf,
-                                            sizeof(stringbuf),
-                                            CONF_STARTUP_PATH);
-
-                        if (stringbuf[0] && ret_tok.length &&
-                            (ret_tok.length + 1 < PATH_MAX))
-                        {
-                            if (platform_file_exists(stringbuf))
-                            {
-                                snprintf(buf, PATH_MAX, "%s", stringbuf);
-                                ++fontpath_set;
-                            }
-                            else
-                            {
-                                fprintf(stderr, "2wconf error: specified font path doesn't exist on the system.\n");
-                            }
-                        }
-                        else
-                        {
-                            fprintf(stderr, "2wconf error: failed setting font path.\n");
-                        }
-                    }
-                    else if (1 == fontpath_set)
-                    {
-                        report_duplicate(CONF_FONT_PATH);
-                        ++fontpath_set;
-                    }
-                }
-            }
-            else if (token_equals(tok, CONF_VISUALIZER_COLOR))
-            {
-                if (!vis_color_set)
-                {
-                    if (get_num_array_entry(&tokenizer,
-                                uivars->vis_color, 4,
-                                CONF_VISUALIZER_COLOR))
-                    {
-                        apply_num_array_entry(uivars->vis_color, 4, CONF_VISUALIZER_COLOR);
-                        ++vis_color_set;
-                    }
-                    else
-                    {
-                        fprintf(stderr, "2wconf error: could not set visualizer color.\n");
-                    }
-                }
-                else if (1 == vis_color_set)
-                {
-                    report_duplicate(CONF_VISUALIZER_COLOR);
-                    ++vis_color_set;
-                }
-            }
-            else if (token_equals(tok, CONF_UI_TEXT_COLOR))
-            {
-                if (!text_ui_color_set)
-                {
-                    if (get_num_array_entry(&tokenizer,
-                                uivars->text_color, 4,
-                                CONF_UI_TEXT_COLOR))
-                    {
-                        apply_num_array_entry(uivars->text_color, 4, CONF_UI_TEXT_COLOR);
-                        float *x = uivars->text_color;
-                        ++text_ui_color_set;
-                    }
-                    else
-                    {
-                        fprintf(stderr, "2wconf error: could not set text color.\n");
-                    }
-                }
-                else if (1 == text_ui_color_set)
-                {
-                    report_duplicate(CONF_UI_TEXT_COLOR);
-                    ++text_ui_color_set;
-                }
-            }
-            else if (token_equals(tok, CONF_UI_BUTTON_BG_COLOR))
-            {
-                if (!button_bg_color_set)
-                {
-                    if (get_num_array_entry(&tokenizer,
-                                uivars->button_bg_color, 4,
-                                CONF_UI_BUTTON_BG_COLOR))
-                    {
-                        apply_num_array_entry(uivars->button_bg_color, 4, CONF_UI_BUTTON_BG_COLOR);
-                        ++button_bg_color_set;
-                    }
-                    else
-                    {
-                        fprintf(stderr, "2wconf error: could not set button background color.\n");
-                    }
-                }
-                else if (1 == button_bg_color_set)
-                {
-                    report_duplicate(CONF_UI_BUTTON_BG_COLOR);
-                    ++button_bg_color_set;
-                }
-            }
             else
             {
-                snprintf(stringbuf, tok.length + 1, "%s", tok.text);
-                fprintf(stderr, "2wconf warning: unknown identifier or variable %s. ignoring.\n",
-                        stringbuf);
+                if (!config_handle_general_vars(&tokenizer,
+                                tok,
+                                &cvs,
+                                stringbuf,
+                                sizeof(stringbuf) - 1,
+                                rtvars))
+                {
+                    if (!config_handle_keybinds(&tokenizer,
+                                tok,
+                                &cvs,
+                                stringbuf,
+                                sizeof(stringbuf) - 1,
+                                rtvars))
+                    {
+                        fprintf(stderr, "2wconf warning: unknown identifier or variable '%.*s.', ignoring.\n",
+                                tok.length, tok.text);
+                    }
+                }
             }
         } break;
 
@@ -681,7 +864,7 @@ static void parse_and_apply_config(Runtime_Vars *rtvars,
         }
     }
 
-    if (!fontpath_set && !sflags->startup_parse_done)
+    if (!cvs.fontpath_set && !sflags->startup_parse_done)
     {
         platform_get_font_path(rtvars,
                 (char *)rtvars->bufgroup_ptr->fontpath_ptr,

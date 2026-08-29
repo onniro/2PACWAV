@@ -14,8 +14,8 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 #include "2pacmixer.h"
 
 #define _2PACWAV_VER_MAJOR      (0)
-#define _2PACWAV_VER_MINOR      (16)
-#define _2PACWAV_VER_PATCH      (3)
+#define _2PACWAV_VER_MINOR      (17)
+#define _2PACWAV_VER_PATCH      (1)
 
 #define FILE_MOD_DATE_SORTING_ENABLED 1
 
@@ -34,6 +34,8 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 #define PAC_CJK_FONT_STRING     "NotoSansMonoCJKhk-Regular.otf"
 #define PAC_LATIN_FONTSIZE (17.0f)
 #define PAC_CJK_FONTSIZE (18.0f)
+
+#define _2PACWAV_DEPRECATED (0)
 
 static const uint8_t _stop_btn_glyph[4] = { 0xE2, 0x96, 0xA0, 0x00 };
 
@@ -312,35 +314,13 @@ static inline void cycle_sort_state(Sort_State *value)
 
 typedef struct State_Flags
 {
-    char d_wasdown;
-    char q_wasdown;
-    char x_wasdown;
-    char s_wasdown;
-    char l_wasdown;
-    char f_wasdown;
-    char n_wasdown;
-    char m_wasdown;
-    char p_wasdown;
-    char r_wasdown;
-    char right_wasdown;
-    char left_wasdown;
-    char up_wasdown;
-    char down_wasdown;
-    char zero_wasdown;
-    char nine_wasdown;
-    char space_wasdown;
-    char enter_wasdown;
-    char tab_wasdown;
-    char esc_wasdown;
-    char home_wasdown;
-    char clear_confirmation;
-    char search_changed;
-    char text_field_focused;
+    //TODO: turn these into bit flags
     char visualizer_enabled;
     char mlist_ctxmenu_active;
     char searchwindow_open;
     char colorpicker_open;
     char metadata_editor_open;
+    char startup_parse_done;
     volatile char metadata_getter_thread_working;
     Mouse_State mouse;
     Center_View_State viewstate;
@@ -435,11 +415,34 @@ typedef struct Sdl_Apidata
 
 typedef struct Ui_Vars
 {
+    uint8_t frame_start_color_stack_pushes;
     //r, g, b, a
     float vis_color[4];
     float text_color[4];
     float button_bg_color[4];
 } Ui_Vars;
+
+//NOTE: plz dont fuck with the order of these if u want keybinds to work
+//(see note in 2pacwav2_config.cpp:config_handle_keybinds)
+typedef struct Keybinds
+{
+    int vol_up;
+    int vol_down;
+    int seek_forward;
+    int seek_backward;
+    int seek_to_start;
+    int cycle_sort;
+    int clear_list;
+    int toggle_list_vis;
+    int toggle_repeat;
+    int toggle_shuffle;
+    int reload_metadata;
+    int reload_config;
+    int go_next;
+    int go_prev;
+    int pause;
+    int search;
+} Keybinds;
 
 typedef struct Runtime_Vars
 {
@@ -452,6 +455,7 @@ typedef struct Runtime_Vars
     File_List autocomp_list;
     Ui_Vars uivars;
     Ro_Heap_Buffer main_storage;
+    Keybinds keybinds;
     Sdl_Apidata *sdldata_ptr;
     Music_Data *mdata_ptr;
     Pacmxr_Context *pacmxr_ctx;

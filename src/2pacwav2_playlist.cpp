@@ -44,7 +44,10 @@ static uint64_t load_playlist(char *playlist_path,
 
 static void process_playlist(Runtime_Vars *rtvars, char *playlist_path)
 {
-    char *playlist_buffer = (char *)rtvars->bufgroup_ptr->scratch_space;
+    //char *playlist_buffer = (char *)rtvars->bufgroup_ptr->scratch_space;
+#define PLAYLIST_BYTES (32*1024)
+    char *playlist_buffer = (char *)ro_buffer_alloc_region(&rtvars->main_storage, PLAYLIST_BYTES);
+    PAC_ASSERT(playlist_buffer);
     uint32_t buf_bytes = rtvars->bufgroup_ptr->scratch_bytes;
     uint64_t playlist_bytes = load_playlist(playlist_path,
                                     playlist_buffer,
@@ -92,6 +95,11 @@ static void process_playlist(Runtime_Vars *rtvars, char *playlist_path)
                 if (after_string.type == TOKEN_SEMICOLON)
                 {
                     platform_dbg_log("loading path %s\n", stringbuf);
+                    //FIXME: there is a mysterious bug here where only a fraction
+                    //of the files have their metadata processed when a directory
+                    //gets added to the list. its not completely detrimental since the user
+                    //can just reload the metadata for all the files and it works fine but
+                    //obviously this should be fixed
                     add_to_music_list(stringbuf, rtvars->mdata_ptr, rtvars);
                 }
                 else if (after_string.type == TOKEN_OPEN_BRACE)
@@ -130,4 +138,6 @@ static void process_playlist(Runtime_Vars *rtvars, char *playlist_path)
         default: { parsing = 0; } break;
         }
     }
+
+    ro_buffer_move_writeptr(&rtvars->main_storage, -(PLAYLIST_BYTES), 1);
 }
