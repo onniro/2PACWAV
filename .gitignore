@@ -7,3 +7,4 @@
 /res/testdata
 *.bak
 /dump
+/src/*test*
