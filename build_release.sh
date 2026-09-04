@@ -27,12 +27,6 @@ INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2 \
         -I$BASEDIR/3rd_party/imgui \
         -I$BASEDIR/3rd_party"
 
-#         \
-#
-#        -I$BASEDIR/3rd_party/taglib/include \
-#        -I$BASEDIR/3rd_party/taglib/include/mpeg/id3v2/ \
-#        -I$BASEDIR/3rd_party/taglib/include/mpeg/" 
-
 COMP_FLAGS="-O2 -gdwarf"
 EXE_NAME="2w"
 LINK_FLAGS="-o $EXE_NAME"
@@ -44,7 +38,7 @@ LIB_DIRS=""
 OBJ_FILES="$BASEDIR/build/lib/imgui*.o"
 
 LINK_LIBS="-lm \
-        -lSDL2 \
+        $BASEDIR/3rd_party/SDL2/lib/libSDL2.a \
         -static-libstdc++ \
         -static-libgcc \
         -lGL \
@@ -55,19 +49,6 @@ LINK_LIBS="-lm \
         -lavutil \
         -lswresample \
         -lpthread"
-
-#taglib
-#        $BASEDIR/3rd_party/taglib/lib/libtag.a \
-#        -l:libz.a \
-#sdl mixer
-#        $SDL_DIR/lib/libSDL2_mixer.a \
-#        $CODEC_DIR/lib/libopusfile.a \
-#        $CODEC_DIR/lib/libopus.a \
-#        $CODEC_DIR/lib/libvorbisfile.a \
-#        $CODEC_DIR/lib/libvorbis.a \
-#        $CODEC_DIR/lib/libwavpack.a \
-#        $CODEC_DIR/lib/libxmp.a \
-#        $CODEC_DIR/lib/libogg.a \
 
 WARNINGS="-Wall -Wpedantic -Wextra \
         -Wno-unused-parameter -Wno-pointer-arith \

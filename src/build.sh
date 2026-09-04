@@ -28,7 +28,7 @@ LIB_DIRS=""
 #        -L$BASEDIR/3d_party/codecs/lib"
 
 LINK_LIBS="-lm \
-        -lSDL2 \
+        $PWD/../3rd_party/SDL2/lib/libSDL2.a \
         -static-libstdc++ \
         -static-libgcc \
         -lGL \
