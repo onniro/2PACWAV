@@ -8,3 +8,4 @@
 *.bak
 /dump
 *test*
+/3rd_party/ffmpeg/
