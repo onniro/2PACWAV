@@ -6,39 +6,47 @@ BASEDIR="$PWD/.."
 
 SOURCES="$PWD/linux_2pacwav2.cpp"
 
-INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2 \
-        -I$BASEDIR/3rd_party/SDL2/include \
+INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2/posix \
+        -I$BASEDIR/3rd_party/SDL2/posix/include \
         -I$BASEDIR/3rd_party/imgui \
         -I$BASEDIR/3rd_party"
-
-#        "-I$BASEDIR/3rd_party/taglib/include \
-#        -I$BASEDIR/3rd_party/taglib/include/mpeg/id3v2/ \
-#        -I$BASEDIR/3rd_party/taglib/include/mpeg/" 
+        #-I$HOME/source/software/ffmpeg
 
 COMP_FLAGS="-O0 -gdwarf"
-EXE_NAME="2w"
-LINK_FLAGS="-o $EXE_NAME"
+#LINK_FLAGS="-Wl,-rpath,\$ORIGIN/../../3rd_party/ffmpeg/lib/ -o 2w"
+LINK_FLAGS="-o 2w"
 
 #SDL_DIR="$BASEDIR/3rd_party/SDL2"
 #CODEC_DIR="$BASEDIR/3rd_party/codecs"
 
+#LIB_DIRS="-L$BASEDIR/3rd_party/ffmpeg/lib"
 LIB_DIRS=""
-#-L$BASEDIR/3rd_party/SDL2/lib \
-#        -L$BASEDIR/3rd_party/taglib/lib \
-#        -L$BASEDIR/3d_party/codecs/lib"
-
+ 
 LINK_LIBS="-lm \
-        $PWD/../3rd_party/SDL2/lib/libSDL2.a \
+        $PWD/../3rd_party/SDL2/posix/lib/libSDL2.a \
         -static-libstdc++ \
         -static-libgcc \
         -lGL \
+        -lpthread \
+        -lfontconfig \
+        -lswresample \
         -lavcodec \
         -lavformat \
-        -lavcodec \
         -lavutil \
-        -lswresample \
-        -lpthread \
-        -lfontconfig"
+        -lswscale"
+
+#LINK_LIBS="-lm \
+#        $PWD/../3rd_party/SDL2/posix/lib/libSDL2.a \
+#        -static-libstdc++ \
+#        -static-libgcc \
+#        -lGL \
+#        -lavcodec \
+#        -lavformat \
+#        -lavcodec \
+#        -lavutil \
+#        -lswresample \
+#        -lpthread \
+#        -lfontconfig"
 
 OBJ_FILES="$BASEDIR/build/lib/imgui*.o"
 
@@ -47,7 +55,7 @@ WARNINGS="-Wall -Wpedantic -Wextra -Wno-unused-parameter \
         -Wno-unused-function -Wno-unused-but-set-variable \
         -Wno-write-strings -Wno-string-concatenation \
         -Wno-unused-function -Wno-strict-aliasing \
-        -Wno-c99-extensions"
+        -Wno-c99-extensions -Wno-c++17-attribute-extensions"
 
 DEFINES="-D_2PACWAV_DEBUG=1 \
         -D_2PACWAV_LINUX=1 \

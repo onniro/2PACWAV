@@ -2,8 +2,6 @@
 /*
 File: 2pacwav2_visualizer.cpp
 Date: Thu 24 Apr 2025 04:31:17 PM EEST
-
-TODO: fix spectrum
 */
 
 #ifndef __STDC_IEC_559_COMPLEX__
@@ -17,13 +15,18 @@ TODO: fix spectrum
 #include <complex.h>
 #include "2pacmixer.h"
 
+//NOTE: 2pacwav2_glext.h has to be included specifically here for reasons 
+//i don't really understand. otherwise all the function pointers will be undelcared
+//specifically on the mingw32 build, the linux build will still work lmao
+#include "2pacwav2_glext.h"
+
 #if PAC_SPECTRUM_ENABLED
 
 //shoutout https://rosettacode.org/wiki/Fast_Fourier_transform#C
 static void spectrum_fft(Complex32 *inbuf, 
-                            Complex32 *outbuf, 
-                            int num_iters, 
-                            int step)
+                        Complex32 *outbuf, 
+                        int num_iters, 
+                        int step)
 {
     if (step < num_iters)
     {
@@ -46,9 +49,9 @@ static void spectrum_fft(Complex32 *inbuf,
 #define CFROMIMAG(im) ((im)*I)
 
 static void spectrum_fft2(Complex32 *in,
-                            Complex32 *out,
-                            int num_iters,
-                            int stride)
+                        Complex32 *out,
+                        int num_iters,
+                        int stride)
 {
     if (num_iters > 0)
     { return; }
@@ -339,48 +342,48 @@ void main()
     if (!opengl_prep_done)
     {
         GLint vert_status, frag_status;
-        glGenVertexArrays(1, &vert_arr_id);
-        glGenBuffers(1, &vert_buf_id);
-        glBindVertexArray(vert_arr_id);
-        glBindBuffer(GL_ARRAY_BUFFER, vert_buf_id);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_DYNAMIC_DRAW);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float)*2, 0);
-        glBindVertexArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glextGenVertexArrays(1, &vert_arr_id);
+        glextGenBuffers(1, &vert_buf_id);
+        glextBindVertexArray(vert_arr_id);
+        glextBindBuffer(GL_ARRAY_BUFFER, vert_buf_id);
+        glextBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_DYNAMIC_DRAW);
+        glextEnableVertexAttribArray(0);
+        glextVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float)*2, 0);
+        glextBindVertexArray(0);
+        glextBindBuffer(GL_ARRAY_BUFFER, 0);
 
         int vshdr_len = strlen(shdr_vert_src) + 1;
-        shdr_vert = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(shdr_vert, 1, (char **)&shdr_vert_src, 0);
-        glCompileShader(shdr_vert);
-        glGetShaderiv(shdr_vert, GL_COMPILE_STATUS, &vert_status);
+        shdr_vert = glextCreateShader(GL_VERTEX_SHADER);
+        glextShaderSource(shdr_vert, 1, (char **)&shdr_vert_src, 0);
+        glextCompileShader(shdr_vert);
+        glextGetShaderiv(shdr_vert, GL_COMPILE_STATUS, &vert_status);
         if (GL_FALSE == vert_status)
         {
             int loglen = 0;
-            glGetShaderInfoLog(shdr_vert, 4096 - 1, &loglen, opengl_err);
+            glextGetShaderInfoLog(shdr_vert, 4096 - 1, &loglen, opengl_err);
             platform_dbg_log("vertex shader failed to compile\n%s\n", opengl_err); 
         } 
 
-        shdr_frag = glCreateShader(GL_FRAGMENT_SHADER);
-        glShaderSource(shdr_frag, 1, (char **)&shdr_frag_src, 0);
-        glCompileShader(shdr_frag);
-        glGetShaderiv(shdr_frag, GL_COMPILE_STATUS, &frag_status);
+        shdr_frag = glextCreateShader(GL_FRAGMENT_SHADER);
+        glextShaderSource(shdr_frag, 1, (char **)&shdr_frag_src, 0);
+        glextCompileShader(shdr_frag);
+        glextGetShaderiv(shdr_frag, GL_COMPILE_STATUS, &frag_status);
         if (GL_FALSE == frag_status)
         {
             int loglen = 0;
-            glGetShaderInfoLog(shdr_frag, 4096 - 1, &loglen, opengl_err);
+            glextGetShaderInfoLog(shdr_frag, 4096 - 1, &loglen, opengl_err);
             platform_dbg_log("fragment shader failed to compile\n%s\n", opengl_err);
         } 
 
-        program = glCreateProgram();
-        glAttachShader(program, shdr_vert);
-        glAttachShader(program, shdr_frag);
-        glLinkProgram(program);
-        glValidateProgram(program);
-        glDeleteShader(shdr_vert);
-        glDeleteShader(shdr_frag);
+        program = glextCreateProgram();
+        glextAttachShader(program, shdr_vert);
+        glextAttachShader(program, shdr_frag);
+        glextLinkProgram(program);
+        glextValidateProgram(program);
+        glextDeleteShader(shdr_vert);
+        glextDeleteShader(shdr_frag);
 
-        px_color_loc = glGetUniformLocation(program, "px_color");
+        px_color_loc = glextGetUniformLocation(program, "px_color");
         if (-1 == px_color_loc)
         {
             platform_dbg_log("failed to get uniform location\n");
@@ -393,26 +396,26 @@ void main()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glUseProgram(program);
-    glBindVertexArray(vert_arr_id);
-    glBindBuffer(GL_ARRAY_BUFFER, vert_buf_id);
+    glextUseProgram(program);
+    glextBindVertexArray(vert_arr_id);
+    glextBindBuffer(GL_ARRAY_BUFFER, vert_buf_id);
 
-    glUniform4f(px_color_loc,
+    glextUniform4f(px_color_loc,
            rtvars->uivars.vis_color[0],
            rtvars->uivars.vis_color[1],
            rtvars->uivars.vis_color[2],
            rtvars->uivars.vis_color[3]);
 #if !PAC_SPECTRUM_ENABLED
-    glLineWidth(2.0f);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(2*PAC_OSCILLOSCOPE_POINT_COUNT)), &verts[0]);
+    glLineWidth(1.0f);
+    glextBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(2*PAC_OSCILLOSCOPE_POINT_COUNT)), &verts[0]);
     glDrawArrays(GL_LINE_STRIP, 0, PAC_OSCILLOSCOPE_POINT_COUNT);
 #else
     glLineWidth(3.0f);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(4*PAC_SPECTRUM_FREQ_BIN_COUNT)), &verts[0]);
-    glDrawArrays(GL_LINES, 0, sizeof(verts)/sizeof(verts[0]));
+    glextBufferSubData(GL_ARRAY_BUFFER, 0, (sizeof(float)*(4*PAC_SPECTRUM_FREQ_BIN_COUNT)), &verts[0]);
+    glextDrawArrays(GL_LINES, 0, sizeof(verts)/sizeof(verts[0]));
 #endif
 
-    glUseProgram(0);
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glextUseProgram(0);
+    glextBindVertexArray(0);
+    glextBindBuffer(GL_ARRAY_BUFFER, 0);
 }

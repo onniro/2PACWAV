@@ -10,13 +10,16 @@ Linux platform-specific code for 2pacwav
 #include <stdint.h>
 #include <limits.h>
 #include <stdarg.h>
-#include <dirent.h>
 #include <time.h>
 #include <locale.h>
 #include <complex.h>
 #include <pthread.h>
+#include <limits.h>
+#include <dirent.h>
 
-#include <fontconfig/fontconfig.h>
+#ifndef _2PACWAV_DISABLE_FONTCONFIG
+    #include <fontconfig/fontconfig.h>
+#endif
 
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -24,8 +27,7 @@ Linux platform-specific code for 2pacwav
 #include "imgui_internal.h"
 
 #define GL_GLEXT_PROTOTYPES 1
-#include "SDL.h"
-//#include "SDL_mixer.h"
+#include <SDL.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
 
@@ -39,6 +41,10 @@ Linux platform-specific code for 2pacwav
 #include "2pacwav2.h"
 #include "linux_2pacwav2.h"
 
+//#include "2pacwav2_glext.h"
+#if _2PACWAV_MINGW32
+    #include "mingw32_2pacwav2.cpp"
+#endif
 #include "2pacwav2.cpp"
 
 #define _2PACWAV_METADATA_SIMULATE_SLOWNESS 0
@@ -72,6 +78,7 @@ static void platform_get_font_path(Runtime_Vars *rtvars,
                                 char *dest,
                                 int dest_size)
 {
+#if !_2PACWAV_DISABLE_FONTCONFIG
     FcInit();
     FcConfig *fc_cfg = FcInitLoadConfigAndFonts();
     //FcPattern *pattern = FcNameParse((const FcChar8 *)"Liberation Mono:Regular");
@@ -99,13 +106,11 @@ static void platform_get_font_path(Runtime_Vars *rtvars,
     FcPatternDestroy(pattern);
     FcConfigDestroy(fc_cfg);
     FcFini();
+#elif _2PACWAV_MINGW32
+    char fontname[] = "C:\\Windows\\Fonts\\consola.ttf";
+    strncpy(dest, fontname, dest_size);
+#endif
 }
-
-typedef struct Metadata_Getter_Args
-{
-    Runtime_Vars *rtvars;
-    char *added_path;
-} Metadata_Getter_Args;
 
 static void platform_get_file_mod_dates(File_List *flist)
 {
@@ -125,11 +130,17 @@ static void platform_get_file_mod_dates(File_List *flist)
     }
 }
 
+typedef struct Metadata_Getter_Args
+{
+    Runtime_Vars *rtvars;
+    char *added_path;
+} Metadata_Getter_Args;
+
 static void *metadata_bulk_getter_thread_entry(void *args_voidptr)
 {
     Metadata_Getter_Args *args = (Metadata_Getter_Args *)args_voidptr;
     Runtime_Vars *rtvars = args->rtvars;
-    rtvars->sflags.metadata_getter_thread_working = true;
+    rtvars->sflags.flags.metadata_getter_thread_working = true;
     Music_Data *mdata = rtvars->mdata_ptr;
     File_List *fl = &mdata->music_list;
     Pacmxr_Metadata pm;
@@ -138,9 +149,10 @@ static void *metadata_bulk_getter_thread_entry(void *args_voidptr)
     char filename[PATH_MAX];
 
     Frametime_Vars time;
-    time.start = ro_posix_get_timestamp();
+    time.start = platform_get_timestamp();
     int files_processed = 0;
-    uint16_t dir_hash = hash_fnv1a16((uint8_t *)args->added_path, strlen(args->added_path));
+    uint16_t dir_hash = hash_fnv1a16((uint8_t *)args->added_path,
+                                    strlen(args->added_path));
 
     //TODO: this shit isnt platform dependent so just move this somewhere else at some point
     for (int file_index = 0;
@@ -151,6 +163,8 @@ static void *metadata_bulk_getter_thread_entry(void *args_voidptr)
         //this doesnt actually change the speed in any way because opening files
         //is mega slow but comparing the hash feels more correct 
         //if (!strcmp(file->containing_dir, args->added_path))
+        //NOTE: is there any reason why the hash couldn't just be an id?
+        //(count of directories added at the time)
         if (file->containing_dir_hash == dir_hash)
         {
             snprintf(filename, PATH_MAX, "%s/%s", args->added_path, file->filename);
@@ -190,12 +204,12 @@ static void *metadata_bulk_getter_thread_entry(void *args_voidptr)
         }
     }
 
-    time.end = ro_posix_get_timestamp();
+    time.end = platform_get_timestamp();
     time.delta = time.end - time.start;
     platform_dbg_log("[platform_get_metadata_bulk] retrieved metadata for %d files in %.3f ms\n",
             files_processed, ((float)time.delta/1000.0f));
 
-    rtvars->sflags.metadata_getter_thread_working = false;
+    rtvars->sflags.flags.metadata_getter_thread_working = false;
     return EXIT_SUCCESS;
 }
 
@@ -203,7 +217,7 @@ static void platform_get_metadata_bulk(Runtime_Vars *rtvars, char *added_path)
 {
     pthread_t thread_handle;
     static Metadata_Getter_Args args = {};
-    args = (Metadata_Getter_Args){ rtvars, added_path };
+    args.rtvars = rtvars; args.added_path = added_path;
 
     platform_dbg_log("attempting to get metadata from directory %s\n", added_path);
     if (pthread_create(&thread_handle, 0,
@@ -323,66 +337,25 @@ static int platform_list_files_simple(char *path,
         { sort_file_list_alpha(out_flist, 0); }
         result = 1;
         closedir(dir_struct);
-    } else { 
+    }
+    else
+    { 
         platform_dbg_log("directory listing failed. reason: failed to initialize directory struct\n"); 
     }
     return result;
 }
 #endif
 
-static int platform_list_files_mlist(char *path, File_List *out_flist)
-{
-    int result = 0;
-    dirent *dir_entry;
-    DIR *dir_struct = opendir(path);
-    if (dir_struct)
-    {
-        file_list_push_dirname(path, out_flist);
-        uint16_t dir_hash = hash_fnv1a16((uint8_t *)path, strlen(path));
-
-        int filename_len;
-        char *write_ptr;
-        //char **loclist = out_flist->filenames_string_loclist;
-        Audio_File *loclist = out_flist->file_strings, *file;
-        while (1)
-        {
-            dir_entry = readdir(dir_struct);
-            if (!dir_entry) { break; }
-
-            if (dir_entry->d_type == DT_REG)
-            {
-                file = &loclist[out_flist->entry_count];
-                write_ptr = file->filename;
-                file->containing_dir = out_flist->dirnames_string_loclist[out_flist->dirs_added - 1];
-                file->containing_dir_hash = dir_hash;
-                filename_len = strlen(dir_entry->d_name);
-                strncpy(write_ptr, dir_entry->d_name, NAME_MAX - 1);
-                write_ptr[filename_len + 1] = 0x0;
-                loclist[out_flist->entry_count + 1].filename = write_ptr + filename_len + 1;
-                ++out_flist->entry_count;
-            }
-        }
-        result = 1;
-        closedir(dir_struct);
-    }
-    else
-    {
-        platform_dbg_log("directory listing failed. reason: failed to initialize directory struct\n"); 
-    }
-
-    return result;
-}
-
 static void startup_alloc_buffers(Ro_Heap_Buffer *heapbuf,
                                 General_Buffer_Group *bufgroup)
 {
-#define MEM_INIT_ASSERT(main_buffer, buf2init, size)                                \
-    buf2init = ro_buffer_alloc_region(main_buffer, size);                           \
-    if (!buf2init)                                                                  \
-    {                                                                               \
-        platform_dbg_log("failed to init buffer %s\n(unallocated=%u)exiting.\n",    \
-                #buf2init, ro_buffer_unallocated_bytes(heapbuf));                   \
-        PAC_ASSERT(0 && "not enough memory!");                                      \
+#define MEM_INIT_ASSERT(main_buffer, buf2init, size) \
+    buf2init = ro_buffer_alloc_region(main_buffer, size); \
+    if (!buf2init) \
+    { \
+        platform_dbg_log("failed to init buffer %s\n(unallocated=%u)exiting.\n", \
+                #buf2init, ro_buffer_unallocated_bytes(heapbuf)); \
+        PAC_ASSERT(0 && "not enough memory!"); \
     }
 
     memset(heapbuf->memory, 0, PAC_MAIN_STORAGE_SIZE);
@@ -423,20 +396,6 @@ static uint64_t platform_get_timestamp(void)
     return ro_posix_get_timestamp();
 }
 
-static char platform_file_exists(char *path)
-{
-    return ro_posix_file_exists(path);
-}
-
-static char platform_directory_exists(char *path)
-{
-    return ro_posix_directory_exists(path);
-}
-
-static char platform_path_exists(char *path)
-{
-    return ro_posix_path_exists(path);
-}
 
 static void platform_sleep_ms(int ms)
 {
@@ -456,7 +415,6 @@ static int platform_write_file(char *file_path,
 {
     return ro_posix_write_file(file_path, in_buffer, buffer_size);
 }
-
 
 static void platform_log(char *fmt_string, ...)
 {
@@ -489,28 +447,97 @@ static void platform_dbg_dump_file(char *containing_dir,
     platform_write_file(filename, buffer, buffer_size);
 }
 
+#if !_2PACWAV_MINGW32
+
+static char platform_file_exists(char *path)
+{
+    return ro_posix_file_exists(path);
+}
+
+static char platform_directory_exists(char *path)
+{
+    return ro_posix_directory_exists(path);
+}
+
+static char platform_path_exists(char *path)
+{
+    return ro_posix_path_exists(path);
+}
+
 static void platform_get_working_directory(char *buf, int buf_size)
 {
     ro_posix_get_working_directory(buf, buf_size);
     int len = strlen(buf);
-    while (buf[len - 1] == '/') 
-    { buf[--len] = 0; }
+    while (buf[len - 1] == '/') { buf[--len] = 0; }
 }
+
+static int platform_list_files_mlist(char *path, File_List *out_flist)
+{
+    int result = 0;
+    dirent *dir_entry;
+    DIR *dir_struct = opendir(path);
+    if (dir_struct)
+    {
+        file_list_push_dirname(path, out_flist);
+        uint16_t dir_hash = hash_fnv1a16((uint8_t *)path, strlen(path));
+
+        int filename_len;
+        char *write_ptr;
+        //char **loclist = out_flist->filenames_string_loclist;
+        Audio_File *loclist = out_flist->file_strings, *file;
+        while (1)
+        {
+            dir_entry = readdir(dir_struct);
+            if (!dir_entry) { break; }
+
+            if (dir_entry->d_type == DT_REG)
+            {
+                file = &loclist[out_flist->entry_count];
+                write_ptr = file->filename;
+                file->containing_dir = out_flist->dirnames_string_loclist[out_flist->dirs_added - 1];
+                file->containing_dir_hash = dir_hash;
+                filename_len = strlen(dir_entry->d_name);
+                strncpy(write_ptr, dir_entry->d_name, NAME_MAX - 1);
+                write_ptr[filename_len] = 0x0;
+                loclist[out_flist->entry_count + 1].filename = write_ptr + filename_len + 1;
+                ++out_flist->entry_count;
+            }
+        }
+        result = 1;
+        closedir(dir_struct);
+    }
+    else
+    {
+        platform_dbg_log("directory listing failed. reason: failed to initialize directory struct\n"); 
+    }
+
+    return result;
+}
+#endif
+
+#if _2PACWAV_MINGW32
+int __stdcall WinMain(HINSTANCE instance,
+                    HINSTANCE prev_instance,
+                    PSTR cmdline,
+                    int show_cmd)
+{
+    int status = main(__argc, __argv);
+    return status;
+}
+#endif
 
 int main(int arg_count, char **args)
 {
     Runtime_Vars rtvars = {};
-    rtvars.sflags.visualizer_enabled = 1;
+    rtvars.sflags.flags.visualizer_enabled = 1;
     General_Buffer_Group bufgroup = {};
     if (ro_posix_make_heap_buffer(&rtvars.main_storage, 
-            PAC_MAIN_STORAGE_SIZE))
-    {
-        startup_alloc_buffers(&rtvars.main_storage, &bufgroup); 
-    }
+                                PAC_MAIN_STORAGE_SIZE))
+    { startup_alloc_buffers(&rtvars.main_storage, &bufgroup); }
     else
     { 
         fprintf(stderr, "failed to get memory\n"); 
-        return -1; 
+        return EXIT_FAILURE; 
     }
 
     Startup_Args sargs = {};
@@ -528,29 +555,33 @@ int main(int arg_count, char **args)
     strcpy(mdata.music_type_buf, "NONE");
 
     setlocale(LC_ALL, "en_US.UTF-8");
-    srand48(time(0));
+    srand(time(0));
 
     rtvars.sdldata_ptr = &sdldata;
     rtvars.bufgroup_ptr = &bufgroup;
     sdldata.mdata_ptr = &mdata;
 
-    if (!pac_init_sdl(&sdldata))
+    if (!pac_init_sdl(&sdldata) || !load_used_gl_extensions())
     {
         fprintf(stderr, "%s: failed to initialize SDL library.\n", args[0]);
         return EXIT_FAILURE;
     }
+
     if (!pac_init_tupacmixer(&mdata))
     {
         fprintf(stderr, "%s: failed to initialize audio mixer.\n", args[0]);
         return EXIT_FAILURE;
     }
+
     rtvars.pacmxr_ctx = pacmxr_get_context();
     mdata.current_filename = (char *)bufgroup.music_current_filename;
     mdata.rtvars_ptr = &rtvars;
 
     platform_get_working_directory(rtvars.working_directory, PATH_MAX);
     //platform_get_font_path(&rtvars, (char *)bufgroup.scratch_space, PATH_MAX);
+#if !_2PACWAV_MINGW32
     platform_find_res_path(&rtvars, rtvars.resource_directory, PATH_MAX - 1);
+#endif
 
     mdata.music_list.filenames_buf = (char *)bufgroup.flist_filenames_buf;
     mdata.music_list.file_strings = (Audio_File *)bufgroup.flist_filenames_string_loclist;
@@ -582,9 +613,11 @@ int main(int arg_count, char **args)
     rtvars.mdata_ptr = &mdata;
 
     bufgroup.fontpath_ptr = (char *)bufgroup.scratch_space + (bufgroup.scratch_bytes - (PATH_MAX + 1));
+
     set_default_convars(&rtvars);
     set_default_keybinds(&rtvars);
-    if (!sargs.no_load_conf)
+
+    if (!(sargs.flags & FLAG_NO_LOAD_CONF))
     {
         size_t conf_len = startup_load_conf(&rtvars,
                             (char *)bufgroup.conf_file_buffer, 
@@ -648,6 +681,26 @@ int main(int arg_count, char **args)
                 glGetString(GL_RENDERER),
                 glGetString(GL_SHADING_LANGUAGE_VERSION),
                 gl_maj, gl_min);
+
+        sdlapi_print_version();
+
+        uint32_t lavf_ver = avformat_version();
+        platform_dbg_log("libavformat runtime: v%u.%u.%u, header: v%d.%d.%d\n",
+                lavf_ver >> 16,
+                (lavf_ver >> 8) & 0xFF,
+                lavf_ver & 0xFF,
+                LIBAVFORMAT_VERSION_MAJOR,
+                LIBAVFORMAT_VERSION_MINOR,
+                LIBAVFORMAT_VERSION_MICRO);
+
+        uint32_t lavc_ver = avcodec_version();
+        platform_dbg_log("libavcodec runtime v%u.%u.%u, header: v%d.%d.%d\n",
+                lavc_ver >> 16,
+                (lavc_ver >> 8) & 0xFF,
+                lavc_ver & 0xFF,
+                LIBAVCODEC_VERSION_MAJOR,
+                LIBAVCODEC_VERSION_MINOR,
+                LIBAVCODEC_VERSION_MICRO);
     }
 #endif
 
@@ -657,12 +710,6 @@ int main(int arg_count, char **args)
         memset(bufgroup.scratch_space, 0, (sargs.paths.count + 2)*PATH_MAX);
     }
     
-    //rtvars.autocomp_list.filenames_buf = (char *)bufgroup.autocomp_buffer;
-    //rtvars.autocomp_list.filenames_string_loclist = (char **)bufgroup.autocomp_string_loclist;
-    //rtvars.autocomp_list.filenames_string_loclist[0] = rtvars.autocomp_list.filenames_buf;
-
-    //memset();
-
     ro_buffer_move_writeptr(&rtvars.main_storage, -(bufgroup.scratch_bytes), 0);
 
     while (rtvars.keep_running)

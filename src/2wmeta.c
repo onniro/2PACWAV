@@ -36,13 +36,15 @@ typedef struct Command_Options
     int arg_count;
     char **args;
     char do_list;
-    int edit_flags;
-#define EDIT_TITLE_BIT  (1)
-#define EDIT_ARTIST_BIT (1 << 1)
-#define EDIT_ALBUM_BIT  (1 << 2)
-#define EDIT_GENRE_BIT  (1 << 3)
-#define EDIT_TRACK_BIT  (1 << 4)
-#define EDIT_YEAR_BIT   (1 << 5)
+    enum Edit_Flags
+    {
+        EDIT_TITLE_BIT  = (1),
+        EDIT_ARTIST_BIT = (1 << 1),
+        EDIT_ALBUM_BIT  = (1 << 2),
+        EDIT_GENRE_BIT  = (1 << 3),
+        EDIT_TRACK_BIT  = (1 << 4),
+        EDIT_YEAR_BIT   = (1 << 5),
+    } edit_flags;
     char *new_title;
     char *new_artist;
     char *new_album;

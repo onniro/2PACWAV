@@ -19,6 +19,8 @@ LINK_LIBS="-lm \
         -lavformat \
         -lavutil"
 
+INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2/posix/include"
+
 WARNINGS="-Wall -Wpedantic -Wextra -Wno-unused-parameter \
         -Wno-pointer-arith -Wno-unused-variable \
         -Wno-unused-function -Wno-unused-but-set-variable \

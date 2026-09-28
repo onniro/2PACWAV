@@ -29,7 +29,7 @@ to 1 and including this stuff elsewhere is to add the containing folders of thes
 if they aren't found automatically with the -I option in your compiler.
 */
 #if !PACMXR_DONT_INCLUDE_3RD_PARTY
-    #include <SDL2/SDL.h>
+    #include <SDL.h>
     #include <libavformat/avformat.h>
     #include <libavcodec/avcodec.h>
     #include <libswresample/swresample.h>
@@ -52,10 +52,10 @@ if they aren't found automatically with the -I option in your compiler.
 #if defined(unix) || defined(__unix) || defined(__unix__)
     #define PACMXR_UNIX 1
 #elif defined(_WIN32)
-    #define PACMXR_WIN32 1 //unused, unsupported
+    #define PACMXR_WIN32 1
 #endif
 
-#if PACMXR_UNIX
+#if PACMXR_UNIX && !PACMXR_MINGW32
     #include <sys/mman.h>
     #include <sys/select.h>
 #endif
@@ -212,7 +212,7 @@ Should be called once before calling any other function in this header
 except for pacmxr_default_init_options and the metadata functions.
 This function will set up an audio device with SDL and set the callback to pacmxr__sdl_audio_callback. 
 It will also allocate an amount of memory equal to PACMXR_AUDIOQUEUE_BUFFER_SIZE*2
-using mmap on Unix systems (and nothing on Windows since it isn't supported).
+using mmap on Unix systems and VirtualAlloc on Windows.
 Lastly it will also start a thread whose entry point is pacmxr__decode_check_thread_entry.
 ARG 1 - opts:
 Pointer to a Pacmxr_Init_Options struct with the desired options filled out.
@@ -589,7 +589,6 @@ PACMXR_INLINE char pacmxr_is_paused(void)
     return global_pacmxr_ctx.paused;
 }
 
-//#define PACMXR_UNIX 1
 #if defined(PACMXR_UNIX) && PACMXR_UNIX
 PACMXR_INLINE void pacmxr_sleep_ms(int millisec)
 {
@@ -605,6 +604,18 @@ PACMXR_INLINE void pacmxr_sleep_us(int microsec)
     tv.tv_sec = 0;
     tv.tv_usec = microsec;
     select(0, 0, 0, 0, &tv);
+}
+#elif PACMXR_WIN32
+PACMXR_INLINE void pacmxr_sleep_ms(int millisec)
+{
+    Sleep(millisec);
+}
+
+PACMXR_INLINE void pacmxr_sleep_us(int microsec)
+{
+    //this function isn't used and idk how to implement it on windows
+    //(sleeping for less than 1 millisecond is not really a thing you
+    //can rely on anyway)
 }
 #endif
 
@@ -690,6 +701,7 @@ PACMXR_DEF int pacmxr_init(Pacmxr_Init_Options *opts)
     memset((void *)ctx, 0, sizeof(Pacmxr_Context));
     Audio_Queue *aq = &ctx->aqueue;
 
+#if PACMXR_UNIX
     int filedesc = open("/dev/zero", O_RDWR);
     if (filedesc < 0)
     {
@@ -697,6 +709,7 @@ PACMXR_DEF int pacmxr_init(Pacmxr_Init_Options *opts)
         perror("open");
         return 0;
     }
+
     aq->buffer1 = (uint8_t *)mmap(0, PACMXR_AUDIOQUEUE_BUFFER_SIZE*2,
                     PROT_READ|PROT_WRITE,
                     MAP_PRIVATE, filedesc, 0);
@@ -706,6 +719,18 @@ PACMXR_DEF int pacmxr_init(Pacmxr_Init_Options *opts)
         perror("mmap");
         return 0;
     }
+#elif PACMXR_WIN32
+    aq->buffer1 = (uint8_t *)VirtualAlloc(0,
+                        PACMXR_AUDIOQUEUE_BUFFER_SIZE*2,
+                        MEM_RESERVE|MEM_COMMIT,
+                        PAGE_READWRITE);
+
+    if (!aq->buffer1)
+    {
+        fprintf(stderr, "pacmxr_init failed to get memory for 2pacmixer.\n");
+        return 0;
+    }
+#endif
 
     aq->front_buffer = aq->buffer2;
     aq->bytes_allocated = PACMXR_AUDIOQUEUE_BUFFER_SIZE;
@@ -752,10 +777,10 @@ PACMXR_DEF void pacmxr_deinit(void)
     //it seems to be that unlocking, unpausing and unlocking again
     //is a fool proof method to un deadlock the sdl audio shit every time
     //100p success rate tricknology
-#if 1
+#if PACMXR_UNIX && !PACMXR_MINGW32
     munmap(aq->buffer1, aq->bytes_allocated);
-#else
-    free(aq->buffer);
+#elif PACMXR_WIN32 || PACMXR_MINGW32
+    VirtualFree(aq->buffer1, aq->bytes_allocated, MEM_RELEASE);
 #endif
 }
 
@@ -1766,7 +1791,6 @@ PACMXR_DEF int pacmxr_copy_file(char *dst, char *src)
 
 PACMXR_DEF int pacmxr_meta_save(Pacmxr_Metadata *pac_meta)
 {
-#if PACMXR_UNIX
     if (!pac_meta->in_avf_ctx) { return 0; }
     AVFormatContext *inctx = pac_meta->in_avf_ctx;
     AVFormatContext *outctx = pac_meta->out_avf_ctx;
@@ -1779,7 +1803,6 @@ PACMXR_DEF int pacmxr_meta_save(Pacmxr_Metadata *pac_meta)
 
     char *filename = inctx->url;
     char tempfile[PATH_MAX];
-    //char og_filename[PATH_MAX];
     int fnamelen = strlen(filename);
     char *filename_real = 0;
 #ifdef __cplusplus
@@ -1802,8 +1825,22 @@ PACMXR_DEF int pacmxr_meta_save(Pacmxr_Metadata *pac_meta)
     {
         filename_real = filename;
     }
-    //idk if hardcoding /tmp is fine or not
+
+#if PACMXR_UNIX
     snprintf(tempfile, PATH_MAX, "/tmp/%ld-%s", time(0), filename_real);
+#elif PACMXR_WIN32
+    {
+        //UNTESTED
+        char tempdir[PATH_MAX];
+        if (GetTempPathA(sizeof(tempdir) - 1, tempdir))
+        {
+            snprintf(tempfile, sizeof(tempfile),
+                    "%s\\%ld-%s",
+                    tempdir, time(0), filename_real);
+        }
+        else { goto error; }
+    }
+#endif
 
     if (avformat_alloc_output_context2(&outctx, 0, 0, tempfile) < 0)
     {
@@ -1880,7 +1917,6 @@ PACMXR_DEF int pacmxr_meta_save(Pacmxr_Metadata *pac_meta)
 error:
     avformat_free_context(outctx);
     return 0;
-#endif
 }
 
 #endif //PACMXR_HEADER_ONLY

@@ -14,8 +14,8 @@ Date: Thu 24 Apr 2025 04:34:59 PM EEST
 #include "2pacmixer.h"
 
 #define _2PACWAV_VER_MAJOR      (0)
-#define _2PACWAV_VER_MINOR      (17)
-#define _2PACWAV_VER_PATCH      (1)
+#define _2PACWAV_VER_MINOR      (18)
+#define _2PACWAV_VER_PATCH      (2)
 
 #define FILE_MOD_DATE_SORTING_ENABLED 1
 
@@ -199,15 +199,21 @@ typedef struct Startup_Args_Paths
 
 typedef struct Startup_Args
 {
-    char no_load_conf;
-    char no_load_startup_paths;
     General_Buffer_Group *bufgroup_ptr;
-    Startup_Args_Paths paths;
     float font_size;
     int volume;
     int volume_step; //how much the volume changes when adjusted with keybind
     char *conf_path;
+    uint32_t flags;
+    Startup_Args_Paths paths;
 } Startup_Args;
+
+typedef enum Startup_Args_Flags
+{
+    FLAG_NO_LOAD_CONF =                 1U,
+    FLAG_NO_LOAD_STARTUP_PATHS =        1U << 1,
+    FLAG_METADATA_LOAD_ONLY_MANUAL =    1U << 2,
+} Startup_Args_Flags;
 
 typedef struct Prev_File_List
 {
@@ -225,6 +231,8 @@ typedef struct File_List
     int match_count;
     int context_index;
     int sel_index;
+    float list_scroll;
+    char scroll_dirty;
     char *dirnames_buf;                 //buffer containing the directories added, delimited by null
     char *filenames_buf;                //buffer containing file names, delimited by null
     char *artist_names_buf;
@@ -312,16 +320,34 @@ static inline void cycle_sort_state(Sort_State *value)
     { *value = (Sort_State)1; }
 }
 
+static inline char *sort_state2str(Sort_State s)
+{
+    switch (s)
+    {
+    case SORT_STATE_ARTIST_ASCENDING: { return "artist descending"; } break;
+    case SORT_STATE_ARTIST_DESCENDING: { return "artist ascending"; } break;
+    case SORT_STATE_TITLE_ASCENDING: { return "title ascending"; } break;
+    case SORT_STATE_TITLE_DESCENDING: { return "title descending"; } break;
+    case SORT_STATE_ALBUM_ASCENDING: { return "album ascending"; } break;
+    case SORT_STATE_ALBUM_DESCENDING: { return "album descending"; } break;
+    case SORT_STATE_MOD_DATE_ASCENDING: { return "file mod date ascending"; } break;
+    case SORT_STATE_MOD_DATE_DESCENDING: { return "file mod date descending"; } break;
+    default: { return "none"; } break;
+    }
+}
+
 typedef struct State_Flags
 {
-    //TODO: turn these into bit flags
-    char visualizer_enabled;
-    char mlist_ctxmenu_active;
-    char searchwindow_open;
-    char colorpicker_open;
-    char metadata_editor_open;
-    char startup_parse_done;
-    volatile char metadata_getter_thread_working;
+    struct
+    {
+        unsigned visualizer_enabled : 1;
+        unsigned mlist_ctxmenu_active : 1;
+        unsigned searchwindow_open : 1;
+        unsigned colorpicker_open : 1;
+        unsigned metadata_editor_open : 1;
+        unsigned startup_parse_done : 1;
+        volatile unsigned metadata_getter_thread_working : 1;
+    } flags;
     Mouse_State mouse;
     Center_View_State viewstate;
     Userinfo_Type last_userinfo_type;
@@ -386,7 +412,6 @@ typedef struct Music_Data
     how much data the visualizer needs to copy
     */
     int chunk_size;
-    //int seek_increment;
     float seek_increment;
     int previous_index;
     int volume;
@@ -397,7 +422,6 @@ typedef struct Music_Data
     Audio_Stream astream;
     Runtime_Vars *rtvars_ptr;
     File_List music_list;
-    //Mix_Music *sdlmixer_music; //IMPORTANT: ALWAYS SET TO NULL WHEN MUSIC IS UNLOADED
     Audio_Metadata_Group current_metadata;
     Metadata_Editor metaed;
     Bitmap_Info cover;
@@ -424,6 +448,7 @@ typedef struct Ui_Vars
 
 //NOTE: plz dont fuck with the order of these if u want keybinds to work
 //(see note in 2pacwav2_config.cpp:config_handle_keybinds)
+//and also remember to update the string array as well in the aforementioned function
 typedef struct Keybinds
 {
     int vol_up;
@@ -473,16 +498,13 @@ static inline uint32_t hash_fnv1a32(uint8_t *data, size_t bytes)
     for (uint32_t byte_index = 0;
         byte_index < bytes;
         ++byte_index)
-    {
-        output = (output^data[byte_index])*FNV_PRIME32;
-    }
+    { output = (output^data[byte_index])*FNV_PRIME32; }
 
     return output;
 }
 
 //idk if this is actually the correct way to downscale the 32 bit fnv1a but
-//its only used for hash comparison and it isnt computed repetitively
-//in this program so speed doesnt matter either
+//its only used for hash comparison sometimes
 static inline uint16_t hash_fnv1a16(uint8_t *data, size_t bytes)
 {
     uint32_t hash32 = hash_fnv1a32(data, bytes);

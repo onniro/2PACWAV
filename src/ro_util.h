@@ -30,18 +30,36 @@ extern "C"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/select.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
+#include <limits.h>
 
-int clock_gettime(clockid_t clockid, struct timespec *tp);
-int nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
+//NOTE: some mingw stuff can use the posix functions
+#if RO_UTIL_POSIX && !RO_UTIL_W32
+    #define RO_UTIL_POSIX_4REAL 1
+#endif
+
+#include <sys/stat.h>
+#if RO_UTIL_POSIX_4REAL
+    #include <sys/mman.h>
+    #include <sys/select.h>
+#elif RO_UTIL_W32
+    #define WIN32_LEAN_AND_MEAN 1
+    #include <windows.h>
+    #include <shlwapi.h>
+#endif
+
+#ifndef NAME_MAX
+    #define NAME_MAX (FILENAME_MAX)
+#endif
+
+
+//int clock_gettime(clockid_t clockid, struct timespec *tp);
+//int nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
 
 #ifndef CLOCK_MONOTONIC
     #define CLOCK_MONOTONIC (1)
@@ -86,6 +104,11 @@ RO_DEF float ro_abs_f32(float number)
     return result;
 }
 
+RO_DEF double ro_rand_norm(void)
+{
+    return rand()/(RAND_MAX + 1.0);
+}
+
 #define RO_MATH_DOT_H 1
 #endif
 
@@ -109,6 +132,7 @@ RO_DEF uint64_t ro_buffer_unallocated_bytes(Ro_Heap_Buffer *buffer)
     }
     return result;
 }
+
 
 RO_DEF void *ro_buffer_alloc_region(struct Ro_Heap_Buffer *buffer, uint64_t region_bytes)
 {
@@ -152,8 +176,14 @@ RO_DEF void ro_buffer_move_writeptr(Ro_Heap_Buffer *buffer,
 
 RO_DEF void *ro_posix_make_heap_buffer(Ro_Heap_Buffer *target, uint64_t bytes)
 {
+#if RO_UTIL_POSIX_4REAL
     target->memory = mmap(0, bytes, PROT_READ|PROT_WRITE, 
                         MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+#elif RO_UTIL_W32
+    target->memory = VirtualAlloc(0, bytes,
+                        MEM_RESERVE|MEM_COMMIT,
+                        PAGE_READWRITE);
+#endif
     target->write_ptr = target->memory;
     target->total_bytes = bytes;
     return target->memory;
@@ -162,26 +192,13 @@ RO_DEF void *ro_posix_make_heap_buffer(Ro_Heap_Buffer *target, uint64_t bytes)
 RO_DEF void ro_posix_free_heap_buffer(Ro_Heap_Buffer *buffer)
 {
     if (buffer && buffer->memory && buffer->total_bytes)
-    { munmap(buffer->memory, buffer->total_bytes); }
-}
-
-
-RO_DEF char *ro_posix_get_working_directory(char *destination, uint64_t buffer_size)
-{
-    size_t bytes_read = readlink("/proc/self/exe", 
-                            destination, 
-                            buffer_size);
-    destination[bytes_read] = 0x0;
-    for (int char_index = (int)bytes_read; 
-        char_index >= 0; 
-        --char_index)
     {
-        if (destination[char_index] != '/')
-        { destination[char_index] = 0x0; }
-        else
-        { break; }
+#if RO_UTIL_POSIX_4REAL
+    munmap(buffer->memory, buffer->total_bytes);
+#elif RO_UTIL_W32
+    VirtualFree(buffer->memory, buffer->total_bytes, MEM_RELEASE);
+#endif
     }
-    return destination;
 }
 
 RO_DEF uint64_t ro_posix_get_timestamp(void)
@@ -199,35 +216,6 @@ RO_DEF void ro_posix_sleep_usec(uint64_t usec)
     struct timespec tspec = {RO_ZERO_INIT};
     tspec.tv_nsec = nanoseconds;
     nanosleep(&tspec, 0);
-}
-
-RO_DEF char ro_posix_path_exists(char *path)
-{
-    char result = 0;
-    struct stat stat_struct;
-    if (!stat(path, &stat_struct))
-    { result = 1; }
-    return result;
-}
-
-RO_DEF char ro_posix_file_exists(char *file_path)
-{
-    char result = 0;
-    struct stat stat_struct;
-    if (!stat(file_path, &stat_struct) && 
-        !(S_ISDIR(stat_struct.st_mode)))
-    { result = 1; }
-    return result;
-}
-
-RO_DEF char ro_posix_directory_exists(char *directory_name)
-{
-    char result = 0;
-    struct stat stat_struct;
-    if (!stat(directory_name, &stat_struct) && 
-        S_ISDIR(stat_struct.st_mode))
-    { result = 1; }
-    return result;
 }
 
 RO_DEF uint64_t ro_posix_read_file(char *file_path, 
@@ -263,9 +251,57 @@ RO_DEF int ro_posix_write_file(char *file_path,
                                     in_buffer, 
                                     buffer_size);  
         close(file_descriptor);
-        if(write_status == (int64_t)buffer_size) { result = 1; }
+        if (write_status == (int64_t)buffer_size)
+        { result = 1; }
     }
     return result;
+}
+
+#if RO_UTIL_POSIX_4REAL
+
+RO_DEF char ro_posix_path_exists(char *path)
+{
+    char result = 0;
+    struct stat stat_struct;
+    if (!stat(path, &stat_struct))
+    { result = 1; }
+    return result;
+}
+
+RO_DEF char ro_posix_file_exists(char *file_path)
+{
+    char result = 0;
+    struct stat stat_struct;
+    if (!stat(file_path, &stat_struct) && 
+        !(S_ISDIR(stat_struct.st_mode)))
+    { result = 1; }
+    return result;
+}
+
+RO_DEF char ro_posix_directory_exists(char *directory_name)
+{
+    char result = 0;
+    struct stat stat_struct;
+    if (!stat(directory_name, &stat_struct) && 
+        S_ISDIR(stat_struct.st_mode))
+    { result = 1; }
+    return result;
+}
+
+RO_DEF char *ro_posix_get_working_directory(char *destination, uint64_t buffer_size)
+{
+    char delimiter = '/';
+    size_t bytes_read = readlink("/proc/self/exe", destination, buffer_size);
+    destination[bytes_read] = 0x0;
+    for (int char_index = (int)bytes_read; 
+        char_index >= 0; 
+        --char_index)
+    {
+        if (destination[char_index] != '/') { destination[char_index] = 0x0; }
+        else { break; }
+    }
+
+    return destination;
 }
 
 RO_DEF int ro_posix_run_command(char *command, 
@@ -308,7 +344,9 @@ RO_DEF int ro_posix_run_command(char *command,
     return result;
 }
 
-RO_DEF size_t ro_posix_get_command_output(int file_descriptor,
+#endif
+
+RO_DEF size_t ro_posix_read_stream_from_fd(int file_descriptor,
                                         char *dest_buffer,
                                         size_t dest_buffer_size,
                                         bool close_descriptor)
@@ -332,7 +370,90 @@ RO_DEF size_t ro_posix_get_command_output(int file_descriptor,
 
 #endif
 
+#if defined(RO_UTIL_W32) && RO_UTIL_W32
+
+RO_DEF char *ro_w32_get_working_directory(char *destination, DWORD buffer_size)
+{
+    char *result = 0;
+    wchar_t dest_temp[PATH_MAX];
+    GetModuleFileNameW(0, dest_temp, buffer_size);
+    if (!dest_temp[0]) { return 0; }
+    int path_length = WideCharToMultiByte(CP_UTF8,
+                            0,
+                            dest_temp,
+                            -1,
+                            destination,
+                            buffer_size,
+                            0, 0);
+    if (path_length)
+    {
+        result = destination;
+        for (DWORD char_index = path_length - 1;
+            destination[char_index] != '\\';
+            --char_index) 
+        { destination[char_index] = '\0'; }
+    }
+
+    return result;
+}
+
+#ifndef RO_PATH_MAX
+    #define RO_W32_PATH_MAX (4096)
+#endif
+static wchar_t ro_w32__global_wchar_buf[RO_W32_PATH_MAX];
+
+RO_DEF int ro_w32_utf8_to_utf16(wchar_t *dest, char *src, size_t num_chars)
+{
+    int path_len = MultiByteToWideChar(CP_UTF8,
+                        MB_ERR_INVALID_CHARS,
+                        src,
+                        -1,
+                        dest,
+                        num_chars);
+    return path_len;
+}
+
+RO_DEF int ro_w32_utf16_to_utf8(char *dest, wchar_t *src, size_t num_chars)
+{
+    int path_len = WideCharToMultiByte(CP_UTF8, 0, src, -1, dest, num_chars, 0, 0);
+    return path_len;
+}
+
+RO_DEF char ro_w32_file_exists(char *file_path)
+{
+    char result = 0;
+    wchar_t *tempbuf = ro_w32__global_wchar_buf;
+    tempbuf[0] = L'\0';
+    int path_len = ro_w32_utf8_to_utf16(tempbuf, file_path, RO_W32_PATH_MAX);
+    if (PathFileExistsW(tempbuf) && !PathIsDirectoryW(tempbuf))
+    { result = 1; }
+    return result;
+}
+
+RO_DEF char ro_w32_directory_exists(char *directory_name)
+{
+    char result = 0;
+    wchar_t *tempbuf = ro_w32__global_wchar_buf;
+    tempbuf[0] = L'\0';
+    int path_len = ro_w32_utf8_to_utf16(tempbuf, directory_name, RO_W32_PATH_MAX);
+    if (PathIsDirectoryW(tempbuf)) { result = 1; }
+    return result;
+}
+
+RO_DEF char ro_w32_path_exists(char *path_name)
+{
+    char result = 0;
+    wchar_t *tempbuf = ro_w32__global_wchar_buf;
+    tempbuf[0] = L'\0';
+    int path_len = ro_w32_utf8_to_utf16(tempbuf, path_name, RO_W32_PATH_MAX);
+    if (PathFileExistsW(tempbuf)) { result = 1; }
+    return result;
+}
+
+#endif
+
 #ifdef __cplusplus
+
 }
 #endif
 

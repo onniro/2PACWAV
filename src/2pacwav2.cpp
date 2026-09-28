@@ -71,8 +71,9 @@ static void show_help(char longhelp)
             "-v | --version : print version and exit\n"
             "-vol <value> : set the volume\n"
             "-conf <path> : specify config file\n"
-            "-noconf : do not look for a configuration file\n"
+            "-nc | -noconf : do not look for a configuration file\n"
             "-ns : if the configuration file has instances of startup_path, skip adding them to the playlist on startup\n"
+            "-mml : (manual metadata loading) never load metadata automatically when adding files, only do it on demand"
             "-font_size <value> : set point size for font\n");
 
     if (!longhelp) { return; }
@@ -143,10 +144,7 @@ static char pac_do_command_args(int arg_count,
         ++arg_index)
     {
         arg = args[arg_index];
-        if (!strcmp("--", arg))
-        { 
-            break; 
-        }
+        if (!strcmp("--", arg)) { break; }
         else if (!strcmp("-v", arg) || !strcmp("--version", arg))
         {
             exit_after_ret = 1; 
@@ -165,24 +163,21 @@ static char pac_do_command_args(int arg_count,
             show_help(1);
             break;
         }
-        else if (!sargs->no_load_conf && !strcmp("-noconf", arg))
-        {
-            sargs->no_load_conf = 1;
-        }
-        else if (!sargs->no_load_startup_paths && !strcmp("-ns", arg))
-        {
-            sargs->no_load_startup_paths = 1;
-        }
+        else if (!(sargs->flags & FLAG_NO_LOAD_CONF) &&
+            (!strcmp("-nc", arg) ||
+            !strcmp("-noconf", arg)))
+        { sargs->flags |= FLAG_NO_LOAD_CONF; }
+        else if (!(sargs->flags & FLAG_NO_LOAD_STARTUP_PATHS) && !strcmp("-ns", arg))
+        { sargs->flags |= FLAG_NO_LOAD_STARTUP_PATHS; }
+        else if (!(sargs->flags & FLAG_METADATA_LOAD_ONLY_MANUAL) && !strcmp("-mml", arg))
+        { sargs->flags |= FLAG_METADATA_LOAD_ONLY_MANUAL; }
         else if ((sargs->font_size == PAC_LATIN_FONTSIZE) &&
             !strcmp("-font_size", arg))
         {
             if (args[arg_index + 1])
             {
                 float value = strtof(args[arg_index + 1], 0);
-                if (value != 0.0f)
-                {
-                    sargs->font_size = value;
-                }
+                if (value != 0.0f) { sargs->font_size = value; }
                 else
                 {
                     fprintf(stderr, "invalid argument given after %s, ignoring.\n", arg);
@@ -200,10 +195,7 @@ static char pac_do_command_args(int arg_count,
             {
                 errno = 0;
                 int value = strtol(args[arg_index + 1], 0, 10);
-                if (errno != ERANGE)
-                {
-                    sargs->volume = value;
-                }
+                if (errno != ERANGE) { sargs->volume = value; }
                 else
                 {
                     fprintf(stderr, "invalid argument given after %s, ignoring.\n", arg);
@@ -305,9 +297,11 @@ static char pac_imgui_load_font(char *font_path,
     PAC_LOCAL_STATIC ImVector<ImWchar> latin_ranges_buffer;
     PAC_LOCAL_STATIC ImVector<ImWchar> cjk_ranges_buffer;
 
-    if (platform_file_exists(latin_path) && 
-        platform_file_exists(cjk_path))
-    {
+    if (platform_file_exists(latin_path)
+#if !_2PACWAV_MINGW32
+        && platform_file_exists(cjk_path)
+#endif
+    ){
         ImGuiIO &io = ImGui::GetIO();
         ImFontConfig latin_conf;
         latin_conf.MergeMode = 0;
@@ -323,6 +317,7 @@ static char pac_imgui_load_font(char *font_path,
                                     &latin_conf, 
                                     latin_ranges_buffer.Data);
 
+#if !_2PACWAV_MINGW32
         ImFontConfig cjk_conf;
         float cjk_font_size = font_size + 1.0f;
         cjk_conf.MergeMode = true;
@@ -337,6 +332,7 @@ static char pac_imgui_load_font(char *font_path,
                                                     cjk_font_size, 
                                                     &cjk_conf, 
                                                     cjk_ranges_buffer.Data);
+#endif
 
         status = 1;
     }
@@ -451,10 +447,10 @@ static void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     General_Buffer_Group *bufgroup = rtvars->bufgroup_ptr;
     Music_Data *mdata = rtvars->mdata_ptr;
 
-    if (sflags->searchwindow_open)
+    if (sflags->flags.searchwindow_open)
     { menu_do_search(rtvars, bufgroup, mdata); }
 
-    if (sflags->metadata_editor_open)
+    if (sflags->flags.metadata_editor_open)
     { menu_do_metadata_editor(rtvars, mdata, bufgroup); }
 
     ImGui::PopStyleColor(rtvars->uivars.frame_start_color_stack_pushes);
@@ -470,7 +466,7 @@ static void pac_end_frame(Runtime_Vars *rtvars, Sdl_Apidata *sdldata)
     astream->stream_size = pac_ctx->aqueue.sdl_stream_len;
 
     if ((rtvars->sflags.viewstate == CENTER_VIEW_STATE_CURRENT_INFO) &&
-        (rtvars->sflags.visualizer_enabled))
+        (rtvars->sflags.flags.visualizer_enabled))
     { do_visualizer(rtvars, sdldata); }
     SDL_GL_SwapWindow(sdldata->window_ptr);
 }
@@ -514,9 +510,7 @@ static void tupacmixer_get_audio_type(Music_Data *mdata)
 static void load_file_from_path(char *path, Music_Data *mdata)
 {
     if (platform_file_exists(path))
-    {
-        tupacmixer_start_music(mdata, path);
-    }
+    { tupacmixer_start_music(mdata, path); }
     else
     { 
         platform_dbg_log("%s: no such file or directory\n", path); 
@@ -681,7 +675,8 @@ static char add_single_file_to_music_list(char *path, Music_Data *mdata)
     afs[mlist->entry_count].containing_dir_hash = hash_fnv1a16((uint8_t *)dir, strlen(dir));
 
     afs[mlist->entry_count + 1].filename = file_entry + file_len + 1;
-    get_metadata_for_file(&mlist->file_strings[mlist->entry_count], mdata);
+    if (!(mdata->rtvars_ptr->sargs_ptr->flags & FLAG_METADATA_LOAD_ONLY_MANUAL))
+    { get_metadata_for_file(&mlist->file_strings[mlist->entry_count], mdata); }
     ++mdata->music_list.entry_count;
 
     return cont_dir_already_added;
@@ -705,14 +700,10 @@ static void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvar
     if (platform_file_exists(path))
     {
         if (file_is_playlist(path))
-        {
-            //process_playlist recursively calls this with file path or directoryso it should just get handled
-            process_playlist(rtvars, path);
-        }
+        //process_playlist recursively calls this with file path or directory so it should just get handled
+        { process_playlist(rtvars, path); }
         else
-        {
-            add_single_file_to_music_list(path, mdata); 
-        }
+        { add_single_file_to_music_list(path, mdata); }
     }
     else if (platform_directory_exists(path))
     {
@@ -725,7 +716,8 @@ static void add_to_music_list(char *path, Music_Data *mdata, Runtime_Vars *rtvar
 #endif
         { path[pathlen] = 0; }
         platform_list_files_mlist(path, &mdata->music_list); 
-        platform_get_metadata_bulk(rtvars, path);
+        if (!(rtvars->sargs_ptr->flags & FLAG_METADATA_LOAD_ONLY_MANUAL))
+        { platform_get_metadata_bulk(rtvars, path); }
     }
     else
     {
@@ -808,7 +800,7 @@ static int get_random_file_index(Music_Data *mdata)
     int cur_index = (int)mlist->current_index;
     int next_index = cur_index;
     while (next_index == cur_index) 
-    { next_index = ((double)(mlist->entry_count) - 1.0)*drand48(); }
+    { next_index = ((double)(mlist->entry_count) - 1.0)*ro_rand_norm(); }
     return next_index;
 }
 
@@ -857,7 +849,7 @@ static void goto_prev_file(Music_Data *mdata)
     uint32_t cur_index = mlist->current_index;
     
     char *prev_file = prev_file_list_get_last(&mdata->music_list.prev_files);
-    int index;
+    int index = 0;
     Audio_File *af = file_list_get_audio_file(prev_file, &index, &mdata->music_list);
 
     //int index = file_list_get_index(&mdata->music_list, af);
@@ -1113,7 +1105,7 @@ static void menu_do_search(Runtime_Vars *rtvars,
         ImGui::SetKeyboardFocusHere(0);
         if (!ImGui::IsWindowHovered() &&
             ImGui::IsMouseClicked(ImGuiMouseButton_Left))
-        { rtvars->sflags.searchwindow_open = 0; }
+        { rtvars->sflags.flags.searchwindow_open = 0; }
 
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
         if (ImGui::InputText("##search_query", 
@@ -1159,10 +1151,14 @@ static void update_in_memory_metadata(char *src_buf,
                             int file_index,
                             Music_Data *mdata)
 {
+    //FIXME: bug that i have not been able to reproduce:
+    //under some specific circumstances the to-be-updated runtime metadata
+    //gets written to the next file in the list from the one
+    //that's supposed to be updated. (like i said, runtime metadata, as in
+    //the actual file being updated is still the correct one, so if you reload the metadata
+    //everything is fine, but it just shows up wrong)
     if (!dest_buf)
-    {
-        strncpy(dest_buf, src_buf, META_EDITOR_BUFSIZE - 1);
-    }
+    { strncpy(dest_buf, src_buf, META_EDITOR_BUFSIZE - 1); }
     else
     {
         metadata_string_push(src_buf,
@@ -1207,7 +1203,7 @@ static void menu_do_metadata_editor(Runtime_Vars *rtvars,
         ImGuiWindowFlags_NoResize))
     {
         if (imgui_window_should_close())
-        { sflags->metadata_editor_open = 0; }
+        { sflags->flags.metadata_editor_open = 0; }
 
         if (file_path[0])
         {
@@ -1295,7 +1291,7 @@ static void menu_do_metadata_editor(Runtime_Vars *rtvars,
                                 "failed to update metadata.", 
                                 USERINFO_TYPE_ERROR);
                     }
-                rtvars->sflags.metadata_editor_open = 0;
+                rtvars->sflags.flags.metadata_editor_open = 0;
                 }
                 else
                 {
@@ -1312,7 +1308,7 @@ static void menu_do_metadata_editor(Runtime_Vars *rtvars,
         ImGui::End();
     }
 
-    if (!rtvars->sflags.metadata_editor_open)
+    if (!rtvars->sflags.flags.metadata_editor_open)
     { window_initialized = false; }
 }
 
@@ -1321,12 +1317,6 @@ static void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
     File_List *mlist = &mdata->music_list;
     Metadata_Editor *meta = &mdata->metaed;
     Audio_File *file = &mlist->file_strings[mlist->context_index];
-    //Sdl_Apidata *sdld = rtvars->sdldata_ptr;
-    //ImVec2 size = ImVec2(600, 600);
-    //ImGui::SetNextWindowSize(size);
-    //ImVec2 center = ImVec2(((sdld->win_width/2) - (size.x/2)),
-    //                        (sdld->win_height/2) - (size.y/2));
-    //ImGui::SetNextWindowPos(center);
 
     if (file->containing_dir && file->containing_dir[0])
     {
@@ -1338,9 +1328,7 @@ static void init_metadata_editor(Runtime_Vars *rtvars, Music_Data *mdata)
 #endif
                 file->containing_dir, file->filename);
         if (meta->meta_struct.in_avf_ctx)
-        {
-            pacmxr_meta_close_file(&meta->meta_struct); 
-        }
+        { pacmxr_meta_close_file(&meta->meta_struct); }
 
         //memset((void *)&meta->selected_audio_file, 0, sizeof(Audio_File));
         memcpy((void *)&meta->selected_audio_file, (void *)file, sizeof(Audio_File));
@@ -1415,7 +1403,6 @@ static void sort_list_by_column(ImGuiTableSortSpecs *specs, Runtime_Vars *rtvars
         {
             cmpf = pac_qsort_artist_strcmp;
             sflags->sort_state = SORT_STATE_ARTIST_ASCENDING;
-
         }
         else
         {
@@ -1499,8 +1486,9 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
         //to be skipped. one option would be to make a copy of the entire list for themetadata
         //processor and then when its done the copied list can be sorted into the same
         //order as the actual list and then copied preferably in synchronous fashion
-
-        if (!rtvars->sflags.metadata_getter_thread_working)
+        //also TODO: SpecsDirty becomes sometimes becomes true without any sort
+        //action occurring or anything so maybe look into that
+        if (!rtvars->sflags.flags.metadata_getter_thread_working)
         {
             ImGuiTableSortSpecs *sort_specs = ImGui::TableGetSortSpecs();
             if (sort_specs->SpecsDirty)
@@ -1508,6 +1496,12 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
                 sort_list_by_column(sort_specs, rtvars);
                 sort_specs->SpecsDirty = false;
             }
+        }
+
+        if (mlist->scroll_dirty)
+        {
+            ImGui::SetScrollY(mlist->list_scroll);
+            mlist->scroll_dirty = false;
         }
 
         //ImGuiListClipper is actually gangsta as fuck
@@ -1524,9 +1518,7 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
 
                 int current_index = file_index;
                 if (searching)
-                {
-                    current_index = mlist->matching_indices[file_index];
-                }
+                { current_index = mlist->matching_indices[file_index]; }
                 current = &mlist->file_strings[current_index];
                 filename = current->filename;
                 title = current->metadata.title;
@@ -1535,9 +1527,7 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
 
                 btntext[0] = '-'; btntext[1] = 0;
                 if (artist && artist[0])
-                {
-                    snprintf(btntext, NAME_MAX, "%s", artist);
-                }
+                { snprintf(btntext, NAME_MAX, "%s", artist); }
                 ImGui::TableNextColumn();
                 ImGui::Text("%s", btntext);
 
@@ -1548,9 +1538,7 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
 
                 btntext[0] = '-'; btntext[1] = 0;
                 if (album && album[0])
-                {
-                    snprintf(btntext, NAME_MAX, "%s", album);
-                }
+                { snprintf(btntext, NAME_MAX, "%s", album); }
                 ImGui::TableNextColumn();
                 ImGui::Text("%s", btntext);
 
@@ -1559,9 +1547,7 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
                 if (ImGui::Selectable("",
                         false,
                         ImGuiSelectableFlags_SpanAllColumns))
-                {
-                    file_list_play_file(current, file_index, mdata);
-                }
+                { file_list_play_file(current, file_index, mdata); }
 
                 ImGui::PopStyleVar();
                 if (ImGui::BeginPopupContextItem(0))
@@ -1570,7 +1556,7 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
 
                     if (ImGui::Button("edit metadata"))
                     {
-                        sflags->metadata_editor_open = true;
+                        sflags->flags.metadata_editor_open = true;
                         init_metadata_editor(rtvars, mdata);
                     }
                     ImGui::EndPopup();
@@ -1578,10 +1564,10 @@ static void menu_do_music_list(Runtime_Vars *rtvars, Music_Data *mdata)
                 ImGui::PopID();
             }
         }
+        mlist->list_scroll = ImGui::GetScrollY();
         ImGui::EndTable();
     }
-    ImGui::PopStyleVar();
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
 }
 
 static void str2lowercase(char *string, int len)
@@ -1713,7 +1699,6 @@ static void menu_do_seek_bar(Runtime_Vars *rtvars, Music_Data *mdata)
     if (!ImGui::GetIO().WantTextInput)
     {
         float new_pos;
-        //if (pac_btn_press(SDL_SCANCODE_RIGHT, &sflags->right_wasdown, kbd))
         if (ImGui::Shortcut(keys->seek_forward, ImGuiInputFlags_RouteGlobal))
         {
             new_pos = mdata->current_position + (double)mdata->seek_increment;
@@ -1945,13 +1930,13 @@ static void list_reload_metadata(Runtime_Vars *rtvars)
         dir_index < list->dirs_added;
         ++dir_index)
     {
-        while (rtvars->sflags.metadata_getter_thread_working)
+        while (rtvars->sflags.flags.metadata_getter_thread_working)
         { platform_sleep_ms(1); }
         platform_get_metadata_bulk(rtvars, dirs[dir_index]);
     }
 }
 
-static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
+static void menu_do_menubar_and_shortcuts(Runtime_Vars *rtvars, Music_Data *mdata)
 {
     State_Flags *sflags = &rtvars->sflags;
     General_Buffer_Group *bufgroup = rtvars->bufgroup_ptr;
@@ -1970,13 +1955,9 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
     Keybinds *keys = &rtvars->keybinds;
 
     if (*vs == CENTER_VIEW_STATE_MUSIC_LIST)
-    {
-        strcpy(ls_toggle_text, "hide list"); 
-    }
+    { strcpy(ls_toggle_text, "hide list"); }
     else if (*vs == CENTER_VIEW_STATE_CURRENT_INFO)
-    {
-        strcpy(ls_toggle_text, "show list");
-    }
+    { strcpy(ls_toggle_text, "show list"); }
 
     char sort_was_pressed = ImGui::Shortcut(keys->cycle_sort, ImGuiInputFlags_RouteGlobal);
     char clear_was_pressed = ImGui::Shortcut(keys->clear_list, ImGuiInputFlags_RouteGlobal);
@@ -2054,29 +2035,23 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
             }
 
             if (ImGui::MenuItem("clear", "ctrl-shift-x"))
-            {
-                clear_was_pressed = true;
-            }
+            { clear_was_pressed = true; }
             if (ImGui::MenuItem(ls_toggle_text, "ctrl-l"))
-            {
-                lstoggle_was_pressed = true;
-            }
+            { lstoggle_was_pressed = true; }
             if (ImGui::MenuItem("search", "ctrl-f"))
-            {
-                sflags->searchwindow_open = true;
-            }
+            { sflags->flags.searchwindow_open = true; }
             if (ImGui::BeginMenu("information"))
             {
                 ImGui::Text("files added: %d\n"
-                            "directories added: %d\n",
+                            "directories added: %d\n"
+                            "sort: %s",
                             list->entry_count,
-                            list->dirs_added);
+                            list->dirs_added,
+                            sort_state2str(sflags->sort_state));
                 ImGui::EndMenu();
             }
             if (ImGui::MenuItem("reload metadata", "ctrl-shift-m"))
-            {
-                reload_metadata = true;
-            }
+            { reload_metadata = true; }
 
             ImGui::EndMenu();
         }
@@ -2109,20 +2084,16 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
         {
             if (ImGui::MenuItem(vis_toggle_text))
             {
-                sflags->visualizer_enabled = !sflags->visualizer_enabled;
-                if (sflags->visualizer_enabled)
-                {
-                    strcpy(vis_toggle_text, "disable visualizer");
-                }
+                sflags->flags.visualizer_enabled = !sflags->flags.visualizer_enabled;
+                if (sflags->flags.visualizer_enabled)
+                { strcpy(vis_toggle_text, "disable visualizer"); }
                 else
-                {
-                    strcpy(vis_toggle_text, "enable visualizer");
-                }
+                { strcpy(vis_toggle_text, "enable visualizer"); }
             }
             if (ImGui::MenuItem("visualizer color"))
             {
-                sflags->colorpicker_open = !sflags->colorpicker_open;
-                if (sflags->colorpicker_open)
+                sflags->flags.colorpicker_open = !sflags->flags.colorpicker_open;
+                if (sflags->flags.colorpicker_open)
                 {
                     ImVec2 wdim = ImVec2(400, 400);
                     ImVec2 wpos = ImVec2((rtvars->sdldata_ptr->win_width/2) - (wdim.x/2), 100.0f);
@@ -2131,9 +2102,7 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
                 }
             }
             if (ImGui::MenuItem("reload configuration", "ctrl-shift-g"))
-            {
-                reload_config = true;
-            }
+            { reload_config = true; }
 
             ImGui::EndMenu();
         }
@@ -2148,10 +2117,8 @@ static void menu_do_menubar(Runtime_Vars *rtvars, Music_Data *mdata)
 
     if (sort_was_pressed)
     {
-        if (!sflags->metadata_getter_thread_working)
-        {
-            handle_sort_hotkey(rtvars, list);
-        }
+        if (!sflags->flags.metadata_getter_thread_working)
+        { handle_sort_hotkey(rtvars, list); }
         else
         {
             char info[USERINFO_BUFFER_SIZE] = "[sort]: list cannot be sorted during metadata retrieval.";
@@ -2203,7 +2170,7 @@ static void menu_do_colorpicker(Runtime_Vars *rtvars)
         |ImGuiWindowFlags_NoCollapse))
     {
         if (imgui_window_should_close())
-        { sflags->colorpicker_open = 0; }
+        { sflags->flags.colorpicker_open = 0; }
 
         ImGui::ColorPicker4("##visualizer_color",
                 rtvars->uivars.vis_color,
@@ -2237,8 +2204,8 @@ static void pac_main_loop(Runtime_Vars *rtvars,
 
     pac_begin_frame(rtvars, sdldata);
 
-    menu_do_menubar(rtvars, mdata);
-    if (sflags->colorpicker_open)
+    menu_do_menubar_and_shortcuts(rtvars, mdata);
+    if (sflags->flags.colorpicker_open)
     { menu_do_colorpicker(rtvars); }
 
     ImGui::PushItemWidth(ImGui::GetColumnWidth(-1) - add_width);
@@ -2272,7 +2239,7 @@ static void pac_main_loop(Runtime_Vars *rtvars,
     if (ImGui::Shortcut(ImGuiMod_Ctrl|ImGuiMod_Shift|ImGuiKey_Q,
             ImGuiInputFlags_RouteGlobal))
     {
-        sflags->searchwindow_open = 0;
+        sflags->flags.searchwindow_open = 0;
         ImGui::SetKeyboardFocusHere(0);
     }
     ImGui::BeginChild("##center_thing", 
@@ -2290,6 +2257,7 @@ static void pac_main_loop(Runtime_Vars *rtvars,
 
     case CENTER_VIEW_STATE_CURRENT_INFO:
     {
+        mdata->music_list.scroll_dirty = true;
         menu_do_current_file_info(rtvars, mdata, bufgroup);
     } break;
 
@@ -2385,7 +2353,7 @@ static void pac_main_loop(Runtime_Vars *rtvars,
     char enter_was_pressed = ImGui::IsKeyPressed(ImGuiKey_Enter);
     if (searchkey_was_pressed)
     {
-        sflags->searchwindow_open = !sflags->searchwindow_open; 
+        sflags->flags.searchwindow_open = !sflags->flags.searchwindow_open; 
         ImVec2 winsize = ImVec2(400, 70);
         ImGui::SetNextWindowSize(winsize);
         ImVec2 winpos = ImVec2(sdldata->win_width - winsize.x - 10, winsize.y);
@@ -2393,7 +2361,7 @@ static void pac_main_loop(Runtime_Vars *rtvars,
     }
     else if (esc_was_pressed || enter_was_pressed)
     {
-        sflags->searchwindow_open = 0;
+        sflags->flags.searchwindow_open = 0;
     }
 #endif
     pac_end_frame(rtvars, sdldata);
@@ -2424,7 +2392,7 @@ static void tupacmixer_get_taginfo(Music_Data *mdata)
     {
         File_List *mlist = &mdata->music_list;
         snprintf(amg->tagbuffer, sizeof(amg->tagbuffer),
-                "%s", mlist->file_strings[mlist->current_index].filename);
+                "%s", mdata->current_filename);
     }
 }
 
@@ -2504,11 +2472,40 @@ static char pac_init_tupacmixer(Music_Data *mdata)
     return 1;
 }
 
+static void sdlapi_print_version()
+{
+    SDL_version compiled, linked;
+    SDL_VERSION(&compiled);
+    SDL_GetVersion(&linked);
+    platform_dbg_log("SDL compiled version: %d.%d.%d, linked: %d.%d.%d\n",
+            compiled.major, compiled.minor, compiled.patch,
+            linked.major, linked.minor, linked.patch);
+}
+
+//just for debugging fuckery around SDL_Init on wine
+#if _2PACWAV_MINGW32 && 1
+    #define _2W_WINETEST_PRINTF(...) printf(__VA_ARGS__)
+#else 
+    #define _2W_WINETEST_PRINTF(...)
+#endif
+
 static char pac_init_sdl(Sdl_Apidata *sdldata)
 {
     char result = 0;
+#if _2PACWAV_MINGW32
+    SDL_SetHintWithPriority(SDL_HINT_VIDEODRIVER, "windows", SDL_HINT_OVERRIDE);
+    //SDL_Init(SDL_INIT_EVENTS);
+    //_2W_WINETEST_PRINTF("attempting to init video subsystem.\n");
+    //SDL_InitSubSystem(SDL_INIT_VIDEO);
+    //int n = SDL_GetNumVideoDisplays();
+    //_2W_WINETEST_PRINTF("video displays: %s\n", n);
+    //_2W_WINETEST_PRINTF("error: %s\n", SDL_GetError());
+#endif
+
+    //_2W_WINETEST_PRINTF("calling sdl init\n");
     if (!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO))
     {
+        //_2W_WINETEST_PRINTF("sdl init succeeded (error:%s)\n", SDL_GetError());
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
@@ -2533,22 +2530,14 @@ static char pac_init_sdl(Sdl_Apidata *sdldata)
         {
             sdldata->ogl_context = SDL_GL_CreateContext(sdldata->window_ptr);
             if (sdldata->ogl_context)
-            {
-                result = 1; 
-            }
+            { result = 1; }
             else
-            {
-                fprintf(stderr, "SDL failed to create OpenGL context\n"); 
-            }
+            { fprintf(stderr, "SDL failed to create OpenGL context\n"); }
         }
         else
-        {
-            fprintf(stderr, "SDL failed to create window\n"); 
-        }
+        { fprintf(stderr, "SDL failed to create window\n"); }
     }
     else
-    {
-        fprintf(stderr, "SDL failed to init\n"); 
-    }
+    { fprintf(stderr, "SDL failed to init\n"); }
     return result;
 }

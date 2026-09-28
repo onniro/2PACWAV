@@ -22,8 +22,8 @@ fi
 
 SOURCES="$SRCDIR/linux_2pacwav2.cpp"
 
-INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2 \
-        -I$BASEDIR/3rd_party/SDL2/include \
+INCLUDE_DIRS="-I$BASEDIR/3rd_party/SDL2/posix \
+        -I$BASEDIR/3rd_party/SDL2/posix/include \
         -I$BASEDIR/3rd_party/imgui \
         -I$BASEDIR/3rd_party"
 
@@ -32,13 +32,12 @@ EXE_NAME="2w"
 LINK_FLAGS="-o $EXE_NAME"
 
 SDL_DIR="$BASEDIR/3rd_party/SDL2"
-CODEC_DIR="$BASEDIR/3rd_party/codecs"
 
 LIB_DIRS=""
 OBJ_FILES="$BASEDIR/build/lib/imgui*.o"
 
 LINK_LIBS="-lm \
-        $BASEDIR/3rd_party/SDL2/lib/libSDL2.a \
+        $BASEDIR/3rd_party/SDL2/posix/lib/libSDL2.a \
         -static-libstdc++ \
         -static-libgcc \
         -lGL \

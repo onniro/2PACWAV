@@ -21,6 +21,10 @@ Date: Sat 24 Jan 2026 03:41:31 PM EET
 #define CONF_KEYNAME_ALT                "alt"
 #define CONF_KEYNAME_SPACE              "space"
 #define CONF_KEYNAME_TAB                "tab"
+#define CONF_KEYNAME_LEFT               "left"
+#define CONF_KEYNAME_RIGHT              "right"
+#define CONF_KEYNAME_UP                 "up"
+#define CONF_KEYNAME_DOWN               "down"
 
 typedef enum Token_Type
 {
@@ -56,16 +60,41 @@ typedef struct Tokenizer
 
 typedef struct Config_Vars_State
 {
-    char fontsize_set;
-    char fontpath_set;
-    char vis_status_set;
-    char volume_step_set;
-    char volume_set;
-    char vis_color_set;
-    char text_ui_color_set;
-    char button_bg_color_set;
-    char key_vol_up_set;
+    struct
+    {
+        unsigned fontsize_set : 2;
+        unsigned fontpath_set : 2;
+        unsigned vis_status_set : 2;
+        unsigned volume_step_set : 2;
+        unsigned volume_set : 2;
+        unsigned vis_color_set : 2;
+        unsigned text_ui_color_set : 2;
+        unsigned button_bg_color_set : 2;
+        unsigned key_vol_up_set : 2;
+    } flags;
+    //char fontsize_set;
+    //char fontpath_set;
+    //char vis_status_set;
+    //char volume_step_set;
+    //char volume_set;
+    //char vis_color_set;
+    //char text_ui_color_set;
+    //char button_bg_color_set;
+    //char key_vol_up_set;
 } Config_Vars_State;
+
+enum 
+{
+    FLAG_FONTSIZE_SET =         1,
+    FLAG_FONTPATH_SET =         1 << 1,
+    FLAG_VIS_STATUS_SET =       1 << 2,
+    FLAG_VOLUME_STEP_SET =      1 << 3,
+    FLAG_VOLUME_SET =           1 << 4,
+    FLAG_VIS_COLOR_SET =        1 << 5,
+    FLAG_TEXT_UI_COLOR_SET =    1 << 6,
+    FLAG_BUTTON_BG_COLOR_SET =  1 << 7,
+    FLAG_KEY_VOL_UP_SET =       1 << 8,
+};
 
 static inline char is_eol(char c);
 static inline char is_whitespace(char c);
